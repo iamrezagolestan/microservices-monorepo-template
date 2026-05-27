@@ -60,7 +60,7 @@ apps/frontend/      — single Next.js app (route groups: landing|panel|admin|de
 apps/admin/         — Lowdefy YAML config for internal admin
 libs/go/<name>/     — shared Go packages
 libs/ts/<name>/     — shared TS packages
-libs/sdks/{go,ts}/  — generated OpenAPI clients (committed, drift-checked)
+libs/{go,ts}/sdks/  — generated OpenAPI clients (committed, drift-checked)
 infra/              — terraform, helm, gitops, ansible, gateway, observability, auth
 tools/              — repo-local Go programs (affected detection, tyk-gen, …)
 docs/adr/           — architectural decisions

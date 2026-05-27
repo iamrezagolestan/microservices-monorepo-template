@@ -21,7 +21,7 @@ The workload is concretely:
 
 Each service owns its own Postgres database per [ADR-0007](0007-data.md). The OpenAPI spec per
 service ([ADR-0008](0008-api-contracts.md)) already describes the resource shapes and operations,
-and clients are committed to `libs/sdks/`.
+and clients are committed to `libs/{go,ts}/sdks/`.
 
 We need an internal admin surface that meets these constraints:
 

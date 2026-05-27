@@ -90,7 +90,7 @@ Used consistently across all ADRs. If a term is ambiguous in a later ADR, this g
 - **Frontend app** — the single Next.js application under `apps/frontend/`. Route groups separate audiences; the deploy unit is one app.
 - **Platform component** — infrastructure software the services depend on (Postgres, Temporal server, gateway, IdP, observability stack). Lives under `infra/helm/platform/`.
 - **Library** — shared code under `libs/go/<name>/` or `libs/ts/<name>/`. Has no business state.
-- **Generated client** — code under `libs/sdks/{go,ts}/<service>/` produced from a service's OpenAPI spec. Committed to the repo.
+- **Generated client** — code under `libs/{go,ts}/sdks/<service>/` produced from a service's OpenAPI spec. Committed to the repo.
 - **Workflow / Activity** — Temporal terms. See ADR-0006.
 - **Authz-relevant mutation** — a state change that affects who can see or modify a resource. See ADR-0010.
 - **Affected** — in CI, the set of services and apps a PR's diff influences. See ADR-0002.

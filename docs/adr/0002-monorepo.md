@@ -55,11 +55,12 @@ apps/
     └── custom/<service>/     # hand/LLM-written pages
 
 libs/
-├── go/<name>/                # shared Go packages (no per-library go.mod)
-├── ts/<name>/                # shared TS libraries
-└── sdks/
-    ├── go/<service>/         # generated Go server + client (package, not a module)
-    └── ts/<service>/         # generated TS client
+├── go/                       # all shared Go (single go.mod, no per-library module)
+│   ├── <name>/               # shared Go packages
+│   └── sdks/<service>/       # generated Go server + client
+└── ts/                       # all shared TS (workspace / path-alias root)
+    ├── <name>/               # shared TS libraries
+    └── sdks/<service>/       # generated TS client
 
 infra/
 ├── terraform/                # cluster + DNS + LB provisioning
@@ -162,7 +163,7 @@ Bun workspaces unify the app and TS libraries:
 
 ```jsonc
 // package.json (root)
-{ "workspaces": ["apps/frontend", "libs/ts/*", "libs/sdks/ts/*"] }
+{ "workspaces": ["apps/frontend", "libs/ts/*", "libs/ts/sdks/*"] }
 ```
 
 **Bun, not pnpm or npm.** Faster install, fewer flags. Lockfile is `bun.lockb`, committed.
@@ -185,7 +186,7 @@ CI minutes become a budget item.
 
 All generated code is **committed** to the repo:
 
-- `libs/sdks/{go,ts}/<service>/` — OpenAPI clients.
+- `libs/{go,ts}/sdks/<service>/` — OpenAPI clients.
 - `services/<service>/internal/store/` — sqlc output.
 - `infra/gateway/apis/` — generated gateway API definitions.
 
@@ -202,7 +203,7 @@ A small Go program at `tools/affected/` reads `git diff --name-only origin/maste
 |---------------------------------------------------------|--------------------------------------------------|
 | `services/<X>/`                                         | service `<X>`                                    |
 | `libs/go/<L>/`                                          | every Go consumer of `<L>` (via `go list -deps`) |
-| `libs/sdks/go/<S>/`                                     | every Go consumer of service `<S>`'s client      |
+| `libs/go/sdks/<S>/`                                     | every Go consumer of service `<S>`'s client      |
 | `apps/frontend/`                                        | the frontend                                     |
 | `infra/`, `tools/`, `go.mod`, `go.sum`, `package.json`  | **global** — everything runs                     |
 
@@ -295,7 +296,7 @@ Each upgrade is its own ADR when triggered.
 - Every backend service lives at `services/<name>/`.
 - Every shared Go package lives under `libs/go/<name>/`; every shared TS library lives under `libs/ts/<name>/` (its
   own npm workspace).
-- Generated API clients live at `libs/sdks/{go,ts}/<service>/` and are committed.
+- Generated API clients live at `libs/{go,ts}/sdks/<service>/` and are committed.
 - The frontend is one Next.js app at `apps/frontend/`. New frontends require an ADR.
 - Tasks are invoked via `mise run <task>`. The set of task names at each service is
   `build, test, lint, generate, migrate, run, worker`.

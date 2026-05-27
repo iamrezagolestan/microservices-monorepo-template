@@ -87,7 +87,7 @@ services/<service>/
 **Cross-service workflow invocation: HTTP only.**
 
 1. The owning service exposes an HTTP endpoint that internally starts the workflow.
-2. The caller invokes it via the generated client in `libs/sdks/go/<service>/`.
+2. The caller invokes it via the generated client in `libs/go/sdks/<service>/`.
 3. The response is `202 Accepted` with a workflow handle conforming to `api/shared/workflow-handle.yaml`.
 
 A service never starts another service's workflow directly via the Temporal client; doing so would import the callee's workflow input struct (coupling) and bypass OpenAPI, Tyk, tracing, and auth.
@@ -106,7 +106,7 @@ Direct Temporal signals across service boundaries are not permitted.
 |---|---|---|
 | One service's workflows only | `services/<service>/internal/activities/` | The 90% case. |
 | Generic infrastructure (email, S3, metrics, webhooks) | `libs/go/temporal-activities/<concern>/` | Stateless and service-agnostic. No dependency on `services/...`. |
-| Logically owned by another service | **Not shared.** Each caller writes a thin activity in its own `internal/activities/` wrapping `libs/sdks/go/<owning-service>/`. | The shared thing is the HTTP API. |
+| Logically owned by another service | **Not shared.** Each caller writes a thin activity in its own `internal/activities/` wrapping `libs/go/sdks/<owning-service>/`. | The shared thing is the HTTP API. |
 
 Sharing an activity *across services* by putting domain logic in `libs/` is a smell.
 

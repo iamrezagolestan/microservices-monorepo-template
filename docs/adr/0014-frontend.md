@@ -56,7 +56,7 @@ Every route segment ships `loading.tsx` and `error.tsx`. Every route-group root 
 
 ### Data fetching
 
-- **Server components** fetch via the generated SDKs in `libs/sdks/ts/<service>/`. A repo-local `libs/ts/server-fetch/` wraps `openapi-fetch` with a server-only fetcher that forwards the Kratos session cookie and W3C trace context. Direct `fetch` to service URLs is forbidden.
+- **Server components** fetch via the generated SDKs in `libs/ts/sdks/<service>/`. A repo-local `libs/ts/server-fetch/` wraps `openapi-fetch` with a server-only fetcher that forwards the Kratos session cookie and W3C trace context. Direct `fetch` to service URLs is forbidden.
 - **Client components** use TanStack Query wrapping the same SDKs. Query keys derive from `operationId`; invalidation rules live next to the queries in `libs/ts/server-fetch/`.
 - **Mutations** prefer Server Actions when single-service. Cross-service flows return a `202 Accepted` workflow handle ([ADR-0006](0006-temporal.md)) and the client polls via the workflow-handle helper.
 
@@ -80,7 +80,7 @@ Icons are `lucide-react` (the icon set Untitled UI uses).
 ### Forms
 
 - `react-hook-form` for state and validation orchestration.
-- `zod` for schemas. Schemas for OpenAPI operations are generated from the spec under `tools/codegen/zod-gen/` and committed at `libs/sdks/ts/<service>/schemas/`. The `mise run gen:zod` task is included in `mise run gen:all` and drift-checked by `ci-drift.yml`.
+- `zod` for schemas. Schemas for OpenAPI operations are generated from the spec under `tools/codegen/zod-gen/` and committed at `libs/ts/sdks/<service>/schemas/`. The `mise run gen:zod` task is included in `mise run gen:all` and drift-checked by `ci-drift.yml`.
 - A single `<Form>` primitive in `libs/ts/ui/` wires react-hook-form + zod + the design-system inputs. Hand-rolled form wiring is a review-blocker.
 
 ### Client state
@@ -183,7 +183,7 @@ No i18n library is adopted day one. All user-facing strings live as TS constants
 - Server Actions are permitted only for mutations against the route group's owning service. Cross-service mutations call the service's REST API and use the workflow-handle pattern from [ADR-0006](0006-temporal.md).
 - Every route segment ships `loading.tsx` and `error.tsx`; every route-group root additionally ships `not-found.tsx`.
 - Server components fetch via `libs/ts/server-fetch/`. Client components use TanStack Query wrapping the generated SDKs. Direct `fetch` to service URLs is forbidden.
-- Hand-written request/response types are forbidden; only types from `libs/sdks/ts/<service>/` are used. Zod schemas for forms are generated from the OpenAPI spec and committed.
+- Hand-written request/response types are forbidden; only types from `libs/ts/sdks/<service>/` are used. Zod schemas for forms are generated from the OpenAPI spec and committed.
 - Tailwind v4 is the styling system. CSS Modules, CSS-in-JS, and inline `<style>` are forbidden in app code.
 - Design tokens come from `libs/ts/ui/tokens/`. Tokens are not redefined per route group.
 - Primitives live in `libs/ts/ui/`. Route groups compose them; they do not duplicate them.

@@ -12,7 +12,7 @@ The monorepo produces several distinct kinds of release artifact:
 - **Service container images** — built per merge, deployed via GitOps.
 - **Go libraries** under `libs/go/` consumed by services as in-repo packages of the single root module.
 - **TS libraries** under `libs/ts/` consumed by `apps/frontend/` (and potentially external consumers).
-- **Generated API clients** under `libs/sdks/{go,ts}/`.
+- **Generated API clients** under `libs/{go,ts}/sdks/`.
 - **Helm charts** under `infra/helm/` with their own `Chart.yaml` versions.
 - **The frontend and admin apps** under `apps/`.
 

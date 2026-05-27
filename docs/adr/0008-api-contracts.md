@@ -49,9 +49,9 @@ Wire efficiency for internal calls is explicitly **not** a priority. JSON over H
 
 | Output | Tool | Location |
 |---|---|---|
-| Go server (strict mode) | `oapi-codegen` | `libs/sdks/go/<service>/server/` |
-| Go internal client | `oapi-codegen` | `libs/sdks/go/<service>/client/` |
-| TS client | `openapi-typescript` + `openapi-fetch` (~6 KB runtime) | `libs/sdks/ts/<service>/` |
+| Go server (strict mode) | `oapi-codegen` | `libs/go/sdks/<service>/server/` |
+| Go internal client | `oapi-codegen` | `libs/go/sdks/<service>/client/` |
+| TS client | `openapi-typescript` + `openapi-fetch` (~6 KB runtime) | `libs/ts/sdks/<service>/` |
 | Tyk API definitions | `tools/codegen/tyk-gen` | `infra/gateway/apis/` |
 | Public SDKs | OpenAPI Generator | published per-language as third-party consumers arrive |
 

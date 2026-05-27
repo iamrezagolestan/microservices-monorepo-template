@@ -11,5 +11,5 @@ src/app/(devportal)/  — third-party API docs
 ```
 
 Route groups must not import from one another (ADR-0002 lint rule).
-Generated TS clients live under `libs/sdks/ts/<service>/` and are imported as
+Generated TS clients live under `libs/ts/sdks/<service>/` and are imported as
 `@sdks/<service>` (see `tsconfig.json` paths).
