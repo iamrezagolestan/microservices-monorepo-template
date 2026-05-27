@@ -3,7 +3,7 @@
 - **Status:** Accepted
 - **Date:** 2026-05-19
 - **Deciders:** Platform team
-- **Related:** [ADR-0002](0002-monorepo.md), [ADR-0004](0004-gitops.md)
+- **Related:** [ADR-0002](0002-monorepo.md), [ADR-0004](0004-gitops.md), [ADR-0015](0015-naming-and-identifiers.md)
 
 ## Context
 
@@ -36,7 +36,7 @@ Every environment needs secrets: database passwords, JWT signing keys, OAuth cli
 Every encrypted file in the repo has exactly three classes of recipient, listed in `.sops.yaml` at the repo root:
 
 1. **Per-engineer keys** — one age public key per engineer with current access. Engineers generate their own key pairs with `age-keygen`; the private key lives at `~/.config/sops/age/keys.txt` and never leaves the laptop.
-2. **Per-cluster key** — one age public key per environment (`dev`, `staging`, `prod`). The matching private key lives only in that cluster, as a Kubernetes Secret in the `sops` namespace, materialised at cluster bootstrap by Ansible. The in-cluster operator (below) reads it.
+2. **Per-cluster key** — one age public key per environment (`dev`, `staging`, `prod`), named in `.sops.yaml` by the `{project}-{env}` form from [ADR-0015](0015-naming-and-identifiers.md). The matching private key lives only in that cluster, as a Kubernetes Secret in the `sops` namespace, materialised at cluster bootstrap by Ansible. The in-cluster operator (below) reads it.
 3. **Ops-recovery key** — a single age public key whose private half is held offline by 2–3 senior engineers. It exists so that a lost cluster key can be recovered without re-encrypting every secret. Used only in disaster recovery.
 
 `.sops.yaml` declares creation rules per path so files under `infra/gitops/<env>/` are encrypted to that environment's cluster key plus engineers plus ops-recovery; files outside an env path are encrypted to engineers plus ops-recovery only.

@@ -3,7 +3,7 @@
 - **Status:** Accepted
 - **Date:** 2026-05-19
 - **Deciders:** Platform team
-- **Related:** [ADR-0000](0000-platform-foundations.md), [ADR-0002](0002-monorepo.md)
+- **Related:** [ADR-0000](0000-platform-foundations.md), [ADR-0002](0002-monorepo.md), [ADR-0015](0015-naming-and-identifiers.md)
 
 ## Context
 
@@ -32,6 +32,8 @@ We need a single answer to:
 Production runs on **Hetzner Cloud VPS instances**, provisioned by Terraform under `infra/terraform/`. Hetzner is chosen for cost per core and integration via `hcloud-cloud-controller-manager`. The Terraform module isolates the provider; switching to an equivalent (OVH, Latitude.sh) is a module swap.
 
 The cost of self-hosting is operational. Ansible roles under `infra/ansible/` are the codified operational knowledge: new clusters are produced by `terraform apply` + `ansible-playbook bootstrap.yml` + `kubectl apply` of the ArgoCD root Application ([ADR-0004](0004-gitops.md)).
+
+The template can target **another cloud provider** when a project requires it; the Terraform module swap above covers the provider, and instance/resource names follow [ADR-0015](0015-naming-and-identifiers.md) regardless of cloud.
 
 ### Distribution: k3s in production, k3d locally
 
