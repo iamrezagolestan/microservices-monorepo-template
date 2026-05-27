@@ -13,8 +13,8 @@ oapi-codegen = "v2.7.0"
 spectral = "6.15.0"
 "npm:openapi-typescript" = "7.13.0"
 
-# Frontend toolchain (ADR-0014)
-"npm:@biomejs/biome" = "1.9.4"
+# Frontend toolchain
+biome = "1.9.4"
 
 # Kubernetes & infra
 helm = "4.2.0"
