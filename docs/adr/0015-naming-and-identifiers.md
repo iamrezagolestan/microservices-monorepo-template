@@ -147,7 +147,7 @@ cluster; repeating the project on every in-cluster object is noise.
 
 ## Rules
 
-- Every named resource derives from `{project}-{env}-{role}[-{n}]`.
+- Every named resource derives from `{project}-{env}-{role}[-{n}]`; shared infrastructure not tied to a product (team proxy, internal GitLab, registry mirror) is modelled as its own project with a distinct slug (e.g. `platform`, `gitlab-internal`) and follows the same grammar.
 - The slug matches `^[a-z][a-z0-9-]*$` and is ≤ 30 characters; the same string is used in files and in every
   provider's console without modification.
 - The project slug is globally unique and stands alone; no org or cross-project prefix is ever prepended.
