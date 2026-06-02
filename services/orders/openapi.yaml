@@ -1,5 +1,5 @@
 openapi: 3.1.0
-info: { title: orders, version: 0.1.0 }
+info: { title: orders, version: 0.1.0, description: Order checkout and saga orchestration service. }
 servers: [{ url: /api/orders }]
 tags: [{ name: orders }]
 paths:
@@ -18,18 +18,39 @@ paths:
           description: Accepted
           content:
             application/json:
-              schema: { $ref: "../../api/shared/workflow-handle.yaml#/WorkflowHandle" }
-        default: { $ref: "../../api/shared/error.yaml#/Error" }
+              schema: { $ref: "#/components/schemas/WorkflowHandle" }
+        default: { $ref: "#/components/responses/Error" }
   /orders/{id}:
     get:
       operationId: getOrder
+      description: Fetch an order by id.
       tags: [orders]
       parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
       responses:
         "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Order" } } } }
-        default: { $ref: "../../api/shared/error.yaml#/Error" }
+        default: { $ref: "#/components/responses/Error" }
 components:
+  responses:
+    Error:
+      description: Error response
+      content:
+        application/problem+json:
+          schema:
+            type: object
+            required: [code, message]
+            properties:
+              code:    { type: string, example: "not_found" }
+              message: { type: string }
+              details: { type: object, additionalProperties: true }
   schemas:
+    WorkflowHandle:
+      type: object
+      required: [id, run_id, status]
+      properties:
+        id:     { type: string }
+        run_id: { type: string }
+        status: { type: string, enum: [running, completed, failed, cancelled] }
+        result_url: { type: string, format: uri, description: "GET to fetch terminal status + result" }
     CheckoutInput:
       type: object
       required: [product_id, quantity]

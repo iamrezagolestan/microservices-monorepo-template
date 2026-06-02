@@ -4,7 +4,7 @@
 // gateway via a Tyk-fronted ingest route at /api/observability/*.
 "use client";
 
-import { initializeFaro, getWebInstrumentations } from "@grafana/faro-web-sdk";
+import { getWebInstrumentations, initializeFaro } from "@grafana/faro-web-sdk";
 import { TracingInstrumentation } from "@grafana/faro-web-tracing";
 
 const INGEST = "/api/observability";

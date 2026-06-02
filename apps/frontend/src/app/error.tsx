@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect } from "react";
-import { Button } from "@ui";
 import { obsLog } from "@observability/client";
+import { Button } from "@ui";
+import { useEffect } from "react";
 
 export default function RootError({
   error,

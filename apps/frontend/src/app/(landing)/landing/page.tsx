@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { landing } from "@ui/strings/landing";
+import Link from "next/link";
 
 export default function Landing() {
   return (

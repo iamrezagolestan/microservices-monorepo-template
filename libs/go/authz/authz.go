@@ -11,6 +11,7 @@ import (
 	"github.com/authzed/authzed-go/v1"
 	"github.com/authzed/grpcutil"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 // Checker is the only authz surface service code uses.
@@ -34,7 +35,7 @@ func New() (Checker, error) {
 		return nil, fmt.Errorf("SPICEDB_PRESHARED_KEY not set")
 	}
 	c, err := authzed.NewClient(endpoint,
-		grpc.WithInsecure(),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpcutil.WithInsecureBearerToken(psk),
 	)
 	if err != nil {

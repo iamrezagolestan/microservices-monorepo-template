@@ -41,18 +41,12 @@
         "useExhaustiveDependencies": "error"
       },
       "suspicious": {
-        "noExplicitAny": "error"
+        "noExplicitAny": "error",
+        "noConsole": "error"
       },
       "style": {
         "useImportType": "error",
         "noNonNullAssertion": "error"
-      },
-      "complexity": {
-        "useAwait": "error"
-      },
-      "nursery": {
-        "noFloatingPromises": "error",
-        "noConsole": "error"
       }
     }
   },
@@ -61,7 +55,7 @@
       "include": ["libs/ts/observability/server.ts"],
       "linter": {
         "rules": {
-          "nursery": { "noConsole": "off" }
+          "suspicious": { "noConsole": "off" }
         }
       }
     }

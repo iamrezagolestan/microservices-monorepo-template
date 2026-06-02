@@ -1,5 +1,5 @@
 openapi: 3.1.0
-info: { title: payment, version: 0.1.0 }
+info: { title: payment, version: 0.1.0, description: Payment charge and settlement service. }
 servers: [{ url: /api/payment }]
 tags: [{ name: charges }]
 paths:
@@ -22,18 +22,39 @@ paths:
           description: Accepted
           content:
             application/json:
-              schema: { $ref: "../../api/shared/workflow-handle.yaml#/WorkflowHandle" }
-        default: { $ref: "../../api/shared/error.yaml#/Error" }
+              schema: { $ref: "#/components/schemas/WorkflowHandle" }
+        default: { $ref: "#/components/responses/Error" }
   /charges/{id}:
     get:
       operationId: getCharge
+      description: Fetch a charge by id.
       tags: [charges]
       parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
       responses:
         "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Charge" } } } }
-        default: { $ref: "../../api/shared/error.yaml#/Error" }
+        default: { $ref: "#/components/responses/Error" }
 components:
+  responses:
+    Error:
+      description: Error response
+      content:
+        application/problem+json:
+          schema:
+            type: object
+            required: [code, message]
+            properties:
+              code:    { type: string, example: "not_found" }
+              message: { type: string }
+              details: { type: object, additionalProperties: true }
   schemas:
+    WorkflowHandle:
+      type: object
+      required: [id, run_id, status]
+      properties:
+        id:     { type: string }
+        run_id: { type: string }
+        status: { type: string, enum: [running, completed, failed, cancelled] }
+        result_url: { type: string, format: uri, description: "GET to fetch terminal status + result" }
     ChargeInput:
       type: object
       required: [order_id, amount_cents]

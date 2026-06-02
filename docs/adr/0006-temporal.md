@@ -88,7 +88,7 @@ services/<service>/
 
 1. The owning service exposes an HTTP endpoint that internally starts the workflow.
 2. The caller invokes it via the generated client in `libs/go/sdks/<service>/`.
-3. The response is `202 Accepted` with a workflow handle conforming to `api/shared/workflow-handle.yaml`.
+3. The response is `202 Accepted` with a workflow handle conforming to the `WorkflowHandle` schema declared in each service's OpenAPI `components` (see [ADR-0008](0008-api-contracts.md)).
 
 A service never starts another service's workflow directly via the Temporal client; doing so would import the callee's workflow input struct (coupling) and bypass OpenAPI, Tyk, tracing, and auth.
 
@@ -151,7 +151,7 @@ Liberal use of workflows for multi-step / compensable / cross-system operations;
 ### Cross-cutting integrations
 
 - **Authz-relevant mutations** ([ADR-0010](0010-auth.md)): the app-DB write and the authz-store write are activities in the same workflow. Direct DB writes that mutate authz-relevant tables outside a workflow are a review-blocker.
-- **OpenAPI** ([ADR-0008](0008-api-contracts.md)): handlers that start workflows return `202 Accepted` with a workflow-run reference in the body conforming to `api/shared/workflow-handle.yaml`.
+- **OpenAPI** ([ADR-0008](0008-api-contracts.md)): handlers that start workflows return `202 Accepted` with a workflow-run reference in the body conforming to the `WorkflowHandle` schema declared in each service's OpenAPI spec.
 - **Auth** ([ADR-0010](0010-auth.md)): activities that call other services attach a service-to-service JWT minted at activity start. Tokens do not span activity boundaries.
 - **Observability** ([ADR-0011](0011-observability.md)): every workflow carries a W3C trace context; activities propagate it.
 
@@ -179,7 +179,7 @@ Liberal use of workflows for multi-step / compensable / cross-system operations;
 - `tools/scripts/dev-up.sh` brings up `temporal server start-dev` alongside other local infra.
 - `golangci-lint` config including `workflowcheck`.
 - `docs/temporal/long-running.md` registry (initially empty).
-- `api/shared/workflow-handle.yaml` standard `202 Accepted` shape.
+- Standard `202 Accepted` workflow-handle shape, declared inline as the `WorkflowHandle` schema in each service's `openapi.yaml` `components`.
 
 ## Rules
 

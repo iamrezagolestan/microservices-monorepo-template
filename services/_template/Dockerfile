@@ -1,7 +1,7 @@
 # Multi-stage build (ADR-0002). The CMD build arg selects which cmd/{server,worker}
 # binary the build stage compiles, producing -server or -worker images.
 # syntax=docker/dockerfile:1.7
-ARG GO_VERSION=1.24.2
+ARG GO_VERSION=1.26.3
 
 # ─── stage 1: build ──────────────────────────────────────────────────────────
 FROM golang:${GO_VERSION}-alpine AS build

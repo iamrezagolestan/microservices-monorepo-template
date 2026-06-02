@@ -27,9 +27,7 @@ export default async function Products() {
         {products.map((p) => (
           <li key={p.id} className="flex justify-between py-2">
             <span>{p.name}</span>
-            <span className="tabular-nums text-slate-600">
-              ${(p.price_cents / 100).toFixed(2)}
-            </span>
+            <span className="tabular-nums text-slate-600">${(p.price_cents / 100).toFixed(2)}</span>
           </li>
         ))}
       </ul>

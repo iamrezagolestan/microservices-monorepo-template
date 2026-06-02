@@ -43,7 +43,7 @@ Wire efficiency for internal calls is explicitly **not** a priority. JSON over H
 
 ## Decision
 
-**The API contract source of truth is OpenAPI 3.1.** One spec per service at `services/<service>/openapi.yaml`, plus a `api/shared/` namespace for cross-service schemas (errors, pagination, common ID/time types, the workflow handle from [ADR-0006](0006-temporal.md)).
+**The API contract source of truth is OpenAPI 3.1.** One spec per service at `services/<service>/openapi.yaml`. Each spec is **fully self-contained**: cross-service shapes (the error envelope, common ID/time types, the workflow handle from [ADR-0006](0006-temporal.md)) are declared in the spec's own `components` rather than imported from a shared `api/shared/` namespace by cross-file `$ref`. `oapi-codegen` cannot resolve external file references under OpenAPI 3.1 ([oapi-codegen#373](https://github.com/oapi-codegen/oapi-codegen/issues/373)), so these shapes are duplicated by convention and kept identical across services.
 
 ### Codegen
 
@@ -83,7 +83,7 @@ The reason the gateway and service both validate schemas: internal service-to-se
 
 ### Authoring layer
 
-OpenAPI YAML is hand-written. **TypeSpec is not used.** If a service's spec grows unwieldy, the response is to refactor schemas into `api/shared/` (and possibly split the service), not to introduce a second authoring tool.
+OpenAPI YAML is hand-written. **TypeSpec is not used.** If a service's spec grows unwieldy, the response is to split the service or factor shapes into more `components` within the same file (possibly splitting the service), not to introduce a second authoring tool.
 
 ## Consequences
 
@@ -100,20 +100,21 @@ OpenAPI YAML is hand-written. **TypeSpec is not used.** If a service's spec grow
 - OpenAPI is awkward for complex discriminated unions and conditional schemas. Mitigated by Spectral rules enforcing flat schemas; complex polymorphism is a hint that the API surface is too coupled.
 - Streaming story is pragmatic, not unified. Mitigated by per-WS-endpoint justification and acceptance that gRPC/Connect are not adopted for this alone.
 - Double schema validation (gateway + service) has a CPU cost. Acceptable at target throughput.
+- Cross-service shapes (error envelope, workflow handle) are duplicated across specs because OpenAPI 3.1 external `$ref`s are not resolvable by `oapi-codegen`. Mitigated by their small, stable surface; a future bundler step could restore a single source if drift becomes a problem.
 
 ### Follow-ups
 
 - `tools/codegen/generate.sh` (and the `mise run gen:*` task family).
 - `tools/codegen/spectral.yaml` ruleset.
 - `tools/codegen/tyk-gen` for Tyk API definition emission.
-- `api/shared/{errors,pagination,workflow-handle,id-types}.yaml`.
+- Shared shapes (error envelope, workflow handle) declared inline in each `services/<service>/openapi.yaml` `components` block.
 - Lefthook pre-commit hook running the affected generator slice.
 - CI drift-check job per [ADR-0002](0002-monorepo.md).
 
 ## Rules
 
 - The contract source of truth is OpenAPI 3.1, one file per service at `services/<service>/openapi.yaml`.
-- Cross-service schemas live under `api/shared/` and are imported by `$ref`.
+- Each spec is self-contained: cross-service shapes (error envelope, workflow handle) are declared inline in the spec's `components` and kept identical across services. Cross-file `$ref` is avoided because `oapi-codegen` cannot resolve external references under OpenAPI 3.1.
 - All clients, server stubs, and Tyk API definitions are generated from the spec and committed. CI fails on drift.
 - Hand-written code imports generated types. Parallel hand-written request/response types are forbidden.
 - Both the gateway and the service validate request schemas, both from the same OpenAPI artifact.

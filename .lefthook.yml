@@ -14,12 +14,15 @@ pre-commit:
       stage_fixed: true
     golangci-lint:
       glob: "*.go"
-      run: golangci-lint run --new-from-rev HEAD -- {staged_files}
+      # Analyse packages, not the staged file list: golangci-lint rejects file
+      # arguments that span more than one directory. --new-from-rev still scopes
+      # reporting to issues introduced by the staged changes.
+      run: golangci-lint run --new-from-rev HEAD ./...
     sqlfluff:
       glob: "{services/**/migrations/*.sql,services/**/internal/store/queries/*.sql}"
       run: sqlfluff lint {staged_files}
     spectral:
-      glob: "{services/**/openapi.yaml,api/shared/**/*.yaml}"
+      glob: "services/**/openapi.yaml"
       run: spectral lint --ruleset tools/codegen/spectral.yaml {staged_files}
     floating-tags:
       run: bash scripts/lint-floating-tags.sh

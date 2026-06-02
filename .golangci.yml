@@ -1,71 +1,84 @@
-# golangci-lint configuration for the whole monorepo (ADR-0001, ADR-0002).
-# Service-local overrides are not permitted.
-
+version: "2"
 run:
-  timeout: 5m
   tests: true
-
 linters:
-  disable-all: true
+  default: none
   enable:
-    - errcheck
-    - govet
-    - ineffassign
-    - staticcheck
-    - unused
-    - gofmt
-    - goimports
-    - revive
-    - depguard
     - bodyclose
-    - sqlclosecheck
-    - rowserrcheck
-    - misspell
-    - unconvert
-    - prealloc
-    - nilerr
+    - depguard
+    - errcheck
     - errorlint
     - gocritic
-
-linters-settings:
-  goimports:
-    local-prefixes: github.com/tabmadi/microservices-monorepo-template
-
-  depguard:
+    - govet
+    - ineffassign
+    - misspell
+    - nilerr
+    - prealloc
+    - revive
+    - rowserrcheck
+    - sqlclosecheck
+    - staticcheck
+    - unconvert
+    - unused
+  settings:
+    depguard:
+      rules:
+        no-deep-imports:
+          list-mode: lax
+          files:
+            - '**/apps/**'
+            - '**/tools/**'
+          deny:
+            - pkg: github.com/tabmadi/microservices-monorepo-template/services
+              desc: apps/ and tools/ must not import services/<X>/internal/. Use the generated client.
+        pgx-transaction-mode:
+          list-mode: lax
+          files:
+            - '**/services/**'
+            - '**/libs/go/dbmw/**'
+          deny:
+            - pkg: github.com/jackc/pgx/v5/stdlib
+              desc: Use *pgxpool.Pool, not stdlib database/sql. ADR-0007 §SQL access.
+        # NOTE: a `service-isolation` rule denying the whole `services` prefix also
+        # flags a service importing its OWN internal packages (legal Go), so it is
+        # not expressible cleanly in depguard. Cross-service isolation (ADR-0002,
+        # ADR-0008) is enforced by the SDK convention (libs/sdks/go/<svc>/client)
+        # plus the no-deep-imports rule above (which blocks apps/ and tools/ from
+        # reaching into services/<x>/internal) and code review.
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
     rules:
-      # Services must not import each other directly (ADR-0002, ADR-0008).
-      # Shared code lives in libs/; cross-service goes through generated clients.
-      service-isolation:
-        list-mode: lax
-        files:
-          - "**/services/*/**"
-        deny:
-          - pkg: github.com/tabmadi/microservices-monorepo-template/services
-            desc: "Services must not import other services. Use libs/sdks/go/<service>/client for cross-service calls."
-      # Apps and tools shouldn't reach into internal/ of services either.
-      no-deep-imports:
-        list-mode: lax
-        files:
-          - "**/apps/**"
-          - "**/tools/**"
-        deny:
-          - pkg: github.com/tabmadi/microservices-monorepo-template/services
-            desc: "apps/ and tools/ must not import services/<X>/internal/. Use the generated client."
-      # PgBouncer transaction-mode forbids certain pgx features (ADR-0007).
-      pgx-transaction-mode:
-        list-mode: lax
-        files:
-          - "**/services/**"
-          - "**/libs/go/dbmw/**"
-        deny:
-          - pkg: github.com/jackc/pgx/v5/stdlib
-            desc: "Use *pgxpool.Pool, not stdlib database/sql. ADR-0007 §SQL access."
-
+      - linters:
+          - errcheck
+          - gocritic
+          - prealloc
+        path: _test\.go
+      - linters:
+          - revive
+        path: tools/
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
 issues:
-  exclude-rules:
-    - path: _test\.go
-      linters: [errcheck, gocritic, prealloc]
-    - path: tools/
-      linters: [revive]
   max-issues-per-linter: 0
   max-same-issues: 0
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/tabmadi/microservices-monorepo-template
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

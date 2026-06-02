@@ -1,5 +1,6 @@
 // Cross-service mutation polling (ADR-0006, ADR-0014). Services that start a
-// workflow respond with 202 + a handle conforming to api/shared/workflow-handle.yaml.
+// workflow respond with 202 + a handle conforming to the WorkflowHandle schema
+// declared in each service's openapi.yaml.
 // This helper polls the status endpoint until the workflow terminates.
 export type WorkflowHandle = {
   id: string;

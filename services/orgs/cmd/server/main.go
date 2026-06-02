@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -32,15 +33,21 @@ type Org struct {
 }
 
 func main() {
+	if err := run(); err != nil {
+		slog.Error("fatal", "err", err)
+		os.Exit(1)
+	}
+}
+
+func run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
 	shutdown, err := observability.Init(ctx, observability.Config{ServiceName: serviceName})
 	if err != nil {
-		slog.Error("obs init", "err", err)
-		os.Exit(1)
+		return fmt.Errorf("obs init: %w", err)
 	}
-	defer shutdown(context.Background())
+	defer func() { _ = shutdown(context.Background()) }()
 
 	db := dbmw.MustOpen(ctx, os.Getenv("DATABASE_URL"))
 	defer db.Close()
@@ -56,7 +63,7 @@ func main() {
 	<-ctx.Done()
 	c, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	_ = srv.Shutdown(c)
+	return srv.Shutdown(c)
 }
 
 func createOrg(db *pgxpool.Pool) http.HandlerFunc {

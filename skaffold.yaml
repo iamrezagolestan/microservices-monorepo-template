@@ -32,6 +32,9 @@ build:
     - image: payment-server
       context: .
       docker: { dockerfile: services/payment/Dockerfile, buildArgs: { SERVICE: payment, CMD: server } }
+    - image: payment-worker
+      context: .
+      docker: { dockerfile: services/payment/Dockerfile, buildArgs: { SERVICE: payment, CMD: worker } }
 
 manifests:
   rawYaml:
@@ -69,10 +72,12 @@ manifests:
         chartPath: infra/helm/service
         namespace: platform
         valuesFiles: [infra/helm/values/local-service.yaml]
-        setValues: { name: payment, "secrets.envFrom": "{payment-db}" }
+        setValues: { name: payment, worker.enabled: true, "secrets.envFrom": "{payment-db}" }
         setValueTemplates:
           image.repository: "{{.IMAGE_REPO_payment_server}}"
           image.tag: "{{.IMAGE_TAG_payment_server}}"
+          worker.image.repository: "{{.IMAGE_REPO_payment_worker}}"
+          worker.image.tag: "{{.IMAGE_TAG_payment_worker}}"
 
 deploy:
   kubeContext: k3d-platform-dev

@@ -1,10 +1,10 @@
+import { Button } from "@ui";
 // Visual sanity check for libs/ts/ui primitives. The cheap alternative to a
 // Storybook install: one page that renders every primitive once. Gated by
 // the (devportal) Kratos session check (middleware.ts).
 //
 // Add one <Section> per primitive added to @ui.
 import type { ReactNode } from "react";
-import { Button } from "@ui";
 
 export const metadata = { title: "UI kitchen sink" };
 
@@ -23,8 +23,8 @@ export default function KitchenSink() {
       <header>
         <h1 className="text-2xl font-semibold">UI kitchen sink</h1>
         <p className="mt-1 text-sm text-slate-600">
-          Every primitive in <code>libs/ts/ui</code>, rendered once. Visual sanity check
-          for the Untitled UI bump cadence; not a replacement for component tests.
+          Every primitive in <code>libs/ts/ui</code>, rendered once. Visual sanity check for the
+          Untitled UI bump cadence; not a replacement for component tests.
         </p>
       </header>
 

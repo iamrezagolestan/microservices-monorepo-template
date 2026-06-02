@@ -22,6 +22,7 @@ kubectl = "1.36.1"
 kustomize = "5.8.1"
 terraform = "1.15.3"
 k3d = "v5.8.3"
+skaffold = "2.21.0"
 ansible = "13.6.0"
 
 # Secrets
@@ -67,6 +68,10 @@ run = "skaffold debug"
 [tasks."dev:migrate"]
 # Apply each service's migrations to the local Postgres (ADR-0007).
 run = "bash scripts/dev-migrate.sh"
+
+[tasks."secrets:age"]
+# Generate the SOPS age key (idempotent) and write .sops.yaml (ADR-0005).
+run = "bash scripts/gen-age.sh"
 
 [tasks."gen:all"]
 depends = ["gen:openapi", "gen:sqlc", "gen:tyk"]

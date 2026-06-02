@@ -1,7 +1,7 @@
 // OpenFeature wiring (ADR-0014). Day one runs the NoopProvider so calls are
 // stable; the concrete backend (GrowthBook, Flipt, Unleash, …) is adopted via
 // an ADR amendment on first gradual-rollout requirement.
-import { OpenFeature, type Client } from "@openfeature/web-sdk";
+import { type Client, OpenFeature } from "@openfeature/web-sdk";
 
 let client: Client | undefined;
 

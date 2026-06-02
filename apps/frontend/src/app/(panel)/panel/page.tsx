@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { panel } from "@ui/strings/panel";
+import Link from "next/link";
 
 export default function PanelHome() {
   return (
