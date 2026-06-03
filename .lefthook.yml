@@ -18,9 +18,9 @@ pre-commit:
       # arguments that span more than one directory. --new-from-rev still scopes
       # reporting to issues introduced by the staged changes.
       run: golangci-lint run --new-from-rev HEAD ./...
-    sqlfluff:
+    sqruff:
       glob: "{services/**/migrations/*.sql,services/**/internal/store/queries/*.sql}"
-      run: sqlfluff lint {staged_files}
+      run: sqruff lint {staged_files}
     spectral:
       glob: "services/**/openapi.yaml"
       run: spectral lint --ruleset tools/codegen/spectral.yaml {staged_files}
