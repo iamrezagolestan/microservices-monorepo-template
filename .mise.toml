@@ -33,7 +33,7 @@ sops = "v3.13.1"
 # Repo hygiene
 lefthook = "2.1.8"
 cocogitto = "7.0.0"
-act = "0.2.88"
+act = "0.2.89"
 golangci-lint = "v2.12.2"
 "npm:markdownlint-cli2" = "0.22.1"
 
@@ -151,4 +151,4 @@ depends = ["format", "lint"]
 depends = ["format", "lint", "test"]
 
 [tasks.act]
-run = "act pull_request --secret-file .env -e .github/act/pull_request.json -j checks"
+run = "act pull_request --secret-file .env -e .github/act/pull_request.json"
