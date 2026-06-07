@@ -25,10 +25,10 @@
     "nuqs": "2.2.3",
     "zustand": "5.0.2",
     "@openfeature/web-sdk": "1.4.0",
+    "@grafana/faro-web-sdk": "^2.7.1",
+    "@grafana/faro-web-tracing": "^2.7.1",
     "pino": "9.5.0",
-    "server-only": "0.0.1",
-    "@grafana/faro-web-sdk": "1.13.1",
-    "@grafana/faro-web-tracing": "1.13.1"
+    "server-only": "0.0.1"
   },
   "devDependencies": {
     "@types/node": "22.10.5",
