@@ -8,7 +8,7 @@ export default function Landing() {
       <p className="mt-2 text-slate-600">{landing.tagline}</p>
       <ul className="mt-6 space-y-2">
         <li>
-          <Link href="/auth/login" className="text-brand-600 hover:underline">
+          <Link href="/auth/login" className="text-brand-600 hover:underline bg-amber-300">
             {landing.signIn}
           </Link>
         </li>
