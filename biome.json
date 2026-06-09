@@ -6,20 +6,17 @@
     "useIgnoreFile": true
   },
   "files": {
-    "includes": [
-      "**",
-      "!**/node_modules",
-      "!**/.next",
-      "!**/dist",
-      "!**/build",
-      "!**/libs/ts/sdks",
-      "!**/apps/admin/_generated"
+    "include": ["**"],
+    "ignore": [
+      "**/node_modules",
+      "**/.next",
+      "**/dist",
+      "**/build",
+      "**/libs/ts/sdks",
+      "**/apps/admin/_generated"
     ]
   },
-  "assist": { "actions": { "source": { "organizeImports": "on" } } },
-  "css": {
-    "parser": { "tailwindDirectives": true }
-  },
+  "organizeImports": { "enabled": true },
   "formatter": {
     "enabled": true,
     "indentStyle": "space",
@@ -54,7 +51,7 @@
   },
   "overrides": [
     {
-      "includes": ["**/libs/ts/observability/server.ts"],
+      "include": ["**/libs/ts/observability/server.ts"],
       "linter": {
         "rules": {
           "suspicious": { "noConsole": "off" }
