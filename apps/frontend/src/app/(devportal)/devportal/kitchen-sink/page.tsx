@@ -1,4 +1,4 @@
-import { Button, Input, ShareModal } from "@ui";
+import { Button, Input, SearchModal, ShareModal } from "@ui";
 import { Circle, CircleHelp, Mail } from "lucide-react";
 import { Fragment, type ReactNode } from "react";
 
@@ -179,6 +179,16 @@ export default function KitchenSink() {
           description="The shared Untitled UI Button and Input primitives composed into the Figma share dialog."
         >
           <ShareModal />
+        </Section>
+
+        <Section
+          title="Search modal"
+          description="The Untitled UI search surface from Figma rendered as a shared primitive."
+        >
+          <div className="grid gap-5 rounded-md border border-slate-200 bg-[var(--color-gray-70)] p-5 xl:grid-cols-2">
+            <SearchModal />
+            <SearchModal variant="results" />
+          </div>
         </Section>
 
         <Section
