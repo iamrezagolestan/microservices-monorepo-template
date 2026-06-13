@@ -1,7 +1,8 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { type WorkflowHandle, createBrowserClient, pollWorkflow } from "@server-fetch";
+import { createBrowserClient } from "@server-fetch/client";
+import { type WorkflowHandle, pollWorkflow } from "@server-fetch/workflow-handle";
 import { Button } from "@ui";
 import { panel } from "@ui/strings/panel";
 // Cross-service mutation (ADR-0006, ADR-0014). The orders service returns
@@ -28,7 +29,7 @@ type OrdersPaths = {
 };
 
 export default function Checkout() {
-  const [status, setStatus] = useState(panel.checkout.idle);
+  const [status, setStatus] = useState<string>(panel.checkout.idle);
   const orders = createBrowserClient<OrdersPaths>("orders");
 
   const { register, handleSubmit, formState } = useForm<FormValues>({

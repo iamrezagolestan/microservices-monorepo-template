@@ -1,16 +1,144 @@
 @import "tailwindcss";
 
-/* Untitled UI tokens bridged into the Tailwind v4 theme. The source of truth
-   lives at libs/ts/ui/tokens; keep them in sync on every Untitled UI bump. */
-@theme {
-  --color-brand-50: #eef4ff;
-  --color-brand-100: #dbe6ff;
-  --color-brand-500: #3b82f6;
-  --color-brand-600: #2563eb;
-  --color-brand-700: #1d4ed8;
-  --color-brand-900: #1e3a8a;
+@source "../";
+@source "../../../../libs/ts/ui";
 
-  --radius-sm: 0.25rem;
-  --radius-md: 0.375rem;
+/* Untitled UI tokens bridged into the Tailwind v4 theme. The source of truth
+   lives at libs/ts/ui/tokens; keep this file in sync on every Untitled UI bump. */
+@theme {
+  --font-sans: Vazirmatn, Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+
+  --color-brand-50: #f5f5f5;
+  --color-brand-100: #ededed;
+  --color-brand-200: #d5d7da;
+  --color-brand-300: #a4a7ae;
+  --color-brand-400: #717680;
+  --color-brand-500: #4d4d4d;
+  --color-brand-600: #151515;
+  --color-brand-700: #4d4d4d;
+  --color-brand-800: #333333;
+  --color-brand-900: #151515;
+
+  --color-slate-25: #fcfcfd;
+  --color-slate-50: #ffffff;
+  --color-slate-100: #ededed;
+  --color-slate-200: #e6e6e6;
+  --color-slate-300: #cccccc;
+  --color-slate-400: #b2b2b2;
+  --color-slate-500: #999999;
+  --color-slate-600: #808080;
+  --color-slate-700: #51525a;
+  --color-slate-800: #333333;
+  --color-slate-900: #252b37;
+  --color-slate-950: #151515;
+
+  --color-red-50: #fef2f2;
+  --color-red-100: #fee2e2;
+  --color-red-300: #fca5a5;
+  --color-red-600: #dc2626;
+  --color-red-700: #b91c1c;
+
+  --color-green-50: #f0fdf4;
+  --color-green-100: #dcfce7;
+  --color-green-600: #16a34a;
+  --color-green-700: #15803d;
+
+  --color-info-500: #4c89fa;
+  --color-info-700: #26447d;
+
+  --color-gray-0: #ffffff;
+  --color-gray-20: #cccccc;
+  --color-gray-100: #ededed;
+  --color-gray-40: #999999;
+  --color-gray-50: #808080;
+  --color-gray-60: #666666;
+  --color-gray-70: #4d4d4d;
+  --color-gray-80: #333333;
+  --color-gray-90: #1a1a1a;
+  --color-stroke-primary: #cccccc;
+
+  --radius-xs: 0.25rem;
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
   --radius-lg: 0.5rem;
+  --radius-2xl: 1rem;
+}
+
+:root {
+  color-scheme: light;
+  --ui-bg: #ffffff;
+  --ui-fg: #252b37;
+  --ui-muted: #717680;
+  --ui-border: #d5d7da;
+  --ui-focus: #999999;
+
+  --button-primary-bg: #151515;
+  --button-primary-bg-hover: #4d4d4d;
+  --button-primary-bg-disabled: #b2b2b2;
+  --button-primary-fg: #ffffff;
+  --button-primary-border: rgba(255, 255, 255, 0.12);
+
+  --button-secondary-bg: #ffffff;
+  --button-secondary-bg-hover: #ededed;
+  --button-secondary-bg-disabled: #e6e6e6;
+  --button-secondary-fg: #333333;
+  --button-secondary-fg-hover: #252b37;
+  --button-secondary-fg-disabled: #808080;
+  --button-secondary-border: #cccccc;
+  --button-secondary-border-hover: #d5d7da;
+  --button-secondary-border-disabled: #e9eaeb;
+
+  --button-text-fg: #4c89fa;
+  --button-text-fg-hover: #26447d;
+  --button-text-fg-disabled: #b2b2b2;
+  --button-focus-inner: #ffffff;
+  --button-focus-outer: #999999;
+
+  --input-bg: #ffffff;
+  --input-label-fg: #4d4d4d;
+  --input-required-fg: #701a15;
+  --input-fg: #1a1a1a;
+  --input-fg-placeholder: #999999;
+  --input-fg-disabled: #808080;
+  --input-helper-fg: #808080;
+  --input-icon-fg: #b2b2b2;
+  --input-border: #cccccc;
+  --input-border-focus: #151515;
+
+  --search-modal-bg: var(--color-gray-0);
+  --search-modal-divider: var(--color-gray-20);
+  --search-modal-title-fg: var(--color-brand-600);
+  --search-modal-close-fg: var(--color-gray-70);
+  --search-modal-close-bg-hover: var(--color-gray-100);
+  --search-modal-input-fg: var(--color-gray-70);
+  --search-modal-placeholder-fg: var(--color-gray-50);
+  --search-modal-search-icon-fg: #b2b2b2;
+  --search-modal-result-fg: var(--color-gray-90);
+  --search-modal-empty-fg: var(--color-gray-50);
+
+  --shadow-xs: 0 1px 2px 0 rgba(10, 13, 18, 0.05);
+  --shadow-skeuomorphic: inset 0 0 0 1px rgba(10, 13, 18, 0.18), inset 0 -2px 0 0
+    rgba(10, 13, 18, 0.05);
+  --shadow-xl: 0 20px 24px -4px rgba(10, 13, 18, 0.08), 0 8px 8px -4px rgba(10, 13, 18, 0.03), 0 3px
+    3px -1.5px rgba(10, 13, 18, 0.04);
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+  --ui-bg: var(--color-slate-950);
+  --ui-fg: var(--color-slate-50);
+  --ui-muted: var(--color-slate-300);
+  --ui-border: var(--color-slate-800);
+  --ui-focus: var(--color-brand-400);
+}
+
+html {
+  background: var(--ui-bg);
+}
+
+body {
+  min-height: 100vh;
+  background: var(--ui-bg);
+  color: var(--ui-fg);
 }
