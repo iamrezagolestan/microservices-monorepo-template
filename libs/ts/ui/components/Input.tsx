@@ -14,6 +14,7 @@ type Props = Omit<InputHTMLAttributes<HTMLInputElement>, "size"> & {
   requiredIndicator?: boolean;
   state?: InputState;
   trailingIconClassName?: string;
+  dataTestid: string
 };
 
 const stateClasses: Record<InputState, string> = {
@@ -42,6 +43,7 @@ export function Input({
   state = "default",
   trailingIcon,
   trailingIconClassName,
+  dataTestid,
   ...rest
 }: Props) {
   const generatedId = useId();
@@ -51,7 +53,7 @@ export function Input({
   const showsChrome = state !== "filled";
 
   return (
-    <div className={cn("flex w-80 flex-col items-end gap-1.5", className)}>
+    <div className={cn("flex w-80 flex-col items-end gap-1.5", className)} data-testid={dataTestid}>
       {label ? (
         <label
           htmlFor={inputId}

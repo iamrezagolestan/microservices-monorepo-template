@@ -197,6 +197,7 @@ export default function KitchenSink() {
         >
           <div className="grid gap-6 rounded-md border border-slate-200 bg-white p-4 md:grid-cols-2">
             <Input
+              dataTestid="input-default"
               label={inputLabel}
               requiredIndicator
               placeholder={inputValue}
@@ -204,8 +205,9 @@ export default function KitchenSink() {
               leadingIcon={mailIcon}
               trailingIcon={helpIcon}
             />
-            <Input state="filled" label={inputLabel} requiredIndicator defaultValue={inputValue} />
+            <Input dataTestid="input-filled" state="filled" label={inputLabel} requiredIndicator defaultValue={inputValue} />
             <Input
+              dataTestid="input-focused"
               state="focused"
               label={inputLabel}
               requiredIndicator
@@ -215,6 +217,7 @@ export default function KitchenSink() {
               trailingIcon={helpIcon}
             />
             <Input
+              dataTestid="input-disabled"
               state="disabled"
               label={inputLabel}
               requiredIndicator
