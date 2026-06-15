@@ -1,8 +1,8 @@
-import { test } from "@playwright/test";
 import fs from "node:fs";
 import path from "node:path";
-import { PNG } from "pngjs";
+import { test } from "@playwright/test";
 import pixelmatch from "pixelmatch";
+import { PNG } from "pngjs";
 
 const INPUT_CASES = [
   {
@@ -29,6 +29,17 @@ const INPUT_CASES = [
 
 const ROOT = "tests/visual";
 
+function normalizeTransparentPixels(image: PNG) {
+  for (let index = 0; index < image.data.length; index += 4) {
+    if (image.data[index + 3] === 0) {
+      image.data[index] = 255;
+      image.data[index + 1] = 255;
+      image.data[index + 2] = 255;
+      image.data[index + 3] = 255;
+    }
+  }
+}
+
 function compareImages(params: {
   name: string;
   referencePath: string;
@@ -37,6 +48,9 @@ function compareImages(params: {
 }) {
   const reference = PNG.sync.read(fs.readFileSync(params.referencePath));
   const actual = PNG.sync.read(fs.readFileSync(params.actualPath));
+
+  normalizeTransparentPixels(reference);
+  normalizeTransparentPixels(actual);
 
   if (reference.width !== actual.width || reference.height !== actual.height) {
     throw new Error(
@@ -77,26 +91,11 @@ test.describe("input visual regression", () => {
     test(`${inputCase.name} matches figma reference`, async ({ page }) => {
       await page.goto("http://localhost:3000/devportal/kitchen-sink");
 
-      const actualPath = path.join(
-        ROOT,
-        "actual",
-        "input",
-        `${inputCase.name}.png`,
-      );
+      const actualPath = path.join(ROOT, "actual", "input", `${inputCase.name}.png`);
 
-      const referencePath = path.join(
-        ROOT,
-        "reference",
-        "input",
-        inputCase.reference,
-      );
+      const referencePath = path.join(ROOT, "reference", "input", inputCase.reference);
 
-      const diffPath = path.join(
-        ROOT,
-        "diff",
-        "input",
-        `${inputCase.name}.png`,
-      );
+      const diffPath = path.join(ROOT, "diff", "input", `${inputCase.name}.png`);
 
       fs.mkdirSync(path.dirname(actualPath), { recursive: true });
       fs.mkdirSync(path.dirname(diffPath), { recursive: true });
@@ -104,6 +103,7 @@ test.describe("input visual regression", () => {
       const target = page.getByTestId(inputCase.testId);
 
       await target.screenshot({
+        omitBackground: true,
         path: actualPath,
       });
 
