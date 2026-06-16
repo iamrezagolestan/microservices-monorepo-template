@@ -33,7 +33,7 @@ export const Label = ({
       data-label="true"
       {...props}
       className={cx(
-        "flex cursor-default items-center gap-0.5 text-sm leading-5 font-medium text-(--input-label-fg)",
+        "flex w-full cursor-default items-center justify-end gap-0.5 text-right text-sm leading-5 font-medium text-(--input-label-fg)",
         className,
       )}
     >

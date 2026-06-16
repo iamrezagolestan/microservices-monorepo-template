@@ -142,3 +142,13 @@ body {
   background: var(--ui-bg);
   color: var(--ui-fg);
 }
+
+.figma-input-field [data-label="true"],
+.figma-input-field [slot="description"] {
+  width: 320px;
+  text-align: right;
+}
+
+.figma-input-field [data-label="true"] {
+  justify-content: flex-start;
+}

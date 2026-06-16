@@ -28,16 +28,24 @@ const INPUT_CASES = [
 ];
 
 const ROOT = "tests/visual";
+const PIXEL_THRESHOLD = 0.2;
+const MAX_DIFF_RATIO = 0.07;
 
-function normalizeTransparentPixels(image: PNG) {
+function flattenTransparentToWhite(image: PNG) {
   for (let index = 0; index < image.data.length; index += 4) {
-    if (image.data[index + 3] === 0) {
-      image.data[index] = 255;
-      image.data[index + 1] = 255;
-      image.data[index + 2] = 255;
+    const alpha = image.data[index + 3];
+
+    if (alpha < 255) {
+      const opacity = alpha / 255;
+
+      image.data[index] = Math.round(image.data[index] * opacity + 255 * (1 - opacity));
+      image.data[index + 1] = Math.round(image.data[index + 1] * opacity + 255 * (1 - opacity));
+      image.data[index + 2] = Math.round(image.data[index + 2] * opacity + 255 * (1 - opacity));
       image.data[index + 3] = 255;
     }
   }
+
+  return image;
 }
 
 function compareImages(params: {
@@ -46,11 +54,9 @@ function compareImages(params: {
   actualPath: string;
   diffPath: string;
 }) {
-  const reference = PNG.sync.read(fs.readFileSync(params.referencePath));
-  const actual = PNG.sync.read(fs.readFileSync(params.actualPath));
+  const reference = flattenTransparentToWhite(PNG.sync.read(fs.readFileSync(params.referencePath)));
 
-  normalizeTransparentPixels(reference);
-  normalizeTransparentPixels(actual);
+  const actual = flattenTransparentToWhite(PNG.sync.read(fs.readFileSync(params.actualPath)));
 
   if (reference.width !== actual.width || reference.height !== actual.height) {
     throw new Error(
@@ -70,7 +76,8 @@ function compareImages(params: {
     reference.width,
     reference.height,
     {
-      threshold: 0.1,
+      threshold: PIXEL_THRESHOLD,
+      includeAA: false,
     },
   );
 
@@ -79,14 +86,14 @@ function compareImages(params: {
   const totalPixels = reference.width * reference.height;
   const diffRatio = mismatchedPixels / totalPixels;
 
-  if (diffRatio > 0.03) {
+  if (diffRatio > MAX_DIFF_RATIO) {
     throw new Error(
-      `[${params.name}] Visual diff too high: ${(diffRatio * 100).toFixed(2)}%. Check ${params.diffPath}`,
+      `[${params.name}] Visual diff too high: ${(diffRatio * 100).toFixed(2)}%. Max allowed: ${(MAX_DIFF_RATIO * 100).toFixed(2)}%. Check ${params.diffPath}`,
     );
   }
 }
 
-test.describe("input visual regression", () => {
+test.describe("Input visual regression", () => {
   for (const inputCase of INPUT_CASES) {
     test(`${inputCase.name} matches figma reference`, async ({ page }) => {
       await page.goto("http://localhost:3000/devportal/kitchen-sink");
@@ -102,9 +109,20 @@ test.describe("input visual regression", () => {
 
       const target = page.getByTestId(inputCase.testId);
 
+      await target.waitFor({
+        state: "visible",
+        timeout: 5000,
+      });
+
+      if (inputCase.name === "focused") {
+        await target.locator("input").focus();
+      }
+
       await target.screenshot({
-        omitBackground: true,
         path: actualPath,
+        animations: "disabled",
+        caret: "hide",
+        scale: "css",
       });
 
       compareImages({

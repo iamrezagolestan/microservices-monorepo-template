@@ -45,6 +45,10 @@ export interface InputBaseProps extends Omit<AriaInputProps, "size"> {
   iconClassName?: string;
   /** Class name for the input. */
   inputClassName?: string;
+  /** Class name for the label. */
+  labelClassName?: string;
+  /** Class name for the helper text. */
+  hintClassName?: string;
   /** Class name for the input wrapper. */
   wrapperClassName?: string;
   /** Class name for the tooltip. */
@@ -180,7 +184,7 @@ export const InputBase = ({
               tooltipClassName,
             )}
           >
-            <HelpCircle className="size-4 stroke-[2.25px]" width={15} height={15}/>
+            <HelpCircle className="size-4 stroke-[2.25px]" width={15} height={15} />
           </TooltipTrigger>
         </Tooltip>
       )}
@@ -241,7 +245,13 @@ interface TextFieldContextProps
   extends Partial<
     Pick<
       InputBaseProps,
-      "size" | "wrapperClassName" | "inputClassName" | "iconClassName" | "tooltipClassName"
+      | "size"
+      | "wrapperClassName"
+      | "inputClassName"
+      | "iconClassName"
+      | "tooltipClassName"
+      | "labelClassName"
+      | "hintClassName"
     >
   > {}
 
@@ -253,6 +263,8 @@ export const TextField = ({
   className,
   size = "md",
   inputClassName,
+  labelClassName,
+  hintClassName,
   wrapperClassName,
   iconClassName,
   tooltipClassName,
@@ -260,7 +272,15 @@ export const TextField = ({
 }: TextFieldProps) => {
   return (
     <TextFieldContext.Provider
-      value={{ inputClassName, wrapperClassName, iconClassName, tooltipClassName, size }}
+      value={{
+        inputClassName,
+        labelClassName,
+        hintClassName,
+        wrapperClassName,
+        iconClassName,
+        tooltipClassName,
+        size,
+      }}
     >
       <AriaTextField
         {...props}
@@ -292,6 +312,8 @@ export interface InputProps
       | "size"
       | "wrapperClassName"
       | "inputClassName"
+      | "labelClassName"
+      | "hintClassName"
       | "iconClassName"
       | "tooltipClassName"
     > {
@@ -317,6 +339,8 @@ export const Input = ({
   tooltip,
   iconClassName,
   inputClassName,
+  labelClassName,
+  hintClassName,
   wrapperClassName,
   tooltipClassName,
   type = "text",
@@ -328,6 +352,8 @@ export const Input = ({
       {...props}
       size={size}
       className={className}
+      labelClassName={labelClassName}
+      hintClassName={hintClassName}
     >
       {({ isRequired, isInvalid }) => (
         <>
@@ -335,6 +361,7 @@ export const Input = ({
             <Label
               isRequired={hideRequiredIndicator ? !hideRequiredIndicator : isRequired}
               isInvalid={isInvalid}
+              className={labelClassName}
             >
               {label}
             </Label>
@@ -357,7 +384,11 @@ export const Input = ({
             }}
           />
 
-          {hint && <HintText isInvalid={isInvalid}>{hint}</HintText>}
+          {hint && (
+            <HintText isInvalid={isInvalid} className={hintClassName}>
+              {hint}
+            </HintText>
+          )}
         </>
       )}
     </TextField>

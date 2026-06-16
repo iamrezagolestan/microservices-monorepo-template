@@ -8,7 +8,6 @@
     "start": "bun server.js",
     "lint": "biome ci .",
     "test:visual": "playwright test tests/visual",
-    "test:visual:headed": "playwright test tests/visual --headed",
     "test:visual:update": "playwright test tests/visual --update-snapshots"
   },
   "dependencies": {
