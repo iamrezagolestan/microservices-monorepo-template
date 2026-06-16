@@ -41,7 +41,7 @@ export const Label = ({
 
       <span
         className={cx(
-          "hidden text-(--input-required-fg)",
+          "hidden text-(--input-required-fg) leading-[6px]",
           isRequired && "block",
           typeof isRequired === "undefined" && "group-required:block",
 

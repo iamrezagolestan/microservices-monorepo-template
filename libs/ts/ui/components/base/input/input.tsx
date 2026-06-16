@@ -180,7 +180,7 @@ export const InputBase = ({
               tooltipClassName,
             )}
           >
-            <HelpCircle className="size-4 stroke-[2.25px]" />
+            <HelpCircle className="size-4 stroke-[2.25px]" width={15} height={15}/>
           </TooltipTrigger>
         </Tooltip>
       )}
@@ -268,7 +268,7 @@ export const TextField = ({
         data-input-size={size}
         className={(state) =>
           cx(
-            "group flex h-max w-full flex-col items-start justify-start gap-1.5",
+            "group flex h-max w-full flex-col items-start justify-start gap-1.5 w-full",
             typeof className === "function" ? className(state) : className,
           )
         }

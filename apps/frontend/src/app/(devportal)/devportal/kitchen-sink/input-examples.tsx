@@ -3,10 +3,10 @@
 import { Input } from "@ui";
 import { Mail01 } from "@untitledui/icons";
 
-const INPUT_FIELD_CLASS_NAME = "w-80 items-start";
+const INPUT_FIELD_CLASS_NAME = "items-start";
 const INPUT_ICON_CLASS_NAME = "right-3 left-auto size-5";
 const INPUT_TOOLTIP_CLASS_NAME = "right-auto left-3";
-const INPUT_TEXT_CLASS_NAME = "pr-10 pl-9 text-right";
+const INPUT_TEXT_CLASS_NAME = "pr-10 pl-9";
 const INPUT_HINT_CLASS_NAME = "w-full text-right";
 const INPUT_WRAPPER_CLASS_NAME = "h-10";
 const EMAIL_LABEL = "ایمیل";
@@ -19,7 +19,7 @@ function InputHint() {
 
 export function InputExamples() {
   return (
-    <div className="flex flex-col gap-5" dir="rtl">
+    <div className="flex flex-col gap-5 min-w-[324px] max-w-[324px]">
       <Input
         className={INPUT_FIELD_CLASS_NAME}
         data-testid="input-default"
