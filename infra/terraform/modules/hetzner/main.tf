@@ -9,7 +9,7 @@ terraform {
   required_version = ">= 1.10"
   required_providers {
     hcloud     = { source = "hetznercloud/hcloud",     version = "~> 1.49" }
-    cloudflare = { source = "cloudflare/cloudflare",   version = "~> 4.46" }
+    cloudflare = { source = "cloudflare/cloudflare",   version = "~> 5.0" }
   }
 }
 
@@ -62,11 +62,12 @@ resource "hcloud_load_balancer_target" "nodes" {
   server_id        = hcloud_server.node[count.index].id
 }
 
-resource "cloudflare_record" "wildcard" {
+resource "cloudflare_dns_record" "wildcard" {
   zone_id = var.cloudflare_zone_id
-  name    = "*.${var.env}"
+  name    = "*.${var.domain}"
   type    = "A"
-  value   = hcloud_load_balancer.platform.ipv4
+  content = hcloud_load_balancer.platform.ipv4
+  ttl     = 1
   proxied = false
 }
 
