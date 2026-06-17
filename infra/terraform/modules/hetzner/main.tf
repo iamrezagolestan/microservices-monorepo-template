@@ -42,7 +42,7 @@ resource "hcloud_server" "node" {
   count       = var.node_count
   name        = "k3s-${var.env}-${count.index + 1}"
   server_type = var.node_type
-  image       = "ubuntu-24.04"
+  image       = "debian-12"
   location    = var.region
   ssh_keys    = [hcloud_ssh_key.platform.id]
   user_data   = file("${path.module}/cloud-init.yaml")

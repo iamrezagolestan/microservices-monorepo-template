@@ -46,10 +46,10 @@ local-path / CoreDNS as replaceable defaults.
 
 `k3d` is k3s in Docker, used locally. The same Helm charts and manifests apply.
 
-### OS: Ubuntu LTS
+### OS: Debian stable
 
-The current Ubuntu LTS major on every node. Unattended-upgrades enabled for security patches. Kernel upgrades require an
-explicit Ansible run with a cordoned reboot.
+The current Debian stable major on every node. Unattended-upgrades enabled for security patches. Kernel upgrades require
+an explicit Ansible run with a cordoned reboot.
 
 ### Topology and growth triggers
 
