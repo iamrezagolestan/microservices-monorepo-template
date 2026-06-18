@@ -1,9 +1,10 @@
 # Local development loop
 
-Per [ADR-0003](adr/0003-cluster-topology.md), k3d is the only local runtime. The
-**minimal profile** boots just the dependencies a single service needs (Postgres,
-Temporal, OTel-LGTM, MinIO) and exposes them on canonical `localhost` ports. The
-service under test runs on the host — `go run`, an IDE debugger, dlv, whatever.
+Per [ADR-0003](adr/0003-cluster-topology.md), k3d is the only local runtime.
+`mise run cluster:up` creates the cluster and applies the lightweight dev
+dependencies (Postgres, Temporal, SpiceDB) from `infra/local/deps.yaml`. The
+inner loop itself is `skaffold dev` (`mise run dev`), which builds, deploys, and
+live-reloads the services in-cluster.
 
 This file is editor-agnostic. Any IDE that can load a `.env` file and run a Go
 `main.go` works the same way.
@@ -12,24 +13,36 @@ This file is editor-agnostic. Any IDE that can load a `.env` file and run a Go
 
 ```sh
 mise run setup                       # lefthook hooks
-cp services/catalog/.env.example services/catalog/.env
-# Fill DATABASE_URL's password (see comment in .env.example).
+cp services/catalog/.env.example services/catalog/.env  # only for host-process debugging
 ```
 
-## Inner loop
+## Inner loop (in-cluster)
 
 ```sh
-mise run cluster:up -- --minimal         # k3d + port-forwards (5432, 7233, 4317, 3000, 9000/9001)
-mise run -C services/catalog migrate # dbmate up
-mise run -C services/catalog run     # go run ./cmd/server  → http://localhost:8080
+mise run cluster:up          # k3d + deps (Postgres, Temporal, SpiceDB)
+mise run dev                 # skaffold dev: build + deploy + live-reload all services
+mise run dev -m catalog      # …or scope to a single service (others keep their last deploy)
+```
+
+`skaffold dev` port-forwards the service servers (e.g. orders → `localhost:8080`)
+plus Postgres (`localhost:5432`) and the Temporal UI (`localhost:8233`) so local
+tools like `psql` can reach them.
+
+## Host-process debugging (optional)
+
+To run one service on the host instead of in-cluster — for a debugger, dlv, or
+faster iteration — use the deps' port-forwards. `mise run dev -m platform` brings
+up Postgres on `localhost:5432` without deploying any service, then:
+
+```sh
+mise run -C services/catalog migrate   # dbmate up against localhost:5432
+mise run -C services/catalog run       # go run ./cmd/server  → http://localhost:8080
 ```
 
 To debug, point your editor's Go run configuration at
 `services/catalog/cmd/server/main.go` with the working directory set to the
 service folder so `.env` is picked up. Breakpoints, evaluate-expression, and
 hot-restart all work — the service is a plain host process.
-
-Observability UI: <http://localhost:3000> (Grafana, no auth in dev).
 
 ## Teardown
 
@@ -57,11 +70,10 @@ table is flagged, align it with **Alt+Enter → "Reformat table"** in JetBrains
 (note: plain `Ctrl+Alt+L` does *not* align Markdown tables — only that quick-fix
 does). Outside JetBrains, align the columns by hand to satisfy CI.
 
-## When to use the **full** profile instead
+## The full platform is not local
 
-`mise run cluster:up` (no flag) brings up the gateway, auth stack, ArgoCD, and every
-other chart. Use it when the bug only reproduces with Tyk, Kratos, SpiceDB, or
-GitOps in the path. The inner-loop pattern above does not apply — services run
-in-cluster via `mise run dev:build <service>` (build image + `k3d image import`
-
-- rollout restart).
+The gateway (Tyk), auth stack (Kratos), and GitOps (ArgoCD) are **not** brought up
+locally — `cluster:up` only applies the lightweight deps above. The full platform
+is delivered by ArgoCD in staging/prod (per [ADR-0003](adr/0003-cluster-topology.md)).
+If a bug only reproduces with the gateway, auth, or GitOps in the path, reproduce
+it in a staging environment rather than locally.

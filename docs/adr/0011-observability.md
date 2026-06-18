@@ -130,9 +130,9 @@ High-cardinality labels (`user_id`, `request_id` as metric labels) destroy Mimir
 
 ### Local development
 
-A `grafana/otel-lgtm` single-image bundle runs in k3d as part of `mise run cluster:up`. It accepts OTLP on `localhost:4317` and exposes Grafana on `localhost:3000` with Loki/Mimir/Tempo/Pyroscope pre-wired.
+For local observability, a `grafana/otel-lgtm` single-image bundle runs in k3d — it accepts OTLP on `localhost:4317` and exposes Grafana on `localhost:3000` with Loki/Mimir/Tempo/Pyroscope pre-wired. It is **not** part of the lightweight `mise run cluster:up` deps (Postgres, Temporal, SpiceDB only); add it to `infra/local/deps.yaml` and point `OTEL_EXPORTER_OTLP_ENDPOINT` at it when you need to inspect telemetry locally.
 
-Service code is unchanged between local and prod. The same `obs.Init` call works against the local bundle and the production stack.
+Service code is unchanged between local and prod. The same `obs.Init` call works against the local bundle and the production stack; without the bundle, the OTLP exporter simply has no collector to reach.
 
 ## Consequences
 
