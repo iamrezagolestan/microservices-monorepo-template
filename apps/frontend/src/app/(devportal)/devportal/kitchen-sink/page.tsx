@@ -5,6 +5,7 @@ import { Button } from "@ui";
 //
 // Add one <Section> per primitive added to @ui.
 import type { ReactNode } from "react";
+import { ButtonExamples } from "./button-examples";
 import { InputExamples } from "./input-examples";
 
 export const metadata = { title: "UI kitchen sink" };
@@ -30,10 +31,9 @@ export default function KitchenSink() {
       </header>
 
       <Section title="Button">
-        <Button>Primary</Button>
-        <Button variant="secondary">Secondary</Button>
-        <Button variant="ghost">Ghost</Button>
-        <Button disabled>Disabled</Button>
+        <div className="mt-6 w-full">
+          <ButtonExamples />
+        </div>
       </Section>
 
       <Section title="Input">

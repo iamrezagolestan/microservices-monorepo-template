@@ -74,6 +74,7 @@ export const tokens = {
   },
   shadow: {
     xs: "0 1px 2px 0 rgba(10, 13, 18, 0.05)",
+    buttonFocusRing: "0 1px 2px 0 rgba(10, 13, 18, 0.05), 0 0 0 2px #ffffff, 0 0 0 4px #999999",
     xl: "0 20px 24px -4px rgba(10, 13, 18, 0.08), 0 8px 8px -4px rgba(10, 13, 18, 0.03), 0 3px 3px -1.5px rgba(10, 13, 18, 0.04)",
   },
   button: {
@@ -103,6 +104,8 @@ export const tokens = {
     focus: {
       inner: "#ffffff",
       outer: "#999999",
+      secondaryRing: "0 1px 2px 0 rgba(10, 13, 18, 0.05), 0 0 0 2px #ffffff, 0 0 0 4px #808080",
+      destructiveRing: "0 1px 2px 0 rgba(10, 13, 18, 0.05), 0 0 0 2px #ffffff, 0 0 0 4px #fca5a5",
     },
   },
   input: {
