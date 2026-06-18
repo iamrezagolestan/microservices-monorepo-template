@@ -6,9 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "bun server.js",
-    "lint": "biome ci .",
-    "test:visual": "playwright test tests/visual",
-    "test:visual:update": "playwright test tests/visual --update-snapshots"
+    "lint": "biome ci ."
   },
   "dependencies": {
     "next": "15.1.4",

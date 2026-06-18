@@ -5,7 +5,6 @@ import { Button } from "@ui";
 //
 // Add one <Section> per primitive added to @ui.
 import type { ReactNode } from "react";
-import { ButtonExamples } from "./button-examples";
 import { InputExamples } from "./input-examples";
 
 export const metadata = { title: "UI kitchen sink" };
@@ -29,12 +28,6 @@ export default function KitchenSink() {
           Untitled UI bump cadence; not a replacement for component tests.
         </p>
       </header>
-
-      <Section title="Button">
-        <div className="mt-6 w-full">
-          <ButtonExamples />
-        </div>
-      </Section>
 
       <Section title="Input">
         <InputExamples />
