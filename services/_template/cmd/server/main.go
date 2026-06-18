@@ -6,6 +6,8 @@ package main
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -55,9 +57,20 @@ func main() {
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
-	go func() { _ = srv.ListenAndServe() }()
+	serveErr := make(chan error, 1)
+	go func() {
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			serveErr <- fmt.Errorf("http server: %w", err)
+		}
+	}()
 	slog.Info("server listening", "addr", srv.Addr)
-	<-ctx.Done()
+
+	select {
+	case err := <-serveErr:
+		slog.Error("server failed", "err", err)
+		os.Exit(1)
+	case <-ctx.Done():
+	}
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()

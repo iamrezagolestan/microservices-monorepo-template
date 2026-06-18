@@ -58,9 +58,19 @@ func run() error {
 	mux.HandleFunc("POST /products", createProduct(db))
 
 	srv := &http.Server{Addr: ":8080", Handler: httpmw.Chain(mux, serviceName), ReadHeaderTimeout: 5 * time.Second}
-	go func() { _ = srv.ListenAndServe() }()
+	serveErr := make(chan error, 1)
+	go func() {
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			serveErr <- fmt.Errorf("http server: %w", err)
+		}
+	}()
 	slog.Info("catalog listening", "addr", srv.Addr)
-	<-ctx.Done()
+
+	select {
+	case err := <-serveErr:
+		return err
+	case <-ctx.Done():
+	}
 	shutCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	return srv.Shutdown(shutCtx)

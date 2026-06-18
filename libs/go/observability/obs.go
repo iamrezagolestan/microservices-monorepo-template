@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/pprof"
 	"os"
+	"strconv"
 
 	otelslog "go.opentelemetry.io/contrib/bridges/otelslog"
 	"go.opentelemetry.io/otel"
@@ -43,6 +44,23 @@ func Init(ctx context.Context, cfg Config) (func(context.Context) error, error) 
 		cfg.AdminAddr = ":9090"
 	}
 
+	// OTEL_SDK_DISABLED=true (OTel spec env) makes Init a no-op for exporters:
+	// no OTLP connections are opened, so a service can run locally without the
+	// Collector stack. Logs still go to stdout and pprof is still served.
+	if disabled, _ := strconv.ParseBool(os.Getenv("OTEL_SDK_DISABLED")); disabled {
+		slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, nil)))
+		go serveAdmin(cfg.AdminAddr)
+		return func(context.Context) error { return nil }, nil
+	}
+
+	// In local dev the OTel Collector is reached over plaintext (no TLS), so the
+	// OTLP exporters must opt out of their default https/TLS behavior.
+	var local bool
+	switch os.Getenv("DEPLOY_ENV") {
+	case "", "dev", "local":
+		local = true
+	}
+
 	res, err := resource.New(
 		ctx,
 		resource.WithAttributes(semconv.ServiceName(cfg.ServiceName)),
@@ -53,7 +71,16 @@ func Init(ctx context.Context, cfg Config) (func(context.Context) error, error) 
 		return nil, fmt.Errorf("resource: %w", err)
 	}
 
-	traceExp, err := otlptracegrpc.New(ctx)
+	var traceOpts []otlptracegrpc.Option
+	var metricOpts []otlpmetricgrpc.Option
+	var logOpts []otlploghttp.Option
+	if local {
+		traceOpts = append(traceOpts, otlptracegrpc.WithInsecure())
+		metricOpts = append(metricOpts, otlpmetricgrpc.WithInsecure())
+		logOpts = append(logOpts, otlploghttp.WithInsecure())
+	}
+
+	traceExp, err := otlptracegrpc.New(ctx, traceOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("trace exporter: %w", err)
 	}
@@ -63,7 +90,7 @@ func Init(ctx context.Context, cfg Config) (func(context.Context) error, error) 
 	)
 	otel.SetTracerProvider(tp)
 
-	metricExp, err := otlpmetricgrpc.New(ctx)
+	metricExp, err := otlpmetricgrpc.New(ctx, metricOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("metric exporter: %w", err)
 	}
@@ -73,7 +100,7 @@ func Init(ctx context.Context, cfg Config) (func(context.Context) error, error) 
 	)
 	otel.SetMeterProvider(mp)
 
-	logExp, err := otlploghttp.New(ctx)
+	logExp, err := otlploghttp.New(ctx, logOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("log exporter: %w", err)
 	}
@@ -82,8 +109,7 @@ func Init(ctx context.Context, cfg Config) (func(context.Context) error, error) 
 		sdklog.WithResource(res),
 	)
 	handlers := fanout{otelslog.NewHandler(cfg.ServiceName, otelslog.WithLoggerProvider(lp))}
-	switch os.Getenv("DEPLOY_ENV") {
-	case "", "dev", "local":
+	if local {
 		handlers = append(fanout{slog.NewTextHandler(os.Stdout, nil)}, handlers...)
 	}
 	slog.SetDefault(slog.New(handlers))
