@@ -43,33 +43,39 @@ CGO_ENABLED = "0"
 [tasks.setup]
 run = "lefthook install"
 
-[tasks."tools:upgrade"]
-# Usage: mise run tools:upgrade [-- --dry-run] [-- --yes]
+[tasks.upgrade]
+depends = ["upgrade:tools", "upgrade:js", "upgrade:go"]
+
+[tasks."upgrade:tools"]
 run = "bash scripts/upgrade-tools.sh"
 
+[tasks."upgrade:js"]
+run = "bun update --latest"
+
+[tasks."upgrade:go"]
+# GOFLAGS override: go get must write go.mod (env pins -mod=readonly).
+run = """
+GOFLAGS= go get -u ./...
+GOFLAGS= go mod tidy
+"""
+
 [tasks."cluster:up"]
-# Create the local k3d cluster + lightweight deps (Postgres, Temporal, SpiceDB).
+# Brings up Postgres, Temporal, SpiceDB alongside the cluster.
 run = "bash scripts/cluster-up.sh"
 
 [tasks."cluster:down"]
-# Delete the local k3d cluster.
 run = "bash scripts/cluster-down.sh"
 
 [tasks.dev]
-# Inner loop: build, deploy and live-reload services in k3d (ADR-0003).
-# Trailing args are forwarded to skaffold, so you can scope to one service:
-#   mise run dev                 # all services + deps port-forwards
-#   mise run dev -m orders       # just orders (others keep their last deploy)
-#   mise run dev -m orders -m payment
+# Trailing args forward to skaffold; -m scopes to one service (ADR-0003).
 depends = ["cluster:up"]
 run = "skaffold dev"
 
 [tasks."db:migrate"]
-# Apply each service's migrations to the local Postgres (ADR-0007).
 run = "bash scripts/db-migrate.sh"
 
 [tasks."secrets:age"]
-# Generate the SOPS age key (idempotent) and write .sops.yaml (ADR-0005).
+# Idempotent; also writes .sops.yaml (ADR-0005).
 run = "bash scripts/gen-age.sh"
 
 [tasks.gen]
@@ -111,7 +117,6 @@ run = "bash scripts/lint-openapi.sh"
 run = "bash scripts/lint-floating-tags.sh"
 
 [tasks."lint:md"]
-# Reads rules and ignores from .rumdl.toml at repo root.
 run = "rumdl check ."
 
 [tasks.test]
@@ -133,8 +138,8 @@ depends = ["test"]
 depends = ["build"]
 
 [tasks."ci:gen"]
-# Regenerate everything and fail if anything changed (drift check)
-run = "mise run gen:all && git diff --exit-code"
+# Drift check: fail if regeneration changes anything.
+run = "mise run gen && git diff --exit-code"
 
 [tasks.format]
 depends = ["format:go", "format:ts", "format:md"]
@@ -146,8 +151,7 @@ run = "golangci-lint fmt ./..."
 run = "biome format --write ."
 
 [tasks."format:md"]
-# rumdl is the only Markdown formatter — do NOT rely on the IDE's
-# Ctrl+Alt+L for .md files (see docs/adr / README).
+# rumdl is the only Markdown formatter — never the IDE's.
 run = "rumdl fmt ."
 
 [tasks.pre-commit]
