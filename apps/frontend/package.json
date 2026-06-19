@@ -6,7 +6,6 @@
     "dev": "next dev",
     "build": "next build",
     "start": "bun server.js",
-    "lint": "biome ci .",
     "test": "echo 'no tests yet'"
   },
   "dependencies": {

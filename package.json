@@ -6,13 +6,7 @@
     "libs/ts/*",
     "libs/ts/sdks/*"
   ],
-  "scripts": {
-    "lint": "biome ci .",
-    "format": "biome format --write .",
-    "check": "biome check --write ."
-  },
   "devDependencies": {
-    "@biomejs/biome": "1.9.4",
     "typescript": "5.7.3"
   }
 }
