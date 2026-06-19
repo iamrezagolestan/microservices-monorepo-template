@@ -80,7 +80,7 @@ Icons are `lucide-react` (the icon set Untitled UI uses).
 ### Forms
 
 - `react-hook-form` for state and validation orchestration.
-- `zod` for schemas. Schemas for OpenAPI operations are generated from the spec under `tools/codegen/zod-gen/` and committed at `libs/ts/sdks/<service>/schemas/`. The `mise run gen:zod` task is included in `mise run gen:all` and drift-checked by `ci-drift.yml`.
+- `zod` for schemas. Schemas for OpenAPI operations are generated from the spec under `tools/codegen/zod-gen/` and committed at `libs/ts/sdks/<service>/schemas/`. The `mise run gen:zod` task is included in `mise run gen` and drift-checked by `ci-drift.yml`.
 - A single `<Form>` primitive in `libs/ts/ui/` wires react-hook-form + zod + the design-system inputs. Hand-rolled form wiring is a review-blocker.
 
 ### Client state
@@ -168,7 +168,7 @@ No i18n library is adopted day one. All user-facing strings live as TS constants
 - `apps/frontend/` scaffold with the four route groups, middleware, `loading.tsx` / `error.tsx` baselines.
 - `libs/ts/ui/` with Untitled UI ports, Tailwind v4 preset, tokens, and `cn()`.
 - `libs/ts/server-fetch/` with the server-only fetcher and TanStack Query glue.
-- `tools/codegen/zod-gen/` and the `mise run gen:zod` task; inclusion in `mise run gen:all` and `ci-drift.yml`.
+- `tools/codegen/zod-gen/` and the `mise run gen:zod` task; inclusion in `mise run gen` and `ci-drift.yml`.
 - `biome.json` at repo root with the strict ruleset above.
 - `apps/frontend/perf-budget.json` and `apps/frontend/lighthouserc.json`.
 - `apps/frontend/Dockerfile` (Bun-only, standalone output).

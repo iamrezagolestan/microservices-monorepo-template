@@ -72,7 +72,7 @@ run = "bash scripts/db-migrate.sh"
 # Generate the SOPS age key (idempotent) and write .sops.yaml (ADR-0005).
 run = "bash scripts/gen-age.sh"
 
-[tasks."gen:all"]
+[tasks.gen]
 depends = ["gen:openapi", "gen:sqlc", "gen:tyk"]
 
 [tasks."gen:openapi"]
@@ -89,7 +89,7 @@ run = "go run ./tools/codegen/tyk-gen"
 run = """
 rm -rf libs/go/sdks/* libs/ts/sdks/*
 find infra/gateway/apis -name '*.yaml' -delete
-mise run gen:all
+mise run gen
 """
 
 [tasks.lint]

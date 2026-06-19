@@ -114,4 +114,4 @@ Settled here and inherited by [ADR-0010](0010-auth.md):
 - Gateway plugins are written in Go via Tyk's gRPC plugin server. Lua plugins are forbidden.
 - The developer portal is a route group in `apps/frontend/`, not a separate application or Tyk-paid feature.
 - Service-to-service calls inside the cluster bypass Tyk; they validate JWTs in the service's auth middleware ([ADR-0010](0010-auth.md)).
-- A new public endpoint is delivered by: spec change in OpenAPI → `mise run gen:all` → PR with regenerated Tyk definition. No manual Tyk dashboard step.
+- A new public endpoint is delivered by: spec change in OpenAPI → `mise run gen` → PR with regenerated Tyk definition. No manual Tyk dashboard step.

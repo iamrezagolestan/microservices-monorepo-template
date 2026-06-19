@@ -99,7 +99,7 @@ External tools (Go, sqlc, dbmate, helm, kubectl, etc.) are installed via `mise` 
   service-local tasks.
 - **Standard task names** at every service: `build`, `test`, `lint`, `generate`, `migrate`, `run`, `worker`.
 - **Standard task names** at repo root: `cluster:up`, `cluster:down`, `ci:lint`, `ci:test`, `ci:build`, `ci:affected`,
-  `gen:all`, `db:migrate`.
+  `gen`, `db:migrate`.
 - `mise tasks --list` is the discoverable interface.
 
 ### Tool versioning: pinned in mise or in a container tag
@@ -176,7 +176,7 @@ apps (which itself requires a new ADR).
 GitHub Actions is the CI provider. Workflows live in `.github/workflows/`:
 
 - `lint.yml`, `test.yml`, `build.yml` route through `mise run ci:affected`.
-- `ci-drift.yml` runs `mise run gen:all` and fails on `git diff --exit-code`.
+- `ci-drift.yml` runs `mise run gen` and fails on `git diff --exit-code`.
 - `publish.yml` builds and pushes container images on merges to `master` (the "release" workflow name is reserved for tag-driven prod promotion — see [ADR-0013](0013-release-and-versioning.md)).
 
 Self-hosted runners are not used on day one; GitHub-hosted runners with cache actions are sufficient. Re-evaluated when

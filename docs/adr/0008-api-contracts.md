@@ -60,7 +60,7 @@ All generated artifacts are committed to the repo and drift-checked in CI per [A
 
 1. API change is a PR to `services/<service>/openapi.yaml`.
 2. CI runs **vacuum** lint with the repo ruleset at `tools/codegen/openapi-ruleset.yaml` (style + breaking-change detection).
-3. `mise run gen:all` regenerates Go server, Go client, TS client, Tyk definitions.
+3. `mise run gen` regenerates Go server, Go client, TS client, Tyk definitions.
 4. CI fails if generated files are out of date (`git diff --exit-code`).
 5. Tyk picks up the same spec for gateway-level validation and docs.
 6. Hand-written code imports generated types and never declares parallel ones.
@@ -121,4 +121,4 @@ OpenAPI YAML is hand-written. **TypeSpec is not used.** If a service's spec grow
 - Server-Sent Events is the default streaming mechanism. WebSockets require a per-endpoint justification in the service README.
 - gRPC, Connect-RPC, GraphQL, and tRPC are not used.
 - OpenAPI YAML is hand-written. TypeSpec and equivalent authoring layers are not used.
-- A spec change is a PR; merging is blocked on vacuum lint passing and on `mise run gen:all` producing no diff.
+- A spec change is a PR; merging is blocked on vacuum lint passing and on `mise run gen` producing no diff.
