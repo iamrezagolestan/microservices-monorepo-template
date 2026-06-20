@@ -6,7 +6,7 @@ import { type NextRequest, NextResponse } from "next/server";
 
 const SESSION_COOKIE = "ory_kratos_session";
 
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
   const session = req.cookies.get(SESSION_COOKIE)?.value;
   if (!session) {
     const login = new URL("/auth/login", req.url);

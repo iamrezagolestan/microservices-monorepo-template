@@ -56,32 +56,50 @@ Every route segment ships `loading.tsx` and `error.tsx`. Every route-group root 
 
 ### Data fetching
 
-- **Server components** fetch via the generated SDKs in `libs/ts/sdks/<service>/`. A repo-local `libs/ts/server-fetch/` wraps `openapi-fetch` with a server-only fetcher that forwards the Kratos session cookie and W3C trace context. Direct `fetch` to service URLs is forbidden.
-- **Client components** use TanStack Query wrapping the same SDKs. Query keys derive from `operationId`; invalidation rules live next to the queries in `libs/ts/server-fetch/`.
+- **Server components** fetch via the generated SDKs in `libs/ts/sdks/<service>/`. An app-local `src/lib/server-fetch/server.ts` wraps `openapi-fetch` with a server-only fetcher (marked `import "server-only"`) that forwards the Kratos session cookie and W3C trace context. Direct `fetch` to service URLs is forbidden. The `server-fetch` directory has no barrel: client code imports `server-fetch/client`, server code imports `server-fetch/server`, so server-only modules never leak into a client bundle.
+- **Client components** use TanStack Query wrapping the same SDKs via `src/lib/server-fetch/client.ts`. Query keys derive from `operationId`.
 - **Mutations** prefer Server Actions when single-service. Cross-service flows return a `202 Accepted` workflow handle ([ADR-0006](0006-temporal.md)) and the client polls via the workflow-handle helper.
 
 ### Styling: Tailwind v4 + Untitled UI tokens
 
 - Tailwind CSS v4 is the styling system. CSS Modules and CSS-in-JS are forbidden in app code; the only exception is third-party components that ship their own styles.
-- Design tokens come from Untitled UI's Tailwind preset, committed under `libs/ts/ui/tokens/`. Token edits are PRs; upstream Untitled UI bumps are tracked in `libs/ts/ui/UPSTREAM.md` with a yearly bump cadence.
-- Class composition uses `clsx` + `tailwind-merge`, re-exported as `cn()` from `libs/ts/ui/`.
+- Design tokens come from Untitled UI's Tailwind preset, committed as the `@theme` block in `src/styles/globals.css` and mirrored for TS consumers in `src/lib/tokens.ts`. Token edits are PRs; upstream Untitled UI bumps are tracked in `src/components/ui/UPSTREAM.md` with a yearly bump cadence.
+- Class composition uses `clsx` + `tailwind-merge`, re-exported as `cn()` from `src/lib/cn.ts`.
 - Dark mode via `next-themes`; the theme is set as `data-theme` on the root element.
 
-### Component library: `libs/ts/ui/`
+### Code layout: one app, no first-party packages
 
-`libs/ts/ui/` is the only place primitives live (Button, Input, Card, Modal, Toast, Form, Table, etc.). Route groups compose them; they do not duplicate them. The library is built from Untitled UI components ported into the repo as committed source — not runtime-fetched.
+There is exactly one consumer of the frontend code — the `apps/frontend/` app. Route groups (`landing|panel|admin|devportal`) are folders within that one app, one bundle, one `node_modules`; they are **not** independent build targets. A workspace package only earns its keep when there is a **second independent consumer** (a second app, a published design system) or when the code is a **generated / independently-versioned artifact**. Splitting single-consumer code into `libs/ts/*` packages buys nothing and costs real ceremony: per-package `dependencies`, `peerDependencies` to keep a single React instance, `transpilePackages`, and path-alias wiring — and under Bun's isolated linker that ceremony is load-bearing, so a missing entry is a build break rather than a lint nit.
 
-Heuristic: if two route groups would copy a component, it belongs in `libs/ts/ui/`.
+**Principle:** extract a TS package only on a second consumer or for generated artifacts. Until then, first-party frontend code lives inside the app.
+
+Applying it, first-party code lives under `apps/frontend/src/`:
+
+| Code                       | Location                                                                                                     |
+|----------------------------|--------------------------------------------------------------------------------------------------------------|
+| UI primitives              | `src/components/ui/`                                                                                         |
+| `cn()` + design tokens     | `src/lib/cn.ts`, `src/lib/tokens.ts`                                                                         |
+| Server/client fetchers     | `src/lib/server-fetch/`                                                                                      |
+| Browser + server telemetry | `src/lib/observability/`                                                                                     |
+| Feature flags              | `src/lib/feature-flags.ts`                                                                                   |
+| User-facing strings        | `src/strings/<route-group>.ts`                                                                               |
+| Generated API SDKs         | `libs/ts/sdks/<service>/` (the **only** `libs/ts` member — generated from OpenAPI, plausibly multi-consumer) |
+
+### Component library: `src/components/ui/`
+
+`src/components/ui/` is the only place primitives live (Button, Input, Card, Modal, Toast, Form, Table, etc.). Route groups compose them via the `@/components/ui` alias; they do not duplicate them. The library is built from Untitled UI components ported into the repo as committed source — not runtime-fetched; upstream bumps are tracked in `src/components/ui/UPSTREAM.md`.
+
+Heuristic: if two route groups would copy a component, it belongs in `src/components/ui/`.
 
 Icons are `lucide-react` (the icon set Untitled UI uses).
 
-**Kitchen-sink page.** `apps/frontend/src/app/(devportal)/devportal/kitchen-sink/page.tsx` renders every primitive in `libs/ts/ui/` once. It is the cheap alternative to Storybook: one route, no separate toolchain, gated by the (devportal) Kratos session. Every primitive added to `libs/ts/ui/` gets a `<Section>` there in the same PR.
+**Kitchen-sink page.** `apps/frontend/src/app/(devportal)/devportal/kitchen-sink/page.tsx` renders every primitive in `src/components/ui/` once. It is the cheap alternative to Storybook: one route, no separate toolchain, gated by the (devportal) Kratos session. Every primitive added to `src/components/ui/` gets a `<Section>` there in the same PR.
 
 ### Forms
 
 - `react-hook-form` for state and validation orchestration.
 - `zod` for schemas. Schemas for OpenAPI operations are generated from the spec under `tools/codegen/zod-gen/` and committed at `libs/ts/sdks/<service>/schemas/`. The `mise run gen:zod` task is included in `mise run gen` and drift-checked by `ci-drift.yml`.
-- A single `<Form>` primitive in `libs/ts/ui/` wires react-hook-form + zod + the design-system inputs. Hand-rolled form wiring is a review-blocker.
+- A single `<Form>` primitive in `src/components/ui/` wires react-hook-form + zod + the design-system inputs. Hand-rolled form wiring is a review-blocker.
 
 ### Client state
 
@@ -91,15 +109,15 @@ Icons are `lucide-react` (the icon set Untitled UI uses).
 
 ### Auth wiring
 
-- Next.js middleware checks the Kratos session on every request under `(panel)`, `(admin)`, `(devportal)`. `(landing)` is public except for its `auth/` subtree (Kratos flows).
-- The middleware reads the Kratos session cookie and forwards a session-id header to server components via `headers()`. Server components never call Kratos directly.
+- The Next.js proxy (`src/proxy.ts`, the Next 16 successor to `middleware.ts`) checks the Kratos session on every request under `(panel)`, `(admin)`, `(devportal)`. `(landing)` is public except for its `auth/` subtree (Kratos flows).
+- The proxy reads the Kratos session cookie and forwards a session-id header to server components via `headers()`. Server components never call Kratos directly.
 - The frontend never mints, decodes, or validates JWTs. Service calls from server components attach the user's Kratos cookie; Tyk validates the JWT it issues ([ADR-0009](0009-api-gateway.md), [ADR-0010](0010-auth.md)).
 
 ### Lint and format: Biome only
 
 Biome is the single lint+format tool for the frontend.
 
-- Configured in `biome.json` at the repo root with the `recommended` and `correctness` rule sets at error level, plus the strict additions: `noExplicitAny`, `noNonNullAssertion`, `useExhaustiveDependencies`, `useImportType`, `noUnusedImports`, `noUnusedVariables`, `useAwait`, `noFloatingPromises`, `noConsole` (server uses `pino`; client uses the OTel-aware logger from `libs/ts/observability/`).
+- Configured in `biome.json` at the repo root with the `recommended` and `correctness` rule sets at error level, plus the strict additions: `noExplicitAny`, `noNonNullAssertion`, `useExhaustiveDependencies`, `useImportType`, `noUnusedImports`, `noUnusedVariables`, `useAwait`, `noFloatingPromises`, `noConsole` (server uses `pino`; client uses the OTel-aware logger from `src/lib/observability/`).
 - `biome ci` runs in `lint.yml`; `biome format --write` is a lefthook pre-commit hook.
 - **ESLint is not installed.** Next-specific concerns are caught by `next build` + Lighthouse-CI + typed `next/image` / `next/font` APIs.
 
@@ -114,7 +132,7 @@ Biome is the single lint+format tool for the frontend.
 
 The browser side of [ADR-0011](0011-observability.md) is wired here.
 
-- `@opentelemetry/sdk-trace-web` + `@opentelemetry/instrumentation-fetch` live in `libs/ts/observability/client.ts` and are initialised from a client-only entry at `apps/frontend/src/app/observability-init.tsx`. Trace IDs propagate via `traceparent` on outbound fetches, joining the same trace as the upstream services.
+- `@opentelemetry/sdk-trace-web` + `@opentelemetry/instrumentation-fetch` live in `src/lib/observability/client.ts` and are initialised from a client-only entry at `apps/frontend/src/app/observability-init.tsx`. Trace IDs propagate via `traceparent` on outbound fetches, joining the same trace as the upstream services.
 - **Grafana Faro** is the browser RUM agent. Web Vitals (LCP, INP, CLS), JS errors, and session traces forward through a Tyk-fronted ingest route to the cluster's OTel Collector gateway, landing in the same Loki/Tempo backends as services.
 - Next.js server logs are structured JSON via **`pino`**, stdout-only, enriched with `trace_id` from the active span. `console.log` is Biome-forbidden.
 - Build embeds `SERVICE_VERSION` from the git SHA so traces and errors are version-attributable.
@@ -127,7 +145,7 @@ The browser side of [ADR-0011](0011-observability.md) is wired here.
 
 ### i18n: deferred behind a trigger
 
-No i18n library is adopted day one. All user-facing strings live as TS constants in `libs/ts/ui/strings/<route-group>.ts` — one file per route group. When the first non-English locale is on the roadmap, an ADR amendment adopts `next-intl` and migrates the strings. The shape (one file per route group) is chosen so the migration is mechanical.
+No i18n library is adopted day one. All user-facing strings live as TS constants in `src/strings/<route-group>.ts` — one file per route group. When the first non-English locale is on the roadmap, an ADR amendment adopts `next-intl` and migrates the strings. The shape (one file per route group) is chosen so the migration is mechanical.
 
 ### Feature flags: OpenFeature SDK, noop provider
 
@@ -158,21 +176,21 @@ No i18n library is adopted day one. All user-facing strings live as TS constants
 ### Negative / Risks
 
 - **Biome lacks Next-specific lints.** Mitigated by `next build` + Lighthouse-CI + typed `next/image` / `next/font` APIs. Not a behavioural gap, a different enforcement surface.
-- **Untitled UI ports are committed source.** Upgrading from upstream is a real PR, not a `bun update`. Mitigated by `libs/ts/ui/UPSTREAM.md` and a yearly bump.
+- **Untitled UI ports are committed source.** Upgrading from upstream is a real PR, not a `bun update`. Mitigated by `src/components/ui/UPSTREAM.md` and a yearly bump.
 - **OpenTelemetry-JS web SDK is heavier than Faro alone.** Accepted; the trace continuity between browser and services is worth the bytes, re-evaluated under the perf gates.
 - **Deferring i18n risks a painful retrofit.** Mitigated by keeping all strings in one file per route group from day one.
 - **Server Actions are relatively new.** Mitigated by limiting them to single-service mutations; cross-service flows use the well-trodden REST + workflow-handle path.
 
 ### Follow-ups
 
-- `apps/frontend/` scaffold with the four route groups, middleware, `loading.tsx` / `error.tsx` baselines.
-- `libs/ts/ui/` with Untitled UI ports, Tailwind v4 preset, tokens, and `cn()`.
-- `libs/ts/server-fetch/` with the server-only fetcher and TanStack Query glue.
+- `apps/frontend/` scaffold with the four route groups, `proxy.ts`, `loading.tsx` / `error.tsx` baselines.
+- `src/components/ui/` with Untitled UI ports, `src/lib/tokens.ts`, and `cn()`.
+- `src/lib/server-fetch/` with the server-only fetcher and TanStack Query glue.
 - `tools/codegen/zod-gen/` and the `mise run gen:zod` task; inclusion in `mise run gen` and `ci-drift.yml`.
 - `biome.json` at repo root with the strict ruleset above.
 - `apps/frontend/perf-budget.json` and `apps/frontend/lighthouserc.json`.
 - `apps/frontend/Dockerfile` (Bun-only, standalone output).
-- `libs/ts/observability/{client,server}.ts` wiring OTel-JS, Faro, and `pino`, initialised from `apps/frontend/src/app/observability-init.tsx`.
+- `src/lib/observability/{client,server}.ts` wiring OTel-JS, Faro, and `pino`, initialised from `apps/frontend/src/app/observability-init.tsx`.
 - `infra/gateway/apis/frontend-observability.yaml` ingest route for OTel + Faro from the browser.
 - `docs/frontend/conventions.md` short pointer file linking back to this ADR.
 
@@ -182,22 +200,23 @@ No i18n library is adopted day one. All user-facing strings live as TS constants
 - Server Components are the default. `"use client"` is added at the smallest interactivity boundary.
 - Server Actions are permitted only for mutations against the route group's owning service. Cross-service mutations call the service's REST API and use the workflow-handle pattern from [ADR-0006](0006-temporal.md).
 - Every route segment ships `loading.tsx` and `error.tsx`; every route-group root additionally ships `not-found.tsx`.
-- Server components fetch via `libs/ts/server-fetch/`. Client components use TanStack Query wrapping the generated SDKs. Direct `fetch` to service URLs is forbidden.
+- First-party frontend code lives in `apps/frontend/src/`; a `libs/ts/*` package is created only for a second consumer or a generated artifact. Generated SDKs under `libs/ts/sdks/` are the only `libs/ts` members.
+- Server components fetch via `src/lib/server-fetch/server.ts`. Client components use TanStack Query wrapping the generated SDKs via `src/lib/server-fetch/client.ts`. Direct `fetch` to service URLs is forbidden.
 - Hand-written request/response types are forbidden; only types from `libs/ts/sdks/<service>/` are used. Zod schemas for forms are generated from the OpenAPI spec and committed.
 - Tailwind v4 is the styling system. CSS Modules, CSS-in-JS, and inline `<style>` are forbidden in app code.
-- Design tokens come from `libs/ts/ui/tokens/`. Tokens are not redefined per route group.
-- Primitives live in `libs/ts/ui/`. Route groups compose them; they do not duplicate them.
-- A primitive added to `libs/ts/ui/` is added to `apps/frontend/src/app/(devportal)/devportal/kitchen-sink/page.tsx` in the same PR.
+- Design tokens come from `src/styles/globals.css` (`@theme`) mirrored in `src/lib/tokens.ts`. Tokens are not redefined per route group.
+- Primitives live in `src/components/ui/`. Route groups compose them via `@/components/ui`; they do not duplicate them.
+- A primitive added to `src/components/ui/` is added to `apps/frontend/src/app/(devportal)/devportal/kitchen-sink/page.tsx` in the same PR.
 - Icons are `lucide-react`. Other icon sets require an ADR amendment.
-- Forms use react-hook-form + zod via the `<Form>` primitive in `libs/ts/ui/`. Hand-rolled form wiring is forbidden.
+- Forms use react-hook-form + zod via the `<Form>` primitive in `src/components/ui/`. Hand-rolled form wiring is forbidden.
 - URL state uses `nuqs`. Client-only state outside a component tree uses Zustand under `apps/frontend/src/stores/`. Redux and MobX are forbidden.
-- Next.js middleware enforces the Kratos session on `(panel)`, `(admin)`, `(devportal)`. The frontend never mints, decodes, or validates JWTs.
+- The Next.js proxy (`src/proxy.ts`) enforces the Kratos session on `(panel)`, `(admin)`, `(devportal)`. The frontend never mints, decodes, or validates JWTs.
 - Biome is the only lint+format tool, configured with the strict ruleset in `biome.json`. ESLint is not installed.
 - `bun test` covers unit/component tests with `happy-dom` preloaded via `bunfig.toml`; Playwright covers e2e per route group. MSW is forbidden in e2e. Vitest and Jest are not used.
 - Browser observability is OpenTelemetry-JS + Grafana Faro, exporting through a Tyk-fronted ingest route to the cluster's OTel Collector gateway ([ADR-0011](0011-observability.md)).
 - Server-side logs are structured JSON via `pino` to stdout. `console.log` is Biome-forbidden.
 - Bundle budgets in `apps/frontend/perf-budget.json` and Lighthouse-CI thresholds (LCP < 2.5 s, INP < 200 ms, CLS < 0.1, mobile profile) are merge gates.
 - Images go through `next/image`; fonts through `next/font`. `<img>` and `@font-face` are forbidden.
-- No i18n library is adopted; user-facing strings live in `libs/ts/ui/strings/<route-group>.ts`. A locale beyond English requires an ADR amendment adopting `next-intl`.
+- No i18n library is adopted; user-facing strings live in `src/strings/<route-group>.ts`. A locale beyond English requires an ADR amendment adopting `next-intl`.
 - Feature flags go through `@openfeature/web-sdk` with a noop provider day one. The concrete backend is adopted via an ADR amendment on first gradual-rollout requirement.
 - The container runs `bun server.js` from a Next.js standalone build. Node.js is not installed in the image.

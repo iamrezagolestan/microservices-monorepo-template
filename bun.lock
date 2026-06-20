@@ -5,7 +5,7 @@
     "": {
       "name": "platform-monorepo",
       "devDependencies": {
-        "typescript": "latest",
+        "typescript": "6.0.3",
       },
     },
     "apps/frontend": {
@@ -40,22 +40,6 @@
         "tailwindcss": "4.3.1",
         "typescript": "6.0.3",
       },
-    },
-    "libs/ts/feature-flags": {
-      "name": "@platform/feature-flags",
-      "version": "0.0.0",
-    },
-    "libs/ts/observability": {
-      "name": "@platform/observability",
-      "version": "0.0.0",
-    },
-    "libs/ts/server-fetch": {
-      "name": "@platform/server-fetch",
-      "version": "0.0.0",
-    },
-    "libs/ts/ui": {
-      "name": "@platform/ui",
-      "version": "0.0.0",
     },
   },
   "packages": {
@@ -184,14 +168,6 @@
     "@opentelemetry/semantic-conventions": ["@opentelemetry/semantic-conventions@1.41.1", "", {}, "sha512-/UhIkaZgPutTFmQ7RnIJGgDXZmtEJ7Dvi86xNTFWcnRxVRNk/aotsqDJYeEvDP+FSMB2SdW+pQzNMcWP0rwuNA=="],
 
     "@pinojs/redact": ["@pinojs/redact@0.4.0", "", {}, "sha512-k2ENnmBugE/rzQfEcdWHcCY+/FM3VLzH9cYEsbdsoqrvzAKRhUZeRNhAZvB8OitQJ1TBed3yqWtdjzS6wJKBwg=="],
-
-    "@platform/feature-flags": ["@platform/feature-flags@workspace:libs/ts/feature-flags"],
-
-    "@platform/observability": ["@platform/observability@workspace:libs/ts/observability"],
-
-    "@platform/server-fetch": ["@platform/server-fetch@workspace:libs/ts/server-fetch"],
-
-    "@platform/ui": ["@platform/ui@workspace:libs/ts/ui"],
 
     "@standard-schema/spec": ["@standard-schema/spec@1.0.0", "", {}, "sha512-m2bOd0f2RT9k8QJx1JN85cZYyH1RqFBdlwtkSlf4tBDYLCiiZnv1fIIwacK6cqwXavOydf0NPToMQgpKq+dVlA=="],
 

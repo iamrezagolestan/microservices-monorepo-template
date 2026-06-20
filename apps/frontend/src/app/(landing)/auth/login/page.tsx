@@ -1,6 +1,6 @@
 // Kratos self-service login flow (ADR-0010, ADR-0014). Public route under
 // (landing); the Kratos browser endpoint shares the host via Traefik.
-import { landing } from "@ui/strings/landing";
+import { landing } from "@/strings/landing";
 
 type Search = Promise<{ flow?: string }>;
 

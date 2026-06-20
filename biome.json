@@ -54,7 +54,7 @@
   },
   "overrides": [
     {
-      "includes": ["**/libs/ts/observability/server.ts"],
+      "includes": ["**/apps/frontend/src/lib/observability/server.ts"],
       "linter": {
         "rules": {
           "suspicious": { "noConsole": "off" }
