@@ -6,7 +6,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "bun server.js",
-    "test": "echo 'no tests yet'"
+    "lint": "biome ci .",
+    "test": "playwright test",
+    "test:ui": "playwright test --ui-host 127.0.0.1",
+    "test:headed": "playwright test --headed",
+    "test:report": "playwright show-report"
   },
   "dependencies": {
     "next": "16.2.8",

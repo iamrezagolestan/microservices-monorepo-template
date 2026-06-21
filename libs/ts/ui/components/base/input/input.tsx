@@ -118,7 +118,7 @@ export const InputBase = ({
       shortcut: "pr-2.5",
     },
   });
-
+console.log(isDisabled)
   return (
     <AriaGroup
       {...{ isDisabled, isInvalid }}
@@ -162,6 +162,7 @@ export const InputBase = ({
       <AriaInput
         {...(inputProps as AriaInputProps)}
         ref={ref}
+        disabled={isDisabled}
         required={isRequired}
         type={type === "password" && isPasswordVisible ? "text" : type}
         placeholder={placeholder}
@@ -381,6 +382,7 @@ export const Input = ({
               tooltipClassName,
               tooltip,
               type,
+              isDisabled: props.isDisabled,
             }}
           />
 

@@ -76,7 +76,7 @@ export function InputExamples() {
         icon={Mail01}
         iconClassName={INPUT_ICON_CLASS_NAME}
         inputClassName={INPUT_TEXT_CLASS_NAME}
-        isDisabled
+        isDisabled={true}
         isRequired
         label={EMAIL_LABEL}
         labelClassName={INPUT_LABEL_CLASS_NAME}
