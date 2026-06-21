@@ -6,17 +6,20 @@
     "useIgnoreFile": true
   },
   "files": {
-    "include": ["**"],
-    "ignore": [
-      "**/node_modules",
-      "**/.next",
-      "**/dist",
-      "**/build",
-      "**/libs/ts/sdks",
-      "**/apps/admin/_generated"
+    "includes": [
+      "**",
+      "!**/node_modules",
+      "!**/.next",
+      "!**/dist",
+      "!**/build",
+      "!**/libs/ts/sdks",
+      "!**/apps/admin/_generated"
     ]
   },
-  "organizeImports": { "enabled": true },
+  "assist": { "actions": { "source": { "organizeImports": "on" } } },
+  "css": {
+    "parser": { "tailwindDirectives": true }
+  },
   "formatter": {
     "enabled": true,
     "indentStyle": "space",
