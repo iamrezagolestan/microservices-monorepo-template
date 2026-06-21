@@ -1,5 +1,5 @@
 import "../styles/globals.css";
-import { Vazirmatn } from 'next/font/google'
+import { Vazirmatn } from "next/font/google";
 
 import type { ReactNode } from "react";
 import { ObservabilityInit } from "./observability-init";
@@ -8,8 +8,8 @@ import { Providers } from "./providers";
 export const metadata = { title: "Platform" };
 
 const vazirmatn = Vazirmatn({
-  subsets: ['arabic'],
-})
+  subsets: ["arabic"],
+});
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (

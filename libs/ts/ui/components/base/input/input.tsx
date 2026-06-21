@@ -118,7 +118,7 @@ export const InputBase = ({
       shortcut: "pr-2.5",
     },
   });
-console.log(isDisabled)
+  console.log(isDisabled);
   return (
     <AriaGroup
       {...{ isDisabled, isInvalid }}
