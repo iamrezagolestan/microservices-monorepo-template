@@ -3,8 +3,7 @@
 - **Status:** Accepted
 - **Date:** 2026-05-26
 - **Deciders:** Platform team
-- **Related:
-  ** [ADR-0000](0000-platform-foundations.md), [ADR-0003](0003-cluster-topology.md), [ADR-0005](0005-secrets.md)
+- **Related:** [ADR-0000](0000-platform-foundations.md), [ADR-0003](0003-cluster-topology.md), [ADR-0005](0005-secrets.md)
 
 ## Context
 
@@ -142,7 +141,8 @@ cluster; repeating the project on every in-cluster object is noise.
 - Template instantiation (`scripts/`/`mise` bootstrap): prompt for the project slug, validate it against
   `^[a-z][a-z0-9-]*$` and the 30-char budget, check it is not already taken by another of our projects, offer to
   append a random `[a-z0-9]{4}` token if a provider-global resource name is unavailable, and thread the final slug
-  through Terraform variables and the SSH/age scaffolding.
+  through the SSH/age scaffolding and the Ansible inventory (and Terraform variables when the project provisions its own
+  infra).
 - A `role` abbreviation glossary kept alongside this ADR.
 
 ## Rules

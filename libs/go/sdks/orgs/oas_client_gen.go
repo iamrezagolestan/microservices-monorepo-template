@@ -4,6 +4,7 @@ package orgs
 
 import (
 	"context"
+	"io"
 	"net/url"
 	"strings"
 	"time"
@@ -116,8 +117,7 @@ func (c *Client) sendCreateOrg(ctx context.Context, request *OrgInput) (res *Org
 	c.requests.Add(ctx, 1, metric.WithAttributes(otelAttrs...))
 
 	// Start a span for this request.
-	ctx, span := c.cfg.Tracer.Start(
-		ctx, CreateOrgOperation,
+	ctx, span := c.cfg.Tracer.Start(ctx, CreateOrgOperation,
 		trace.WithAttributes(otelAttrs...),
 		clientSpanKind,
 	)
@@ -153,7 +153,13 @@ func (c *Client) sendCreateOrg(ctx context.Context, request *OrgInput) (res *Org
 		return res, errors.Wrap(err, "do request")
 	}
 	body := resp.Body
-	defer body.Close()
+	defer func() {
+		// Drain the body to EOF before closing, so the underlying
+		// connection can be reused by the Transport regardless of the
+		// response status code. See https://github.com/ogen-go/ogen/issues/1670.
+		_, _ = io.Copy(io.Discard, body)
+		_ = body.Close()
+	}()
 
 	stage = "DecodeResponse"
 	result, err := decodeCreateOrgResponse(resp)
@@ -194,8 +200,7 @@ func (c *Client) sendGetOrg(ctx context.Context, params GetOrgParams) (res *Org,
 	c.requests.Add(ctx, 1, metric.WithAttributes(otelAttrs...))
 
 	// Start a span for this request.
-	ctx, span := c.cfg.Tracer.Start(
-		ctx, GetOrgOperation,
+	ctx, span := c.cfg.Tracer.Start(ctx, GetOrgOperation,
 		trace.WithAttributes(otelAttrs...),
 		clientSpanKind,
 	)
@@ -246,7 +251,13 @@ func (c *Client) sendGetOrg(ctx context.Context, params GetOrgParams) (res *Org,
 		return res, errors.Wrap(err, "do request")
 	}
 	body := resp.Body
-	defer body.Close()
+	defer func() {
+		// Drain the body to EOF before closing, so the underlying
+		// connection can be reused by the Transport regardless of the
+		// response status code. See https://github.com/ogen-go/ogen/issues/1670.
+		_, _ = io.Copy(io.Discard, body)
+		_ = body.Close()
+	}()
 
 	stage = "DecodeResponse"
 	result, err := decodeGetOrgResponse(resp)
@@ -287,8 +298,7 @@ func (c *Client) sendOnIdentityCreated(ctx context.Context, request *OnIdentityC
 	c.requests.Add(ctx, 1, metric.WithAttributes(otelAttrs...))
 
 	// Start a span for this request.
-	ctx, span := c.cfg.Tracer.Start(
-		ctx, OnIdentityCreatedOperation,
+	ctx, span := c.cfg.Tracer.Start(ctx, OnIdentityCreatedOperation,
 		trace.WithAttributes(otelAttrs...),
 		clientSpanKind,
 	)
@@ -324,7 +334,13 @@ func (c *Client) sendOnIdentityCreated(ctx context.Context, request *OnIdentityC
 		return res, errors.Wrap(err, "do request")
 	}
 	body := resp.Body
-	defer body.Close()
+	defer func() {
+		// Drain the body to EOF before closing, so the underlying
+		// connection can be reused by the Transport regardless of the
+		// response status code. See https://github.com/ogen-go/ogen/issues/1670.
+		_, _ = io.Copy(io.Discard, body)
+		_ = body.Close()
+	}()
 
 	stage = "DecodeResponse"
 	result, err := decodeOnIdentityCreatedResponse(resp)

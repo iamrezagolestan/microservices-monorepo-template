@@ -4,6 +4,7 @@ package orders
 
 import (
 	"context"
+	"io"
 	"net/url"
 	"strings"
 	"time"
@@ -110,8 +111,7 @@ func (c *Client) sendCheckout(ctx context.Context, request *CheckoutInput) (res 
 	c.requests.Add(ctx, 1, metric.WithAttributes(otelAttrs...))
 
 	// Start a span for this request.
-	ctx, span := c.cfg.Tracer.Start(
-		ctx, CheckoutOperation,
+	ctx, span := c.cfg.Tracer.Start(ctx, CheckoutOperation,
 		trace.WithAttributes(otelAttrs...),
 		clientSpanKind,
 	)
@@ -147,7 +147,13 @@ func (c *Client) sendCheckout(ctx context.Context, request *CheckoutInput) (res 
 		return res, errors.Wrap(err, "do request")
 	}
 	body := resp.Body
-	defer body.Close()
+	defer func() {
+		// Drain the body to EOF before closing, so the underlying
+		// connection can be reused by the Transport regardless of the
+		// response status code. See https://github.com/ogen-go/ogen/issues/1670.
+		_, _ = io.Copy(io.Discard, body)
+		_ = body.Close()
+	}()
 
 	stage = "DecodeResponse"
 	result, err := decodeCheckoutResponse(resp)
@@ -188,8 +194,7 @@ func (c *Client) sendGetOrder(ctx context.Context, params GetOrderParams) (res *
 	c.requests.Add(ctx, 1, metric.WithAttributes(otelAttrs...))
 
 	// Start a span for this request.
-	ctx, span := c.cfg.Tracer.Start(
-		ctx, GetOrderOperation,
+	ctx, span := c.cfg.Tracer.Start(ctx, GetOrderOperation,
 		trace.WithAttributes(otelAttrs...),
 		clientSpanKind,
 	)
@@ -240,7 +245,13 @@ func (c *Client) sendGetOrder(ctx context.Context, params GetOrderParams) (res *
 		return res, errors.Wrap(err, "do request")
 	}
 	body := resp.Body
-	defer body.Close()
+	defer func() {
+		// Drain the body to EOF before closing, so the underlying
+		// connection can be reused by the Transport regardless of the
+		// response status code. See https://github.com/ogen-go/ogen/issues/1670.
+		_, _ = io.Copy(io.Discard, body)
+		_ = body.Close()
+	}()
 
 	stage = "DecodeResponse"
 	result, err := decodeGetOrderResponse(resp)

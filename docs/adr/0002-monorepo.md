@@ -7,9 +7,9 @@
 
 ## Context
 
-The monorepo hosts ~100 backend services, one frontend application, shared Go/TS libraries, generated API clients,
-infrastructure-as-code, and tooling. Every engineer on the team touches it. The naive "every PR runs every test in every
-package" approach does not survive past ~20 services.
+At the target scale ([ADR-0000](0000-platform-foundations.md)), the monorepo hosts the full fleet of backend services, one frontend application,
+shared Go/TS libraries, generated API clients, infrastructure-as-code, and tooling. Every engineer on the team touches
+it. The naive "every PR runs every test in every package" approach does not survive past ~20 services.
 
 We need a single answer to:
 
@@ -68,7 +68,7 @@ infra/
 ├── gitops/                   # ArgoCD ApplicationSets + per-env values
 ├── ansible/                  # host configuration
 ├── auth/                     # Kratos, Hydra, SpiceDB config
-├── gateway/                  # gateway config (generated + hand-written)
+├── gateway/                  # Traefik routing + rate-limit config (Oathkeeper rules live in infra/auth/)
 └── observability/            # dashboards and alerts as code
 
 tools/                        # repo-local Go programs (codegen helpers, affected, lint plugins)
@@ -98,8 +98,8 @@ External tools (Go, sqlc, dbmate, helm, kubectl, etc.) are installed via `mise` 
 - Tasks are defined in `.mise.toml` files: a root file declares repo-wide tasks; each service has its own with
   service-local tasks.
 - **Standard task names** at every service: `build`, `test`, `lint`, `generate`, `migrate`, `run`, `worker`.
-- **Standard task names** at repo root: `dev:up`, `dev:down`, `ci:lint`, `ci:test`, `ci:build`, `ci:affected`,
-  `gen:all`, `db:migrate`.
+- **Standard task names** at repo root: `cluster:up`, `cluster:down`, `ci:lint`, `ci:test`, `ci:build`, `ci:affected`,
+  `gen`, `db:migrate`.
 - `mise tasks --list` is the discoverable interface.
 
 ### Tool versioning: pinned in mise or in a container tag
@@ -107,11 +107,12 @@ External tools (Go, sqlc, dbmate, helm, kubectl, etc.) are installed via `mise` 
 Every executable the repo depends on is pinned to a specific version in one of exactly two places:
 
 - **Developer / CI tools** (Go, Bun, `dbmate`, `sqlc`, `sqruff`, `ogen`, `vacuum`, `helm`, `kubectl`,
-  `kustomize`, `terraform`, `ansible`, `zed`, `age`, `sops`, `mise` itself, etc.) live in the root `.mise.toml` (and
+  `terraform`, `ansible`, `zed`, `age`, `sops`, `mise` itself, etc.) live in the root `.mise.toml` (and
   service-local `.mise.toml` files when a service genuinely needs a different version).
-- **Runtime services** (Postgres, Redis, Temporal, Kratos, Hydra, SpiceDB, Tyk, MinIO, Loki, Mimir, Tempo, Pyroscope,
+- **Runtime services** (Postgres, Temporal, Kratos, Oathkeeper, Hydra, SpiceDB, MinIO, Loki, Mimir, Tempo,
   Grafana, OTel Collector, ArgoCD, CNPG operator, etc.) live as Helm chart `appVersion` plus an explicit `image.tag` in
-  `infra/helm/.../values.yaml`. Local development uses the same Helm values via k3d (see [ADR-0003](0003-cluster-topology.md));
+  `infra/helm/.../values.yaml`. Local development uses the same Helm values via k3d (
+  see [ADR-0003](0003-cluster-topology.md));
   there is no separate compose-based path.
 
 Floating tags (`latest`, `stable`, `main`, an unpinned major) are forbidden everywhere — `.mise.toml`, Dockerfiles, Helm
@@ -154,7 +155,7 @@ Reasons:
 - Cross-subdomain auth is hostile in modern browsers (Safari ITP especially). Sharing cookies/session across subdomains
   is a recurring source of subtle production bugs.
 - Next.js route-level code splitting makes the bundle-size argument for separate apps weak.
-- One deploy unit, one Tyk routing surface (`/panel/*` as a path, not a hostname).
+- One deploy unit, one Traefik routing surface (`/panel/*` as a path, not a hostname).
 
 A genuinely independent frontend (partner-branded experience, embedded SDK) earns its own ADR — not a reason to fragment
 the primary app pre-emptively.
@@ -176,8 +177,9 @@ apps (which itself requires a new ADR).
 GitHub Actions is the CI provider. Workflows live in `.github/workflows/`:
 
 - `lint.yml`, `test.yml`, `build.yml` route through `mise run ci:affected`.
-- `ci-drift.yml` runs `mise run gen:all` and fails on `git diff --exit-code`.
-- `publish.yml` builds and pushes container images on merges to `master` (the "release" workflow name is reserved for tag-driven prod promotion — see [ADR-0013](0013-release-and-versioning.md)).
+- `ci-drift.yml` runs `mise run gen` and fails on `git diff --exit-code`.
+- `publish.yml` builds and pushes container images on merges to `master` (the "release" workflow name is reserved for
+  tag-driven prod promotion — see [ADR-0013](0013-release-and-versioning.md)).
 
 Self-hosted runners are not used on day one; GitHub-hosted runners with cache actions are sufficient. Re-evaluated when
 CI minutes become a budget item.
@@ -188,7 +190,6 @@ All generated code is **committed** to the repo:
 
 - `libs/{go,ts}/sdks/<service>/` — OpenAPI clients.
 - `services/<service>/internal/store/` — sqlc output.
-- `infra/gateway/apis/` — generated gateway API definitions.
 
 Reasons: PR diffs include the generated changes; `go build` works without a codegen step; CI is simpler.
 
@@ -199,13 +200,13 @@ hook runs the relevant slice when source files change.
 
 A small Go program at `tools/affected/` reads `git diff --name-only origin/master...HEAD` and maps changes to scopes:
 
-| Change under                                            | Affects                                          |
-|---------------------------------------------------------|--------------------------------------------------|
-| `services/<X>/`                                         | service `<X>`                                    |
-| `libs/go/<L>/`                                          | every Go consumer of `<L>` (via `go list -deps`) |
-| `libs/go/sdks/<S>/`                                     | every Go consumer of service `<S>`'s client      |
-| `apps/frontend/`                                        | the frontend                                     |
-| `infra/`, `tools/`, `go.mod`, `go.sum`, `package.json`  | **global** — everything runs                     |
+| Change under                                           | Affects                                          |
+|--------------------------------------------------------|--------------------------------------------------|
+| `services/<X>/`                                        | service `<X>`                                    |
+| `libs/go/<L>/`                                         | every Go consumer of `<L>` (via `go list -deps`) |
+| `libs/go/sdks/<S>/`                                    | every Go consumer of service `<S>`'s client      |
+| `apps/frontend/`                                       | the frontend                                     |
+| `infra/`, `tools/`, `go.mod`, `go.sum`, `package.json` | **global** — everything runs                     |
 
 `mise run ci:affected` is the entry point; it produces a JSON manifest consumed by the CI workflows.
 

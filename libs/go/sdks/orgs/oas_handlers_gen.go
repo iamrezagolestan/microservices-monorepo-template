@@ -50,8 +50,7 @@ func (s *Server) handleCreateOrgRequest(args [0]string, argsEscaped bool, w http
 	otelAttrs = append(otelAttrs, s.cfg.Attributes...)
 
 	// Start a span for this request.
-	ctx, span := s.cfg.Tracer.Start(
-		r.Context(), CreateOrgOperation,
+	ctx, span := s.cfg.Tracer.Start(r.Context(), CreateOrgOperation,
 		trace.WithAttributes(otelAttrs...),
 		serverSpanKind,
 	)
@@ -72,7 +71,7 @@ func (s *Server) handleCreateOrgRequest(args [0]string, argsEscaped bool, w http
 		if code != 0 {
 			codeAttr := semconv.HTTPResponseStatusCode(code)
 			attrs = append(attrs, codeAttr)
-			span.SetAttributes(codeAttr)
+			span.SetAttributes(attrs...)
 		}
 		attrOpt := metric.WithAttributes(attrs...)
 
@@ -205,8 +204,7 @@ func (s *Server) handleGetOrgRequest(args [1]string, argsEscaped bool, w http.Re
 	otelAttrs = append(otelAttrs, s.cfg.Attributes...)
 
 	// Start a span for this request.
-	ctx, span := s.cfg.Tracer.Start(
-		r.Context(), GetOrgOperation,
+	ctx, span := s.cfg.Tracer.Start(r.Context(), GetOrgOperation,
 		trace.WithAttributes(otelAttrs...),
 		serverSpanKind,
 	)
@@ -227,7 +225,7 @@ func (s *Server) handleGetOrgRequest(args [1]string, argsEscaped bool, w http.Re
 		if code != 0 {
 			codeAttr := semconv.HTTPResponseStatusCode(code)
 			attrs = append(attrs, codeAttr)
-			span.SetAttributes(codeAttr)
+			span.SetAttributes(attrs...)
 		}
 		attrOpt := metric.WithAttributes(attrs...)
 
@@ -360,8 +358,7 @@ func (s *Server) handleOnIdentityCreatedRequest(args [0]string, argsEscaped bool
 	otelAttrs = append(otelAttrs, s.cfg.Attributes...)
 
 	// Start a span for this request.
-	ctx, span := s.cfg.Tracer.Start(
-		r.Context(), OnIdentityCreatedOperation,
+	ctx, span := s.cfg.Tracer.Start(r.Context(), OnIdentityCreatedOperation,
 		trace.WithAttributes(otelAttrs...),
 		serverSpanKind,
 	)
@@ -382,7 +379,7 @@ func (s *Server) handleOnIdentityCreatedRequest(args [0]string, argsEscaped bool
 		if code != 0 {
 			codeAttr := semconv.HTTPResponseStatusCode(code)
 			attrs = append(attrs, codeAttr)
-			span.SetAttributes(codeAttr)
+			span.SetAttributes(attrs...)
 		}
 		attrOpt := metric.WithAttributes(attrs...)
 

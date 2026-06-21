@@ -1,5 +1,5 @@
 // Admin tile (ADR-0012). The real admin lives at /internal/admin (Lowdefy).
-import { admin } from "@ui/strings/admin";
+import { admin } from "@/strings/admin";
 
 export default function AdminTile() {
   return (

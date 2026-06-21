@@ -1,7 +1,7 @@
-// Activities for the Checkout saga (ADR-0006).
+// Package activities for the Checkout saga (ADR-0006).
 // All cross-service calls go through HTTP via the generated client surface
 // (here: raw http.Client — replace with the ogen client in libs/go/sdks/<service>
-// when `mise run gen:all` produces the typed clients).
+// when `mise run gen` produces the typed clients).
 package activities
 
 import (
@@ -33,7 +33,8 @@ func New(db *pgxpool.Pool) *Activities {
 }
 
 func env(k, def string) string {
-	if v := os.Getenv(k); v != "" {
+	v := os.Getenv(k)
+	if v != "" {
 		return v
 	}
 	return def
@@ -46,14 +47,15 @@ func (a *Activities) LookupProductActivity(ctx context.Context, productID string
 	if err != nil {
 		return 0, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != 200 {
 		return 0, fmt.Errorf("catalog status %d", resp.StatusCode)
 	}
 	var out struct {
 		PriceCents int32 `json:"price_cents"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+	err = json.NewDecoder(resp.Body).Decode(&out)
+	if err != nil {
 		return 0, err
 	}
 	return out.PriceCents, nil
@@ -70,14 +72,15 @@ func (a *Activities) ChargeActivity(ctx context.Context, orderID string, totalCe
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != 202 {
 		return "", fmt.Errorf("payment status %d", resp.StatusCode)
 	}
 	var out struct {
 		ID string `json:"id"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+	err = json.NewDecoder(resp.Body).Decode(&out)
+	if err != nil {
 		return "", err
 	}
 	return out.ID, nil

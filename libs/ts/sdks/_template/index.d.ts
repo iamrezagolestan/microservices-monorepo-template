@@ -26,11 +26,21 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** @description RFC 7807 problem document. */
+        Problem: {
+            code: string;
+            message: string;
+            details?: {
+                [key: string]: unknown;
+            };
+        };
+        /** @description A template item. */
         Item: {
             /** Format: uuid */
             id: string;
             name: string;
         };
+        /** @description Request body to create an item. */
         ItemInput: {
             name: string;
         };
@@ -42,14 +52,7 @@ export interface components {
                 [name: string]: unknown;
             };
             content: {
-                "application/problem+json": {
-                    /** @example not_found */
-                    code: string;
-                    message: string;
-                    details?: {
-                        [key: string]: unknown;
-                    };
-                };
+                "application/problem+json": components["schemas"]["Problem"];
             };
         };
     };
@@ -88,6 +91,7 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
+        /** @description The item to create. */
         requestBody: {
             content: {
                 "application/json": components["schemas"]["ItemInput"];

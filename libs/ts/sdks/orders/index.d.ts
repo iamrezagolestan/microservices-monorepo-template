@@ -42,6 +42,15 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** @description RFC 7807 problem document. */
+        Problem: {
+            code: string;
+            message: string;
+            details?: {
+                [key: string]: unknown;
+            };
+        };
+        /** @description Handle to an async Temporal workflow run. */
         WorkflowHandle: {
             id: string;
             run_id: string;
@@ -53,11 +62,13 @@ export interface components {
              */
             result_url?: string;
         };
+        /** @description Request body to start a checkout. */
         CheckoutInput: {
             /** Format: uuid */
             product_id: string;
             quantity: number;
         };
+        /** @description A customer order. */
         Order: {
             /** Format: uuid */
             id: string;
@@ -76,14 +87,7 @@ export interface components {
                 [name: string]: unknown;
             };
             content: {
-                "application/problem+json": {
-                    /** @example not_found */
-                    code: string;
-                    message: string;
-                    details?: {
-                        [key: string]: unknown;
-                    };
-                };
+                "application/problem+json": components["schemas"]["Problem"];
             };
         };
     };
@@ -101,6 +105,7 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
+        /** @description The checkout to start. */
         requestBody: {
             content: {
                 "application/json": components["schemas"]["CheckoutInput"];
@@ -124,6 +129,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description Order id. */
                 id: string;
             };
             cookie?: never;

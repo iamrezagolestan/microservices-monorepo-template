@@ -7,7 +7,7 @@
 
 ## Context
 
-Three environments — **dev**, **staging**, **prod** — each on a k3s cluster ([ADR-0003](0003-cluster-topology.md)). Deploys cover ~100 backend services, the frontend, and platform components (Postgres via CNPG, Temporal, Kratos/Hydra, SpiceDB, Tyk, the observability stack, ArgoCD itself).
+Three environments — **dev**, **staging**, **prod** — each on a k3s cluster ([ADR-0003](0003-cluster-topology.md)). Deploys cover the full service fleet (the target scale, [ADR-0000](0000-platform-foundations.md)), the frontend, and platform components (Postgres via CNPG, Temporal, Kratos/Oathkeeper (Hydra when a public API exists), SpiceDB, the observability stack, ArgoCD itself).
 
 We need a single answer to:
 
@@ -116,7 +116,7 @@ reverted. Drift alerts fire to Slack via ArgoCD notifications.
 
 ### Bootstrap
 
-A new cluster bootstraps with two commands after [ADR-0003](0003-cluster-topology.md)'s Terraform + Ansible steps:
+A new cluster bootstraps with two commands after [ADR-0003](0003-cluster-topology.md)'s Ansible step (and Terraform, when the project provisions its own infra):
 
 ```sh
 helm install argocd infra/helm/platform/argocd -n argocd --create-namespace
@@ -131,7 +131,7 @@ Secret values are not in git. Encrypted SOPS files in the repo are decrypted by 
 
 ### Local development
 
-GitOps is **not used locally.** `mise run dev:up` runs `helm install` directly against k3d:
+GitOps is **not used locally.** `mise run cluster:up` runs `helm install` directly against k3d:
 
 - Engineers iterate on Helm chart changes without committing.
 - ArgoCD itself is a component under test in some workflows; running it locally adds startup time without value.

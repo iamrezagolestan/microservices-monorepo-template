@@ -1,9 +1,0 @@
-{
-  "name": "@platform/feature-flags",
-  "version": "0.0.0",
-  "private": true,
-  "type": "module",
-  "dependencies": {
-    "@openfeature/web-sdk": "1.4.0"
-  }
-}

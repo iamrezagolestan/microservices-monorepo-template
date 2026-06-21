@@ -43,12 +43,22 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** @description RFC 7807 problem document. */
+        Problem: {
+            code: string;
+            message: string;
+            details?: {
+                [key: string]: unknown;
+            };
+        };
+        /** @description A catalog product. */
         Product: {
             /** Format: uuid */
             id: string;
             name: string;
             price_cents: number;
         };
+        /** @description Request body to create a product. */
         ProductInput: {
             name: string;
             price_cents: number;
@@ -61,14 +71,7 @@ export interface components {
                 [name: string]: unknown;
             };
             content: {
-                "application/problem+json": {
-                    /** @example not_found */
-                    code: string;
-                    message: string;
-                    details?: {
-                        [key: string]: unknown;
-                    };
-                };
+                "application/problem+json": components["schemas"]["Problem"];
             };
         };
     };
@@ -88,7 +91,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description OK */
+            /** @description The product list */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -107,6 +110,7 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
+        /** @description The product to create. */
         requestBody: {
             content: {
                 "application/json": components["schemas"]["ProductInput"];
@@ -130,13 +134,14 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description Product id. */
                 id: string;
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description OK */
+            /** @description The requested product */
             200: {
                 headers: {
                     [name: string]: unknown;

@@ -1,41 +1,40 @@
 [tools]
 # Languages & runtimes
-go = "1.26.3"
+go = "1.26.4"
 bun = "1.3.14"
 
 # Database tooling
-dbmate = "v2.33.0"
-sqlc = "v1.31.1"
+dbmate = "2.33.0"
+sqlc = "1.31.1"
 "github:quarylabs/sqruff" = "0.38.0"
 
 # API contracts & codegen
-"go:github.com/ogen-go/ogen/cmd/ogen" = "v1.20.3"
-vacuum = "0.28.4"
+"go:github.com/ogen-go/ogen/cmd/ogen" = "1.22.0"
+vacuum = "0.29.2"
 
 # Frontend toolchain
-biome = "2.4.16"
+biome = "2.5.0"
 
 # Kubernetes & infra
-helm = "4.2.0"
-kubectl = "1.36.1"
-cilium-cli = "0.18.4"
+helm = "4.2.2"
+kubectl = "1.36.2"
+cilium-cli = "0.19.4"
 kustomize = "5.8.1"
-terraform = "1.15.3"
-k3d = "v5.8.3"
-skaffold = "2.21.0"
-ansible = "13.6.0"
+terraform = "1.15.6"
+k3d = "5.9.0"
+skaffold = "2.22.0"
+ansible = "14.0.0"
 
 # Secrets
-age = "v1.3.1"
-sops = "v3.13.1"
+age = "1.3.1"
+sops = "3.13.1"
 
 # Repo hygiene
-lefthook = "2.1.8"
+lefthook = "2.1.9"
 cocogitto = "7.0.0"
 act = "0.2.89"
-golangci-lint = "v2.12.2"
-gofumpt = "0.10.0"
-rumdl = "0.2.6"
+golangci-lint = "2.12.2"
+rumdl = "0.2.18"
 
 [env]
 GOFLAGS = "-mod=readonly"
@@ -44,38 +43,54 @@ CGO_ENABLED = "0"
 [tasks.setup]
 run = "lefthook install"
 
-[tasks."tools:upgrade"]
-# Usage: mise run tools:upgrade [-- --dry-run] [-- --yes]
+[tasks.upgrade]
+depends = ["upgrade:tools", "upgrade:js", "upgrade:go"]
+
+[tasks."upgrade:tools"]
 run = "bash scripts/upgrade-tools.sh"
 
-[tasks."dev:up"]
-# Create the local k3d cluster + lightweight deps (Postgres, Temporal, SpiceDB).
-run = "bash scripts/dev-up.sh"
+[tasks."upgrade:js"]
+run = "bun update --latest --recursive"
 
-[tasks."dev:down"]
-# Delete the local k3d cluster.
-run = "bash scripts/dev-down.sh"
+[tasks."upgrade:go"]
+# GOFLAGS override: go get must write go.mod (env pins -mod=readonly).
+# Scope to Go roots so go get skips node_modules (bun symlinks → "ignoring symlink" noise).
+run = """
+GOFLAGS= go get -u ./libs/... ./services/... ./tools/...
+GOFLAGS= go mod tidy
+"""
+
+[tasks."cluster:up"]
+# Brings up Postgres, Temporal, SpiceDB alongside the cluster.
+run = "bash scripts/cluster-up.sh"
+
+[tasks."cluster:down"]
+run = "bash scripts/cluster-down.sh"
+
+[tasks."cluster:full:up"]
+# Heavy local platform: Cilium CNI, edge (Traefik + Oathkeeper), Kratos, SpiceDB,
+# MinIO-backed Grafana LGTM, and the services. ~16GB RAM. See docs/dev-loop.md.
+run = "bash scripts/cluster-full.sh"
+
+[tasks."cluster:full:down"]
+run = "bash scripts/cluster-full-down.sh"
 
 [tasks.dev]
-# Inner loop: build, deploy and live-reload services in k3d (ADR-0003).
-depends = ["dev:up"]
+# Trailing args forward to skaffold; -m scopes to one service (ADR-0003).
+depends = ["cluster:up"]
 run = "skaffold dev"
 
-[tasks."dev:debug"]
-# Same as dev, with Delve attached for IDE remote-debugging.
-depends = ["dev:up"]
-run = "skaffold debug"
-
-[tasks."dev:migrate"]
-# Apply each service's migrations to the local Postgres (ADR-0007).
-run = "bash scripts/dev-migrate.sh"
+[tasks."db:migrate"]
+run = "bash scripts/db-migrate.sh"
 
 [tasks."secrets:age"]
-# Generate the SOPS age key (idempotent) and write .sops.yaml (ADR-0005).
+# Idempotent; also writes .sops.yaml (ADR-0005).
 run = "bash scripts/gen-age.sh"
 
-[tasks."gen:all"]
-depends = ["gen:openapi", "gen:sqlc", "gen:tyk"]
+[tasks.gen]
+# No gateway codegen — the edge (Traefik + Oathkeeper) does not consume the
+# OpenAPI spec; ogen + sqlc are the only generators (ADR-0008, ADR-0009).
+depends = ["gen:openapi", "gen:sqlc"]
 
 [tasks."gen:openapi"]
 run = "bash scripts/gen-openapi.sh"
@@ -83,8 +98,12 @@ run = "bash scripts/gen-openapi.sh"
 [tasks."gen:sqlc"]
 run = "bash scripts/gen-sqlc.sh"
 
-[tasks."gen:tyk"]
-run = "go run ./tools/codegen/tyk-gen"
+[tasks."gen:clean"]
+# Wipe generated SDKs and regenerate, pruning orphans. (sqlc untouched.)
+run = """
+rm -rf libs/go/sdks/* libs/ts/sdks/*
+mise run gen
+"""
 
 [tasks.lint]
 depends = ["lint:go", "lint:sql", "lint:openapi", "lint:floating-tags", "lint:ts", "lint:md"]
@@ -105,7 +124,6 @@ run = "bash scripts/lint-openapi.sh"
 run = "bash scripts/lint-floating-tags.sh"
 
 [tasks."lint:md"]
-# Reads rules and ignores from .rumdl.toml at repo root.
 run = "rumdl check ."
 
 [tasks.test]
@@ -127,21 +145,20 @@ depends = ["test"]
 depends = ["build"]
 
 [tasks."ci:gen"]
-# Regenerate everything and fail if anything changed (drift check)
-run = "mise run gen:all && git diff --exit-code"
+# Drift check: fail if regeneration changes anything.
+run = "mise run gen && git diff --exit-code"
 
 [tasks.format]
 depends = ["format:go", "format:ts", "format:md"]
 
 [tasks."format:go"]
-run = "gofumpt -w ."
+run = "golangci-lint fmt ./..."
 
 [tasks."format:ts"]
 run = "biome format --write ."
 
 [tasks."format:md"]
-# rumdl is the only Markdown formatter — do NOT rely on the IDE's
-# Ctrl+Alt+L for .md files (see docs/adr / README).
+# rumdl is the only Markdown formatter — never the IDE's.
 run = "rumdl fmt ."
 
 [tasks.pre-commit]

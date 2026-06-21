@@ -10,6 +10,7 @@ paths:
       description: Starts the Checkout Temporal saga (ADR-0006).
       requestBody:
         required: true
+        description: The checkout to start.
         content:
           application/json:
             schema: { $ref: "#/components/schemas/CheckoutInput" }
@@ -25,7 +26,7 @@ paths:
       operationId: getOrder
       description: Fetch an order by id.
       tags: [orders]
-      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      parameters: [{ name: id, in: path, required: true, description: Order id., schema: { type: string, format: uuid } }]
       responses:
         "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Order" } } } }
         default: { $ref: "#/components/responses/Error" }
@@ -35,16 +36,19 @@ components:
       description: Error response
       content:
         application/problem+json:
-          schema:
-            type: object
-            required: [code, message]
-            properties:
-              code:    { type: string, example: "not_found" }
-              message: { type: string }
-              details: { type: object, additionalProperties: true }
+          schema: { $ref: "#/components/schemas/Problem" }
   schemas:
+    Problem:
+      type: object
+      description: RFC 7807 problem document.
+      required: [code, message]
+      properties:
+        code:    { type: string }
+        message: { type: string }
+        details: { type: object, additionalProperties: true }
     WorkflowHandle:
       type: object
+      description: Handle to an async Temporal workflow run.
       required: [id, run_id, status]
       properties:
         id:     { type: string }
@@ -53,12 +57,14 @@ components:
         result_url: { type: string, format: uri, description: "GET to fetch terminal status + result" }
     CheckoutInput:
       type: object
+      description: Request body to start a checkout.
       required: [product_id, quantity]
       properties:
         product_id: { type: string, format: uuid }
         quantity:   { type: integer, minimum: 1 }
     Order:
       type: object
+      description: A customer order.
       required: [id, product_id, quantity, total_cents, status]
       properties:
         id:          { type: string, format: uuid }

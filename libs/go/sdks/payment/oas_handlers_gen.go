@@ -35,8 +35,8 @@ func (c *codeRecorder) Unwrap() http.ResponseWriter {
 
 // handleCreateChargeRequest handles createCharge operation.
 //
-// Starts the Charge Temporal workflow. Idempotent on Idempotency-Key header.
-// Returns a workflow handle (ADR-0006).
+// Starts the Charge Temporal workflow. Idempotent on Idempotency-Key header. Returns a workflow handle
+// (ADR-0006).
 //
 // POST /charges
 func (s *Server) handleCreateChargeRequest(args [0]string, argsEscaped bool, w http.ResponseWriter, r *http.Request) {
@@ -51,8 +51,7 @@ func (s *Server) handleCreateChargeRequest(args [0]string, argsEscaped bool, w h
 	otelAttrs = append(otelAttrs, s.cfg.Attributes...)
 
 	// Start a span for this request.
-	ctx, span := s.cfg.Tracer.Start(
-		r.Context(), CreateChargeOperation,
+	ctx, span := s.cfg.Tracer.Start(r.Context(), CreateChargeOperation,
 		trace.WithAttributes(otelAttrs...),
 		serverSpanKind,
 	)
@@ -73,7 +72,7 @@ func (s *Server) handleCreateChargeRequest(args [0]string, argsEscaped bool, w h
 		if code != 0 {
 			codeAttr := semconv.HTTPResponseStatusCode(code)
 			attrs = append(attrs, codeAttr)
-			span.SetAttributes(codeAttr)
+			span.SetAttributes(attrs...)
 		}
 		attrOpt := metric.WithAttributes(attrs...)
 
@@ -221,8 +220,7 @@ func (s *Server) handleGetChargeRequest(args [1]string, argsEscaped bool, w http
 	otelAttrs = append(otelAttrs, s.cfg.Attributes...)
 
 	// Start a span for this request.
-	ctx, span := s.cfg.Tracer.Start(
-		r.Context(), GetChargeOperation,
+	ctx, span := s.cfg.Tracer.Start(r.Context(), GetChargeOperation,
 		trace.WithAttributes(otelAttrs...),
 		serverSpanKind,
 	)
@@ -243,7 +241,7 @@ func (s *Server) handleGetChargeRequest(args [1]string, argsEscaped bool, w http
 		if code != 0 {
 			codeAttr := semconv.HTTPResponseStatusCode(code)
 			attrs = append(attrs, codeAttr)
-			span.SetAttributes(codeAttr)
+			span.SetAttributes(attrs...)
 		}
 		attrOpt := metric.WithAttributes(attrs...)
 

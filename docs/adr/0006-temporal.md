@@ -90,7 +90,7 @@ services/<service>/
 2. The caller invokes it via the generated client in `libs/go/sdks/<service>/`.
 3. The response is `202 Accepted` with a workflow handle conforming to the `WorkflowHandle` schema declared in each service's OpenAPI `components` (see [ADR-0008](0008-api-contracts.md)).
 
-A service never starts another service's workflow directly via the Temporal client; doing so would import the callee's workflow input struct (coupling) and bypass OpenAPI, Tyk, tracing, and auth.
+A service never starts another service's workflow directly via the Temporal client; doing so would import the callee's workflow input struct (coupling) and bypass OpenAPI, tracing, and the identity-header contract.
 
 **Waiting on a cross-service workflow.** Pick by need:
 
@@ -136,7 +136,7 @@ Liberal use of workflows for multi-step / compensable / cross-system operations;
 - **Task queues:** named per-service (e.g. `payments-tq`, `checkout-tq`), plus a shared `background-tq`.
 - **Namespaces:** one per environment (`dev`, `staging`, `prod`).
 - **History retention:** 30 days production, 7 days non-prod.
-- **Local development:** `temporal server start-dev` invoked by `mise run dev:up`.
+- **Local development:** `temporal server start-dev` invoked by `mise run cluster:up`.
 
 ### Conventions
 
@@ -150,10 +150,10 @@ Liberal use of workflows for multi-step / compensable / cross-system operations;
 
 ### Cross-cutting integrations
 
-- **Authz-relevant mutations** ([ADR-0010](0010-auth.md)): the app-DB write and the authz-store write are activities in the same workflow. Direct DB writes that mutate authz-relevant tables outside a workflow are a review-blocker.
-- **OpenAPI** ([ADR-0008](0008-api-contracts.md)): handlers that start workflows return `202 Accepted` with a workflow-run reference in the body conforming to the `WorkflowHandle` schema declared in each service's OpenAPI spec.
-- **Auth** ([ADR-0010](0010-auth.md)): activities that call other services attach a service-to-service JWT minted at activity start. Tokens do not span activity boundaries.
-- **Observability** ([ADR-0011](0011-observability.md)): every workflow carries a W3C trace context; activities propagate it.
+Authz dual-write discipline is [ADR-0010](0010-auth.md)'s; the `WorkflowHandle` response shape is [ADR-0008](0008-api-contracts.md)'s;
+service-to-service identity propagation on activity calls is [ADR-0010](0010-auth.md)'s (forwarded identity headers,
+gated by Cilium NetworkPolicy — no per-call token); trace propagation through workflows and activities is
+[ADR-0011](0011-observability.md)'s default. Nothing here overrides those.
 
 ## Consequences
 
@@ -175,8 +175,8 @@ Liberal use of workflows for multi-step / compensable / cross-system operations;
 ### Follow-ups
 
 - `infra/helm/platform/temporal/` deployment with Postgres backing.
-- `libs/go/temporal/` shared client config, default retry policies, tracing middleware, replay-test scaffolding.
-- `tools/scripts/dev-up.sh` brings up `temporal server start-dev` alongside other local infra.
+- `libs/go/temporalmw/` shared client config, default retry policies, tracing middleware, replay-test scaffolding.
+- `scripts/cluster-up.sh` brings up `temporal server start-dev` alongside other local infra.
 - `golangci-lint` config including `workflowcheck`.
 - `docs/temporal/long-running.md` registry (initially empty).
 - Standard `202 Accepted` workflow-handle shape, declared inline as the `WorkflowHandle` schema in each service's `openapi.yaml` `components`.

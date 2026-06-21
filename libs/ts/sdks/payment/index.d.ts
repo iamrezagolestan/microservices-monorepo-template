@@ -45,6 +45,15 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** @description RFC 7807 problem document. */
+        Problem: {
+            code: string;
+            message: string;
+            details?: {
+                [key: string]: unknown;
+            };
+        };
+        /** @description Handle to an async Temporal workflow run. */
         WorkflowHandle: {
             id: string;
             run_id: string;
@@ -56,11 +65,13 @@ export interface components {
              */
             result_url?: string;
         };
+        /** @description Request body to create a charge. */
         ChargeInput: {
             /** Format: uuid */
             order_id: string;
             amount_cents: number;
         };
+        /** @description A payment charge against an order. */
         Charge: {
             /** Format: uuid */
             id: string;
@@ -78,14 +89,7 @@ export interface components {
                 [name: string]: unknown;
             };
             content: {
-                "application/problem+json": {
-                    /** @example not_found */
-                    code: string;
-                    message: string;
-                    details?: {
-                        [key: string]: unknown;
-                    };
-                };
+                "application/problem+json": components["schemas"]["Problem"];
             };
         };
     };
@@ -100,11 +104,13 @@ export interface operations {
         parameters: {
             query?: never;
             header: {
+                /** @description Client-generated key that makes the charge request idempotent. */
                 "Idempotency-Key": string;
             };
             path?: never;
             cookie?: never;
         };
+        /** @description The charge to create. */
         requestBody: {
             content: {
                 "application/json": components["schemas"]["ChargeInput"];
@@ -128,6 +134,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description Charge id. */
                 id: string;
             };
             cookie?: never;
