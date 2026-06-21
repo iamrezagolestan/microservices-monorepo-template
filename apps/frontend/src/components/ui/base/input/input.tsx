@@ -20,7 +20,7 @@ import {
   Input as AriaInput,
   TextField as AriaTextField,
 } from "react-aria-components";
-import { cx, sortCx } from "../../../cn";
+import { cx, sortCx } from "@/lib/cn";
 import { Tooltip, TooltipTrigger } from "../tooltip/tooltip";
 import { HintText } from "./hint-text";
 import { Label } from "./label";
@@ -381,7 +381,6 @@ export const Input = ({
               tooltipClassName,
               tooltip,
               type,
-              isDisabled: props.isDisabled,
             }}
           />
 

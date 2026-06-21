@@ -1,6 +1,6 @@
 "use client";
 
-import { Input } from "@ui";
+import { Input } from "@/components/ui";
 import { Mail01 } from "@untitledui/icons";
 
 const INPUT_FIELD_CLASS_NAME = "figma-input-field w-[324px] items-end gap-1.5 text-right";
@@ -76,7 +76,7 @@ export function InputExamples() {
         icon={Mail01}
         iconClassName={INPUT_ICON_CLASS_NAME}
         inputClassName={INPUT_TEXT_CLASS_NAME}
-        isDisabled={true}
+        isDisabled
         isRequired
         label={EMAIL_LABEL}
         labelClassName={INPUT_LABEL_CLASS_NAME}

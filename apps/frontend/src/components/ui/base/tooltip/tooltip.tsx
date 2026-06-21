@@ -12,7 +12,7 @@ import {
   Tooltip as AriaTooltip,
   TooltipTrigger as AriaTooltipTrigger,
 } from "react-aria-components";
-import { cx } from "../../../cn";
+import { cx } from "@/lib/cn";
 
 interface TooltipProps
   extends AriaTooltipTriggerComponentProps,
