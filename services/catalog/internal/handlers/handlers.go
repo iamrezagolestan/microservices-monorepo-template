@@ -1,4 +1,4 @@
-// Handlers implement the ogen-generated catalog.Handler interface (ADR-0008).
+// Package handlers implement the ogen-generated catalog.Handler interface (ADR-0008).
 // Hand-written code imports the generated schema types and the sqlc store; it
 // never shadows them with parallel structs or inline SQL.
 package handlers
@@ -6,6 +6,7 @@ package handlers
 import (
 	"context"
 	"errors"
+	"math"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -48,7 +49,7 @@ func (h *Handlers) GetProduct(ctx context.Context, params catalog.GetProductPara
 }
 
 func (h *Handlers) CreateProduct(ctx context.Context, req *catalog.ProductInput) (*catalog.Product, error) {
-	if req.Name == "" || req.PriceCents < 0 {
+	if req.Name == "" || req.PriceCents < 0 || req.PriceCents > math.MaxInt32 {
 		return nil, apierr.BadRequest("name and price_cents required")
 	}
 	row, err := h.q.CreateProduct(ctx, store.CreateProductParams{Name: req.Name, PriceCents: int32(req.PriceCents)})

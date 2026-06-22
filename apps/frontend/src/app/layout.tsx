@@ -1,11 +1,12 @@
 import "../styles/globals.css";
 import { Vazirmatn } from "next/font/google";
 
+import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { ObservabilityInit } from "./observability-init";
 import { Providers } from "./providers";
 
-export const metadata = { title: "Platform" };
+export const metadata: Metadata = { title: "Platform" };
 
 const vazirmatn = Vazirmatn({
   subsets: ["arabic"],

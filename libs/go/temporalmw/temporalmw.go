@@ -4,6 +4,7 @@
 package temporalmw
 
 import (
+	"fmt"
 	"os"
 
 	"go.temporal.io/sdk/client"
@@ -34,20 +35,30 @@ func Namespace() string {
 func NewClient(serviceName string) (client.Client, error) {
 	tracingInterceptor, err := temporaloteltracer.NewTracingInterceptor(temporaloteltracer.TracerOptions{})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("temporalmw: new tracing interceptor: %w", err)
 	}
-	return client.Dial(client.Options{
-		HostPort:     Address(),
-		Namespace:    Namespace(),
-		Identity:     serviceName,
-		Interceptors: []interceptor.ClientInterceptor{tracingInterceptor},
-	})
+	c, err := client.Dial(
+		client.Options{
+			HostPort:     Address(),
+			Namespace:    Namespace(),
+			Identity:     serviceName,
+			Interceptors: []interceptor.ClientInterceptor{tracingInterceptor},
+		},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("temporalmw: dial: %w", err)
+	}
+	return c, nil
 }
 
 // NewWorker constructs a Temporal worker with the platform-default options.
 func NewWorker(c client.Client, taskQueue string) worker.Worker {
-	return worker.New(c, taskQueue, worker.Options{
-		EnableSessionWorker:                true,
-		MaxConcurrentActivityExecutionSize: 50,
-	})
+	return worker.New(
+		c,
+		taskQueue,
+		worker.Options{
+			EnableSessionWorker:                true,
+			MaxConcurrentActivityExecutionSize: 50,
+		},
+	)
 }

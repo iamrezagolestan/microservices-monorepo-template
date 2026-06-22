@@ -9,6 +9,7 @@ package authmw
 import (
 	"context"
 	"net/http"
+	"slices"
 	"strings"
 )
 
@@ -39,12 +40,7 @@ func (p *Principal) HasRole(role string) bool {
 	if p == nil {
 		return false
 	}
-	for _, r := range p.Roles {
-		if r == role {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(p.Roles, role)
 }
 
 // Subject renders the principal as a SpiceDB subject ("user:<id>") for the
@@ -78,10 +74,12 @@ func FromContext(ctx context.Context) (*Principal, bool) {
 // handler's job via the authz Checker.
 func Middleware() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			ctx := context.WithValue(r.Context(), principalKey, Read(r.Header))
-			next.ServeHTTP(w, r.WithContext(ctx))
-		})
+		return http.HandlerFunc(
+			func(w http.ResponseWriter, r *http.Request) {
+				ctx := context.WithValue(r.Context(), principalKey, Read(r.Header))
+				next.ServeHTTP(w, r.WithContext(ctx))
+			},
+		)
 	}
 }
 
