@@ -150,7 +150,7 @@ Biome is the single lint+format tool for the frontend.
 The browser side of [ADR-0011](0011-observability.md) is wired here.
 
 - `@opentelemetry/sdk-trace-web` + `@opentelemetry/instrumentation-fetch` live in `src/lib/observability/client.ts` and are initialised from a client-only entry at `apps/frontend/src/app/observability-init.tsx`. Trace IDs propagate via `traceparent` on outbound fetches, joining the same trace as the upstream services.
-- **Grafana Faro** is the browser RUM agent. Web Vitals (LCP, INP, CLS), JS errors, and session traces forward through a Traefik-fronted ingest route to the cluster's OTel Collector gateway, landing in the same Loki/Tempo backends as services.
+- **Grafana Faro** is the browser RUM agent. Web Vitals (LCP, INP, CLS), JS errors, and session traces forward through a Traefik-fronted ingest route (`/api/observability/faro/*`) to the OTel Collector's `faro` receiver ([ADR-0011](0011-observability.md)), landing in the same Loki/Tempo backends as services. Locally, where `next dev` runs on the host with no edge, a dev-only route handler shims this path (see [ADR-0011](0011-observability.md) *Local development*).
 - Next.js server logs are structured JSON via **`pino`**, stdout-only, enriched with `trace_id` from the active span. `console.log` is Biome-forbidden.
 - Build embeds `SERVICE_VERSION` from the git SHA so traces and errors are version-attributable.
 
@@ -210,6 +210,7 @@ No i18n library is adopted day one. All user-facing strings live as TS constants
 - `src/lib/observability/{client,server}.ts` wiring OTel-JS, Faro, and `pino`, initialised from `apps/frontend/src/app/observability-init.tsx`.
 - `src/proxy.ts` CSP nonce generation and `serverActions.allowedOrigins` in `next.config`.
 - `infra/gateway/frontend-observability.yaml` Traefik ingest route for OTel + Faro from the browser.
+- `apps/frontend/src/app/api/observability/faro/collect/route.ts` dev-only Faro shim (forwards to local Grafana Alloy via `FARO_COLLECT_URL`, else 204s; 404s in prod where Traefik owns the path) — see [ADR-0011](0011-observability.md) *Local development*.
 - `docs/frontend/conventions.md` short pointer file linking back to this ADR.
 
 ## Rules

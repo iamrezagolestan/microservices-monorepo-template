@@ -16,9 +16,21 @@ opentelemetry-collector:
   # processor). The chart ships no default image, so it must be set explicitly.
   image: { repository: otel/opentelemetry-collector-contrib }
   presets: { kubernetesAttributes: { enabled: true } }
+  # Browser beacons reach the collector through a ClusterIP Service (Traefik →
+  # otel-collector:8027). Services still emit to localhost:4317, not this Service.
+  # In daemonset mode the chart omits the Service unless explicitly enabled.
+  service: { enabled: true }
+  # Expose the Faro receiver port on that Service so Traefik can route to it
+  # (infra/gateway/frontend-observability.yaml, ADR-0014).
+  ports:
+    faro: { enabled: true, containerPort: 8027, servicePort: 8027, protocol: TCP }
   config:
     receivers:
       otlp: { protocols: { grpc: { endpoint: 0.0.0.0:4317 }, http: { endpoint: 0.0.0.0:4318 } } }
+      # Browser RUM from the frontend's Grafana Faro agent (ADR-0014). Emits
+      # web traces and RUM logs/events; fed into the traces + logs pipelines
+      # below so browser signals land in the same Tempo/Loki as services.
+      faro: { endpoint: 0.0.0.0:8027 }
     processors:
       memory_limiter:
         check_interval: 1s
@@ -39,9 +51,9 @@ opentelemetry-collector:
       otlphttp/loki:    { endpoint: http://loki.platform.svc.cluster.local:3100/otlp }
     service:
       pipelines:
-        traces:  { receivers: [otlp], processors: [memory_limiter, probabilistic_sampler, batch], exporters: [otlphttp/tempo] }
+        traces:  { receivers: [otlp, faro], processors: [memory_limiter, probabilistic_sampler, batch], exporters: [otlphttp/tempo] }
         metrics: { receivers: [otlp], processors: [memory_limiter, batch], exporters: [otlphttp/mimir] }
-        logs:    { receivers: [otlp], processors: [memory_limiter, batch], exporters: [otlphttp/loki] }
+        logs:    { receivers: [otlp, faro], processors: [memory_limiter, batch], exporters: [otlphttp/loki] }
 
 grafana:
   fullnameOverride: grafana

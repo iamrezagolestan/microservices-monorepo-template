@@ -10,7 +10,7 @@ export const landing = {
   auth: {
     title: "Sign in",
     starting: "Starting Kratos login flow…",
-    begin: "Begin",
-    flowLabel: "Flow",
+    submit: "Sign in",
+    error: "Could not start sign-in. Please retry.",
   },
 } as const;

@@ -1,0 +1,12 @@
+dependencies:
+- name: kratos
+  repository: https://k8s.ory.sh/helm/charts
+  version: 0.45.0
+- name: oathkeeper
+  repository: https://k8s.ory.sh/helm/charts
+  version: 0.45.0
+- name: hydra
+  repository: https://k8s.ory.sh/helm/charts
+  version: 0.45.0
+digest: sha256:4b14823f5fdd7b485020c139e94bc441cc803adac326875e64ca69d64a72cb88
+generated: "2026-06-22T17:46:02.702220208+04:00"

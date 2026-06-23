@@ -68,8 +68,7 @@ run = "bash scripts/cluster-up.sh"
 run = "bash scripts/cluster-down.sh"
 
 [tasks."cluster:full:up"]
-# Heavy local platform: Cilium CNI, edge (Traefik + Oathkeeper), Kratos, SpiceDB,
-# MinIO-backed Grafana LGTM, and the services. ~16GB RAM. See docs/dev-loop.md.
+# Heavy local platform. See docs/dev-loop.md.
 run = "bash scripts/cluster-full.sh"
 
 [tasks."cluster:full:down"]
@@ -79,6 +78,17 @@ run = "bash scripts/cluster-full-down.sh"
 # Trailing args forward to skaffold; -m scopes to one service (ADR-0003).
 depends = ["cluster:up"]
 run = "skaffold dev"
+
+[tasks."dev:obs"]
+# Opt-in observability (ADR-0011). For host-run `next dev`, set
+# FARO_COLLECT_URL=http://localhost:12347/collect.
+depends = ["cluster:up"]
+run = "skaffold dev -m observability -p obs"
+
+[tasks."dev:all"]
+# Services + observability in one loop.
+depends = ["cluster:up"]
+run = "skaffold dev -p obs"
 
 [tasks."db:migrate"]
 run = "bash scripts/db-migrate.sh"

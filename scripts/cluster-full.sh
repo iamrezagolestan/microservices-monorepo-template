@@ -58,9 +58,26 @@ if ! k3d cluster list 2>/dev/null | awk '{print $1}' | grep -qx "$CLUSTER"; then
     --port "8080:80@loadbalancer" --port "8443:443@loadbalancer" \
     --k3s-arg '--flannel-backend=none@server:*' \
     --k3s-arg '--disable-network-policy@server:*' \
+    --k3s-arg '--kubelet-arg=eviction-hard=imagefs.available<5%,nodefs.available<5%@server:*' \
     "${PROXY_ARGS[@]}"
 fi
 kubectl config use-context "k3d-${CLUSTER}"
+
+# When egress goes through the loopback proxy, the node's containerd is pointed at
+# http://host.k3d.internal:<port>. k3d only teaches CoreDNS that name (for pods),
+# not the node container's /etc/hosts — and Docker rewrites /etc/hosts on every
+# container start, so after a host/Docker restart the node can no longer resolve
+# the proxy. Image pulls (even the pause sandbox) then fail, Cilium never starts,
+# and the whole cluster wedges. Re-assert the entry idempotently on every run.
+if [ -n "$host_proxy" ]; then
+  for node in $(docker ps --format '{{.Names}}' \
+      --filter "label=k3d.cluster=${CLUSTER}" \
+      --filter "label=k3d.role=server" --filter "label=k3d.role=agent"); do
+    gw="$(docker inspect "$node" --format '{{range .NetworkSettings.Networks}}{{.Gateway}}{{end}}')"
+    docker exec "$node" sh -c \
+      "grep -q host.k3d.internal /etc/hosts || echo '${gw} host.k3d.internal' >> /etc/hosts"
+  done
+fi
 
 # ---------------------------------------------------------------------------
 # 2. Cilium. kubeProxyReplacement is off for local reliability (k3d keeps
@@ -73,9 +90,11 @@ h upgrade --install cilium infra/helm/platform/cilium -n kube-system \
   --set cilium.kubeProxyReplacement=false \
   --set cilium.k8sServiceHost="${SERVER_IP}" \
   --set cilium.k8sServicePort=6443 \
+  --set cilium.operator.replicas=1 \
   --timeout 5m
-# Single operator replica locally (default 2 needs 2 nodes for anti-affinity).
-k -n kube-system scale deploy/cilium-operator --replicas=1
+# Single operator replica locally (default 2 needs 2 nodes for anti-affinity);
+# set via Helm so it owns .spec.replicas — an imperative `kubectl scale` would
+# grab that field and make the next helm upgrade fail with an SSA conflict.
 echo "→ waiting for the node to go Ready (Cilium up)…"
 k wait --for=condition=Ready node --all --timeout=300s
 
@@ -166,7 +185,35 @@ h upgrade --install observability infra/helm/platform/observability -n "$NS" \
 # 8. Edge routing: Traefik middlewares + cross-cutting IngressRoutes.
 # ---------------------------------------------------------------------------
 echo "→ applying gateway (Traefik middlewares + routes)"
+# Traefik opt-ins (cross-namespace + ExternalName) must land before the routes
+# that depend on them; the bundled Traefik redeploys to pick the config up.
+k apply -f infra/local/traefik-config.yaml
 k apply -k infra/gateway
+# Local-only edge: route /auth + landing to the host-run `next dev` (the frontend
+# is not deployed in-cluster locally) and the Kratos public API to ory-kratos.
+k apply -f infra/local/edge-auth.yaml
+# Point frontend-dev at the host (docker bridge gateway) on :3000 — the dev server
+# isn't in-cluster and CoreDNS has no host.k3d.internal record, so wire the
+# EndpointSlice explicitly. Run `next dev -H 0.0.0.0` on the host to serve it.
+GW="$(docker inspect "k3d-${CLUSTER}-server-0" \
+  --format '{{range .NetworkSettings.Networks}}{{.Gateway}}{{end}}')"
+k apply -f - <<EOF
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  name: frontend-dev
+  namespace: ${NS}
+  labels:
+    kubernetes.io/service-name: frontend-dev
+addressType: IPv4
+ports:
+  - name: http
+    port: 3000
+    protocol: TCP
+endpoints:
+  - addresses: ["${GW}"]
+    conditions: { ready: true }
+EOF
 
 # ---------------------------------------------------------------------------
 # 9. Services — build local images and deploy via the same service chart as prod.

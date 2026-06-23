@@ -14,7 +14,7 @@ metadata:
   namespace: platform
 spec:
   forwardAuth:
-    address: http://oathkeeper-api.platform.svc.cluster.local:4456/decisions
+    address: http://ory-oathkeeper-api.platform.svc.cluster.local:4456/decisions
     authResponseHeaders:
       - X-User-Id
       - X-Org-Id
