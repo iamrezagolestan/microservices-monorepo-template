@@ -68,7 +68,9 @@ run = "bash scripts/cluster-up.sh"
 run = "bash scripts/cluster-down.sh"
 
 [tasks."cluster:full:up"]
-# Heavy local platform. See docs/dev-loop.md.
+# Heavy local platform. Optional profile arg selects the component subset:
+#   mise run cluster:full:up [min|backend|obs|full]   (default full)
+# See docs/dev-loop.md.
 run = "bash scripts/cluster-full.sh"
 
 [tasks."cluster:full:down"]

@@ -12,10 +12,13 @@
 # direct helm is the documented local alternative (docs/dev-loop.md).
 #
 # Requirements: ~16GB free RAM (32GB comfortable), Docker, and the mise tools.
-# Local substitutions vs prod: Cilium runs alongside kube-proxy; object storage
-# is in-cluster MinIO (not an off-cluster bucket); TLS is a self-signed wildcard;
-# secrets are plain (not SOPS); data deps are the lightweight ones, not CNPG /
-# the Temporal Helm chart (those stay staging/prod — too heavy for a laptop).
+# Local substitutions vs prod (ADR-0016): Cilium runs alongside kube-proxy;
+# object storage is in-cluster MinIO (not an off-cluster bucket); TLS is a
+# self-signed wildcard. Secrets use SOPS like every other env — the sops-operator
+# decrypts infra/gitops/platform/local/secrets/*.enc.yaml with the committed
+# throwaway age key. The data tier (CNPG, the Temporal chart, the SpiceDB chart)
+# and observability are the SAME charts staging/prod run, just at instances=1 —
+# see infra/gitops/platform/local/values.yaml for the only delta.
 #
 # Teardown: mise run cluster:full:down
 set -euo pipefail
@@ -29,6 +32,26 @@ cd "$ROOT"
 
 k() { kubectl --context "k3d-${CLUSTER}" "$@"; }
 h() { helm --kube-context "k3d-${CLUSTER}" "$@"; }
+
+# ---------------------------------------------------------------------------
+# 0. Profile (ADR-0016): a thin selector over the SAME charts/values, toggling
+#    which platform components come up. The cluster + Cilium + namespace + TLS +
+#    SOPS secrets are the always-on baseline; everything else is profile-gated.
+#      min      — Postgres only (a service author iterating against a DB)
+#      backend  — + Temporal + SpiceDB (workflows + authz)
+#      obs      — observability + its MinIO backend (the LGTM/Faro slice)
+#      full     — everything, incl. the Ory edge, gateway and services (default)
+# ---------------------------------------------------------------------------
+PROFILE="${1:-full}"
+case "$PROFILE" in
+  min)     COMPONENTS="postgres" ;;
+  backend) COMPONENTS="postgres temporal spicedb" ;;
+  obs)     COMPONENTS="minio observability" ;;
+  full)    COMPONENTS="minio postgres temporal spicedb ory observability gateway services" ;;
+  *) echo "unknown profile '$PROFILE' — use one of: min | backend | obs | full" >&2; exit 1 ;;
+esac
+want() { case " $COMPONENTS " in *" $1 "*) return 0 ;; *) return 1 ;; esac; }
+echo "→ profile '${PROFILE}': ${COMPONENTS}"
 
 # ---------------------------------------------------------------------------
 # 1. k3d cluster with Cilium as the CNI (flannel + built-in netpol disabled).
@@ -96,13 +119,19 @@ h upgrade --install cilium infra/helm/platform/cilium -n kube-system \
 # set via Helm so it owns .spec.replicas — an imperative `kubectl scale` would
 # grab that field and make the next helm upgrade fail with an SSA conflict.
 echo "→ waiting for the node to go Ready (Cilium up)…"
-k wait --for=condition=Ready node --all --timeout=300s
+# Cold Cilium image pulls (esp. proxy-routed) can take >5min; give them headroom
+# so a from-scratch bring-up doesn't trip on a too-tight node-ready wait.
+k wait --for=condition=Ready node --all --timeout=600s
 
 # ---------------------------------------------------------------------------
-# 3. Namespace, local TLS, and stub secrets (SOPS is bypassed locally).
+# 3. Namespace, local TLS, and SOPS-decrypted platform secrets.
 # ---------------------------------------------------------------------------
 k create namespace "$NS" --dry-run=client -o yaml | k apply -f -
 
+# wildcard-tls is the one local Secret minted imperatively: a self-signed cert
+# generated per-machine (its private key is not a shared credential to commit,
+# even encrypted, and it rotates on expiry). Every *credential* below comes from
+# SOPS instead.
 if ! k -n "$NS" get secret wildcard-tls >/dev/null 2>&1; then
   echo "→ generating self-signed wildcard TLS for *.${DOMAIN}"
   tmp="$(mktemp -d)"
@@ -113,91 +142,118 @@ if ! k -n "$NS" get secret wildcard-tls >/dev/null 2>&1; then
   rm -rf "$tmp"
 fi
 
-# MinIO credentials, reused as the S3 creds Loki/Mimir/Tempo read.
-k -n "$NS" create secret generic observability-bucket \
-  --from-literal=AWS_ACCESS_KEY_ID=minioadmin \
-  --from-literal=AWS_SECRET_ACCESS_KEY=minioadmin \
+# sops-operator: decrypts the committed SopsSecret into native Secrets — the same
+# mechanism dev/staging/prod use (ADR-0005). Its decryption key is the throwaway
+# local age key committed at infra/gitops/platform/local/age.key.
+echo "→ installing sops-operator + materialising platform secrets"
+k -n "$NS" create secret generic sops-age-key \
+  --from-file=keys.txt=infra/gitops/platform/local/age.key \
   --dry-run=client -o yaml | k apply -f -
-
-# Per-service DATABASE_URL secrets (point at the lightweight Postgres).
-for svc in catalog orders orgs payment; do
-  k -n "$NS" create secret generic "${svc}-db" \
-    --from-literal=DATABASE_URL="postgres://dev:dev@postgres.${NS}.svc.cluster.local:5432/${svc}?sslmode=disable" \
-    --dry-run=client -o yaml | k apply -f -
+helm dependency update infra/helm/platform/sops-operator >/dev/null
+h upgrade --install sops-operator infra/helm/platform/sops-operator -n "$NS" --timeout 5m
+k -n "$NS" wait --for=condition=Available deploy \
+  -l app.kubernetes.io/name=sops-secrets-operator --timeout=180s || true
+# Apply the encrypted SopsSecret; the operator reconciles it into one Secret per
+# secretTemplates[] entry. Wait for them so the charts below find their creds.
+k apply -f infra/gitops/platform/local/secrets/platform.enc.yaml
+for s in observability-bucket postgres-superuser temporal-db-creds spicedb-creds \
+         catalog-db orders-db orgs-db payment-db; do
+  for _ in $(seq 1 60); do
+    k -n "$NS" get secret "$s" >/dev/null 2>&1 && break
+    sleep 2
+  done
 done
-k -n "$NS" create secret generic spicedb-creds \
-  --from-literal=SPICEDB_PRESHARED_KEY=localdevkey --dry-run=client -o yaml | k apply -f -
 
 # ---------------------------------------------------------------------------
-# 4. Lightweight data deps (Postgres / Temporal dev / SpiceDB) + Kratos DB.
+# 4. Real data tier: CNPG (Postgres), the Temporal chart, the SpiceDB chart —
+#    the same charts staging/prod run, at instances=1 (ADR-0016). Provisions
+#    orders/catalog/orgs/payment/kratos/temporal/temporal_visibility/spicedb
+#    as sibling databases via the Cluster's postInitApplicationSQL. Their creds
+#    (postgres-superuser, temporal-db-creds, spicedb-creds) come from SOPS above.
 # ---------------------------------------------------------------------------
-echo "→ applying lightweight data deps"
-k apply -f infra/local/deps.yaml
-k -n "$NS" rollout status deploy/postgres --timeout=180s
-k -n "$NS" exec deploy/postgres -- psql -U dev -c "CREATE DATABASE kratos;" 2>/dev/null || true
+if want postgres; then
+  echo "→ installing CNPG (Postgres)"
+  helm dependency update infra/helm/platform/postgres >/dev/null
+  # The cloudnative-pg subchart ships its CRDs as ordinary templates, so a single
+  # install races the Cluster/Pooler CRs against CRD registration (prod gets this
+  # ordering from ArgoCD sync-waves). Two passes instead: operator + CRDs first
+  # (cluster.create=false), wait for the CRD to register, then add the CRs.
+  h upgrade --install postgres infra/helm/platform/postgres -n "$NS" \
+    -f infra/gitops/platform/local/values.yaml --set cluster.create=false --timeout 5m
+  k wait --for=condition=Established crd/clusters.postgresql.cnpg.io --timeout=120s
+  k wait --for=condition=Established crd/poolers.postgresql.cnpg.io --timeout=120s
+  # The Cluster CR goes through the operator's mutating webhook, so the operator
+  # must be Running (its webhook service endpoints populated) before pass two —
+  # not just the CRDs registered. Wait on the deployment.
+  k -n "$NS" rollout status deploy/cnpg-operator --timeout=300s
+  h upgrade --install postgres infra/helm/platform/postgres -n "$NS" \
+    -f infra/gitops/platform/local/values.yaml --timeout 5m
+  k -n "$NS" wait --for=condition=Ready cluster/postgres --timeout=300s
+  k -n "$NS" wait --for=condition=Ready pod -l cnpg.io/poolerName=postgres-rw --timeout=120s || true
+fi
+
+if want temporal; then
+  echo "→ installing Temporal"
+  helm dependency update infra/helm/platform/temporal >/dev/null
+  h upgrade --install temporal infra/helm/platform/temporal -n "$NS" \
+    -f infra/gitops/platform/local/values.yaml --timeout 8m
+fi
+
+if want spicedb; then
+  echo "→ installing SpiceDB"
+  h upgrade --install spicedb infra/helm/platform/spicedb -n "$NS" \
+    -f infra/gitops/platform/local/values.yaml --timeout 5m
+fi
 
 # ---------------------------------------------------------------------------
-# 5. MinIO (in-cluster S3) + buckets for the LGTM backends.
+# 5. MinIO (in-cluster S3). The chart's own bucket-creation job (values.yaml
+#    `minio.buckets`) provisions every backend's bucket — no separate mc job.
 # ---------------------------------------------------------------------------
-echo "→ installing MinIO"
-h upgrade --install minio infra/helm/platform/minio -n "$NS" --timeout 5m || true
-k -n "$NS" rollout status deploy/minio --timeout=180s || true
-echo "→ creating buckets"
-k -n "$NS" delete job minio-mkbucket --ignore-not-found >/dev/null 2>&1 || true
-cat <<'EOF' | k apply -f -
-apiVersion: batch/v1
-kind: Job
-metadata: { name: minio-mkbucket, namespace: platform }
-spec:
-  backoffLimit: 3
-  template:
-    spec:
-      restartPolicy: OnFailure
-      containers:
-        - name: mc
-          image: minio/mc:latest
-          command: ["/bin/sh","-c"]
-          args:
-            - |
-              mc alias set m http://minio.platform.svc.cluster.local:9000 minioadmin minioadmin &&
-              for b in loki-chunks loki-ruler loki-admin mimir-blocks mimir-ruler mimir-alertmanager tempo-traces; do
-                mc mb -p m/$b || true
-              done
-EOF
+if want minio; then
+  echo "→ installing MinIO"
+  helm dependency update infra/helm/platform/minio >/dev/null
+  h upgrade --install minio infra/helm/platform/minio -n "$NS" --timeout 5m || true
+  k -n "$NS" rollout status deploy/minio --timeout=180s || true
+fi
 
 # ---------------------------------------------------------------------------
 # 6. Ory (Kratos + Oathkeeper) — the edge identity stack.
 # ---------------------------------------------------------------------------
-echo "→ installing Ory (Kratos + Oathkeeper)"
-helm dependency update infra/helm/platform/ory >/dev/null
-h upgrade --install ory infra/helm/platform/ory -n "$NS" \
-  -f infra/helm/values/local-platform.yaml --timeout 8m || true
+if want ory; then
+  echo "→ installing Ory (Kratos + Oathkeeper)"
+  helm dependency update infra/helm/platform/ory >/dev/null
+  h upgrade --install ory infra/helm/platform/ory -n "$NS" \
+    -f infra/gitops/platform/local/values.yaml --timeout 8m || true
+fi
 
 # ---------------------------------------------------------------------------
 # 7. Observability (Grafana LGTM monolithic + OTel Collector), MinIO-backed.
 # ---------------------------------------------------------------------------
-echo "→ installing observability"
-helm dependency update infra/helm/platform/observability >/dev/null
-h upgrade --install observability infra/helm/platform/observability -n "$NS" \
-  -f infra/helm/values/local-platform.yaml --timeout 10m || true
+if want observability; then
+  echo "→ installing observability"
+  helm dependency update infra/helm/platform/observability >/dev/null
+  h upgrade --install observability infra/helm/platform/observability -n "$NS" \
+    -f infra/gitops/platform/local/values.yaml --timeout 10m || true
+fi
 
 # ---------------------------------------------------------------------------
 # 8. Edge routing: Traefik middlewares + cross-cutting IngressRoutes.
 # ---------------------------------------------------------------------------
-echo "→ applying gateway (Traefik middlewares + routes)"
-# Traefik opt-ins (cross-namespace + ExternalName) must land before the routes
-# that depend on them; the bundled Traefik redeploys to pick the config up.
-k apply -f infra/local/traefik-config.yaml
-k apply -k infra/gateway
-# Local-only edge: route /auth + landing to the host-run `next dev` (the frontend
-# is not deployed in-cluster locally) and the Kratos public API to ory-kratos.
-k apply -f infra/local/edge-auth.yaml
-# Point frontend-dev at the host (docker bridge gateway) on :3000 — the dev server
-# isn't in-cluster and CoreDNS has no host.k3d.internal record, so wire the
-# EndpointSlice explicitly. Run `next dev -H 0.0.0.0` on the host to serve it.
-GW="$(docker inspect "k3d-${CLUSTER}-server-0" \
-  --format '{{range .NetworkSettings.Networks}}{{.Gateway}}{{end}}')"
-k apply -f - <<EOF
+if want gateway; then
+  echo "→ applying gateway (Traefik middlewares + routes)"
+  # Traefik opt-ins (cross-namespace + ExternalName) must land before the routes
+  # that depend on them; the bundled Traefik redeploys to pick the config up.
+  k apply -f infra/local/traefik-config.yaml
+  k apply -k infra/gateway
+  # Local-only edge: route /auth + landing to the host-run `next dev` (the frontend
+  # is not deployed in-cluster locally) and the Kratos public API to ory-kratos.
+  k apply -f infra/local/edge-auth.yaml
+  # Point frontend-dev at the host (docker bridge gateway) on :3000 — the dev server
+  # isn't in-cluster and CoreDNS has no host.k3d.internal record, so wire the
+  # EndpointSlice explicitly. Run `next dev -H 0.0.0.0` on the host to serve it.
+  GW="$(docker inspect "k3d-${CLUSTER}-server-0" \
+    --format '{{range .NetworkSettings.Networks}}{{.Gateway}}{{end}}')"
+  k apply -f - <<EOF
 apiVersion: discovery.k8s.io/v1
 kind: EndpointSlice
 metadata:
@@ -214,21 +270,28 @@ endpoints:
   - addresses: ["${GW}"]
     conditions: { ready: true }
 EOF
+fi
 
 # ---------------------------------------------------------------------------
 # 9. Services — build local images and deploy via the same service chart as prod.
 # ---------------------------------------------------------------------------
-echo "→ building + deploying services (skaffold)"
-skaffold run --kube-context "k3d-${CLUSTER}" --default-repo="" || true
+if want services; then
+  echo "→ building + deploying services (skaffold, full-tier overlay)"
+  # -p full layers infra/helm/values/full-service.yaml so each service is exposed
+  # under /api/<name>/ through the edge and ships telemetry (vs the inner loop's
+  # direct-call, no-edge default).
+  skaffold run -p full --kube-context "k3d-${CLUSTER}" --default-repo="" || true
+fi
 
 cat <<EOF
 
-✓ cluster:full up.
+✓ cluster:full up (profile '${PROFILE}': ${COMPONENTS}).
   Edge (Traefik):   https://${DOMAIN}:8443/api/<service>/   (self-signed TLS)
   Hubble UI:        https://${DOMAIN}:8443/hubble/
   Grafana:          kubectl -n ${NS} port-forward svc/grafana 3000:80
   Teardown:         mise run cluster:full:down
 
+  Profiles:         mise run cluster:full:up [min|backend|obs|full]   (default full)
   Note: on a restricted network where the registry blocks digest pulls, pre-pull
   the platform images by tag and 'k3d image import' them (see docs/dev-loop.md).
 EOF

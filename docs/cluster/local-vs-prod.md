@@ -25,3 +25,5 @@ The table below compares the **full-platform tier** with production — the inne
 **Inner loop differences (interface parity only):** the inner loop swaps the data-tier *implementations* for speed — a plain Postgres pod, `temporal server start-dev`, in-memory SpiceDB (`infra/local/deps.yaml`) — and skips MinIO, observability, and the auth edge unless a Skaffold profile pulls them in. The wire contracts are identical, so a bug reproduced there reproduces in prod; the full tier exists to validate the *implementations* and their wiring.
 
 **What is NOT swapped out, ever (any tier):** the Kubernetes API, the chart structure, the service images, the env contract (`DATABASE_URL`, `TEMPORAL_HOST_PORT`, OTLP endpoint, SpiceDB), and the Postgres major version.
+
+**Closing the GitOps gap:** the full tier is helm-direct by default, so it does not exercise ArgoCD's sync waves or app-of-apps discovery. When you change anything under `infra/gitops/bootstrap/`, bring the platform up through ArgoCD against a local git source instead — see [gitops-local.md](gitops-local.md).

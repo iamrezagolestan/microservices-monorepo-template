@@ -1,16 +1,30 @@
-# Local overrides for `cluster:full` (scripts/cluster-full.sh). Layered over each
-# platform chart's own values. These swap the prod assumptions (off-cluster
-# bucket, SOPS secrets, real domain, CNPG) for laptop-friendly stand-ins.
+# Local overrides for `cluster:full` (scripts/cluster-full.sh), consumed the
+# same way the ArgoCD ApplicationSet consumes dev/staging/prod values (ADR-0016):
+# local diverges from prod only through this overlay, layered over each
+# platform chart's own values.
 #
 # Best-effort: the LGTM/Ory layers may need per-chart tuning on first bring-up in
 # a given environment; the script installs them with `|| true` so a partial
 # platform still lets you iterate on the edge + services.
 
+# --- Data tier: instances=1 / small storage (laptop-sized) -----------------
+# Top-level `cluster:` — the postgres chart's own values schema has no
+# `postgres:` namespace wrapper (unlike the dependency subcharts below).
+cluster:
+  instances: 1
+  storage: { size: 2Gi }
+  backup:
+    enabled: false   # ephemeral local data; no backup destination needed
+
+# Top-level `replicas:` — the spicedb chart's own values schema has no
+# `spicedb:` namespace wrapper.
+replicas: 1
+
 # --- Ory (Kratos + Oathkeeper) --------------------------------------------
 kratos:
   kratos:
     config:
-      dsn: "postgres://dev:dev@postgres.platform.svc.cluster.local:5432/kratos?sslmode=disable"
+      dsn: "postgres://dev:dev@postgres-rw.platform.svc.cluster.local:5432/kratos?sslmode=disable"
       serve:
         public:
           base_url: "https://dev.localtest.me:8443/auth/"
@@ -46,14 +60,15 @@ oathkeeper:
             config:
               to: https://dev.localtest.me:8443/auth/login
 
-# --- Observability: point LGTM at in-cluster MinIO -------------------------
+# --- Observability: point LGTM at in-cluster MinIO, single replica ---------
+# Only the endpoint + http (insecure) differ from prod; the S3 credentials come
+# from the observability-bucket Secret via extraEnvFrom (wired in the chart values
+# for every env), so no inline keys here — same mechanism as dev/staging/prod.
 loki:
   loki:
     storage:
       s3:
         endpoint: "minio.platform.svc.cluster.local:9000"
-        accessKeyId: minioadmin
-        secretAccessKey: minioadmin
         s3ForcePathStyle: true
         insecure: true
 
@@ -63,14 +78,13 @@ tempo:
       trace:
         s3:
           endpoint: "minio.platform.svc.cluster.local:9000"
-          access_key: minioadmin
-          secret_key: minioadmin
           insecure: true
 
 # Monolithic Mimir (templates/mimir.yaml) — point at MinIO over http.
 mimir:
   storage:
     endpoint: "minio.platform.svc.cluster.local:9000"
+    insecure: true
 
 # Grafana: a known local admin password (prod supplies one via Secret).
 grafana:

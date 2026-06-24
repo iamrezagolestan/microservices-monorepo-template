@@ -86,8 +86,11 @@ oathkeeper:
           config:
             headers:
               X-User-Id: "{{ print .Subject }}"
-              X-Org-Id: "{{ print .Extra.identity.metadata_public.org_id }}"
-              X-Roles: "{{ print .Extra.identity.metadata_public.roles }}"
+              # `api-services` allows the anonymous authenticator (guest), which has
+              # no .Extra.identity — guard with `with` so these emit empty headers
+              # instead of nil-panicking (500). Authenticated requests are unchanged.
+              X-Org-Id: "{{ with .Extra.identity }}{{ print .metadata_public.org_id }}{{ end }}"
+              X-Roles: "{{ with .Extra.identity }}{{ print .metadata_public.roles }}{{ end }}"
         noop: { enabled: true }
       errors:
         fallback: [json]

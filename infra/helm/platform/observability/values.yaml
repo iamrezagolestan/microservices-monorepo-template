@@ -13,8 +13,11 @@ opentelemetry-collector:
   mode: daemonset
   fullnameOverride: otel-collector
   # contrib distro: required by the kubernetesAttributes preset (k8sattributes
-  # processor). The chart ships no default image, so it must be set explicitly.
-  image: { repository: otel/opentelemetry-collector-contrib }
+  # processor) and the `faro` receiver below (faroreceiver landed in contrib 0.128.0).
+  # The chart's default image is the core collector, so the repo is overridden; the
+  # tag is pinned to the chart's appVersion (0.128.0) to keep config schema + binary
+  # aligned — see the chart dependency version in Chart.yaml.
+  image: { repository: otel/opentelemetry-collector-contrib, tag: "0.128.0" }
   presets: { kubernetesAttributes: { enabled: true } }
   # Browser beacons reach the collector through a ClusterIP Service (Traefik →
   # otel-collector:8027). Services still emit to localhost:4317, not this Service.
@@ -87,8 +90,12 @@ loki:
         endpoint: s3.eu-central-1.amazonaws.com
         region: eu-central-1
         s3ForcePathStyle: true
-        # access_key_id / secret_access_key come from the observability-bucket Secret.
-  singleBinary: { replicas: 1 }
+        # access_key_id / secret_access_key are left empty so Loki's S3 client uses
+        # the AWS SDK env credentials injected below from the observability-bucket Secret.
+  singleBinary:
+    replicas: 1
+    extraEnvFrom:
+      - secretRef: { name: observability-bucket }
   # Disable the microservices read/write/backend topology.
   read: { replicas: 0 }
   write: { replicas: 0 }
@@ -101,6 +108,10 @@ tempo:
   replicas: 1
   tempo:
     reportingEnabled: false
+    # S3 creds (AWS_ACCESS_KEY_ID/SECRET) from the observability-bucket Secret;
+    # access_key/secret_key under s3 are left empty for the AWS SDK env fallback.
+    extraEnvFrom:
+      - secretRef: { name: observability-bucket }
     storage:
       trace:
         backend: s3

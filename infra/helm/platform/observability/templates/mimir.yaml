@@ -18,6 +18,9 @@ data:
         s3:
           endpoint: {{ $m.storage.endpoint }}
           region: {{ $m.storage.region }}
+          # insecure=true uses plain HTTP (in-cluster MinIO, non-prod); prod's
+          # external bucket keeps the default HTTPS.
+          insecure: {{ $m.storage.insecure | default false }}
           access_key_id: ${AWS_ACCESS_KEY_ID}
           secret_access_key: ${AWS_SECRET_ACCESS_KEY}
     blocks_storage:

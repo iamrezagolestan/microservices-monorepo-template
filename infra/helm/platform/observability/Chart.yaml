@@ -14,7 +14,7 @@ dependencies:
   - { name: loki,             version: "6.21.0", repository: https://grafana.github.io/helm-charts }
   - { name: tempo,            version: "1.18.1", repository: https://grafana.github.io/helm-charts }
   - { name: grafana,          version: "8.8.4",  repository: https://grafana.github.io/helm-charts }
-  - { name: opentelemetry-collector, version: "0.114.0", repository: https://open-telemetry.github.io/opentelemetry-helm-charts }
+  - { name: opentelemetry-collector, version: "0.127.4", repository: https://open-telemetry.github.io/opentelemetry-helm-charts }
 
 # Mimir runs as a hand-written monolithic Deployment (templates/mimir.yaml), not
 # a subchart: there is no official monolithic Mimir chart, and the distributed

@@ -38,6 +38,12 @@ manifests:
 deploy:
   kubeContext: k3d-platform-dev
   helm: {}
+# `full` (scripts/cluster-full.sh): layer the full-tier overlay so the service is
+# exposed through the edge and ships telemetry. See infra/helm/values/full-service.yaml.
+profiles:
+  - name: full
+    patches:
+      - { op: add, path: /manifests/helm/releases/0/valuesFiles/-, value: infra/helm/values/full-service.yaml }
 portForward:
   - { resourceType: service, resourceName: orders-server, namespace: platform, port: 80, localPort: 8080 }
 
@@ -67,6 +73,10 @@ manifests:
 deploy:
   kubeContext: k3d-platform-dev
   helm: {}
+profiles:
+  - name: full
+    patches:
+      - { op: add, path: /manifests/helm/releases/0/valuesFiles/-, value: infra/helm/values/full-service.yaml }
 
 ---
 apiVersion: skaffold/v4beta11
@@ -94,6 +104,10 @@ manifests:
 deploy:
   kubeContext: k3d-platform-dev
   helm: {}
+profiles:
+  - name: full
+    patches:
+      - { op: add, path: /manifests/helm/releases/0/valuesFiles/-, value: infra/helm/values/full-service.yaml }
 
 ---
 apiVersion: skaffold/v4beta11
@@ -126,6 +140,10 @@ manifests:
 deploy:
   kubeContext: k3d-platform-dev
   helm: {}
+profiles:
+  - name: full
+    patches:
+      - { op: add, path: /manifests/helm/releases/0/valuesFiles/-, value: infra/helm/values/full-service.yaml }
 
 ---
 apiVersion: skaffold/v4beta11

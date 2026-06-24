@@ -81,14 +81,51 @@ auth, or GitOps in the path, reproduce it in a staging environment rather than l
 ### Heavier local option: `mise run cluster:full`
 
 For testing the edge / NetworkPolicy / observability on a laptop without a staging
-cluster, `mise run cluster:full` (scripts/cluster-full.sh) stands up a fuller
-platform: **Cilium** as the CNI (real NetworkPolicy + Hubble), Traefik + Oathkeeper,
-Kratos, SpiceDB, and a **MinIO-backed** Grafana LGTM stack, installed directly with
-`helm` (not ArgoCD — that reconciles from git@master, not your tree). It needs
-~16GB free RAM and uses local stand-ins for the off-cluster bucket (MinIO),
-TLS (self-signed `*.dev.localtest.me`), secrets (plain, not SOPS), and data
-(the lightweight deps, not CNPG / the Temporal chart). Tear down with
-`mise run cluster:full:down`.
+cluster, `mise run cluster:full:up` (scripts/cluster-full.sh) stands up the **same
+charts production runs**, at a single replica ([ADR-0016](adr/0016-environment-parity.md)):
+**Cilium** as the CNI (real NetworkPolicy + Hubble), **CNPG**, the **Temporal**
+chart, the **SpiceDB** chart, in-cluster **MinIO**, the **observability** chart,
+and Traefik + Ory (Kratos + Oathkeeper). It is installed directly with `helm` (not
+ArgoCD — that reconciles from git@master, not your tree; for the ArgoCD path see
+[cluster/gitops-local.md](cluster/gitops-local.md)).
+
+Local diverges from prod **only** through one values overlay,
+`infra/gitops/platform/local/values.yaml`, consumed the same way the ArgoCD
+ApplicationSet consumes the dev/staging/prod overlays. The only genuine local
+substitutions are: in-cluster MinIO instead of the off-cluster bucket (S3 API both
+sides), a self-signed `*.dev.localtest.me` wildcard cert, and a **committed
+throwaway age key** so SOPS decrypts locally exactly as it does in prod (the
+`sops-operator` materialises every credential from
+`infra/gitops/platform/local/secrets/platform.enc.yaml` — nothing is `kubectl
+create secret`'d). Plan for ~16GB free RAM; a measured `full`-profile bring-up
+settles around **5GB resident / <0.5 core idle** on the single k3d node. Tear down
+with `mise run cluster:full:down`.
+
+#### Profiles
+
+`cluster:full:up` takes an optional **profile** that selects the component subset —
+thin overlays on the same charts, for the different roles that need a partial
+platform:
+
+```sh
+mise run cluster:full:up            # full (default): everything incl. edge + services
+mise run cluster:full:up min        # Postgres only — a service author iterating on a DB
+mise run cluster:full:up backend    # + Temporal + SpiceDB (workflows + authz)
+mise run cluster:full:up obs        # observability + its MinIO backend (the LGTM/Faro slice)
+```
+
+The cluster, Cilium, namespace, TLS, and the SOPS secrets are the always-on
+baseline; the profile gates everything else.
+
+#### Login flow (full profile)
+
+The edge serves `*.dev.localtest.me` on `:8443` (real DNS → 127.0.0.1, no
+`/etc/hosts` edits). Auth-gated routes (e.g. the Hubble UI at
+`https://dev.localtest.me:8443/hubble/`) redirect an unauthenticated browser to
+Kratos at `…/auth/login`; register/login there and the redirect returns you to the
+gated page. The landing page and `/auth` UI are served by a host-run `next dev`
+(run `next dev -H 0.0.0.0` on the host — the dev server is not in-cluster), wired
+through `infra/local/edge-auth.yaml`.
 
 > On a restricted network whose registry blocks **digest** pulls (only tags
 > resolve), pre-pull the platform images by tag and `k3d image import` them; the

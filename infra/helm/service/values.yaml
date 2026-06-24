@@ -30,12 +30,10 @@ server:
     requests: { cpu: "50m",  memory: "64Mi" }
     limits:   { cpu: "500m", memory: "256Mi" }
 
-# Database migrations run as a Helm pre-install/pre-upgrade Job (ADR-0007).
+# Database migrations (ADR-0007) run as a dbmate initContainer on the server pod,
+# from the service image itself (it bakes the static dbmate binary + /db/migrations).
 migrations:
   enabled: true
-  image:
-    repository: ghcr.io/amacneil/dbmate
-    tag: "2.27.0"
 
 # Standard observability env (ADR-0011). The shared library reads these.
 otel:
