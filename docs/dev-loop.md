@@ -117,6 +117,33 @@ mise run cluster:full:up obs        # observability + its MinIO backend (the LGT
 The cluster, Cilium, namespace, TLS, and the SOPS secrets are the always-on
 baseline; the profile gates everything else.
 
+#### Endpoints (full profile)
+
+Everything is served from one origin, **`https://dev.localtest.me:8443`** (real DNS
+→ 127.0.0.1, self-signed wildcard TLS — accept the cert once). The edge (Traefik)
+matches longest-prefix, so the specific routes below win over the `/` catch-all.
+
+| URL | What it gives you | Auth | Defined in |
+| --- | --- | --- | --- |
+| `/` | Landing page (host-run `next dev`) | public | `infra/local/edge-auth.yaml` |
+| `/panel`, `/admin`, `/devportal` | Frontend authenticated areas | Kratos session | `apps/frontend/src/proxy.ts` |
+| `/auth/login`, `/auth/registration`, … | Kratos UI pages (host-run `next dev`) | public | `infra/local/edge-auth.yaml` |
+| `/auth/self-service`, `/auth/.well-known`, `/auth/sessions` | Kratos public API | public | `infra/local/edge-auth.yaml` |
+| `/api/catalog/`, `/api/orders/`, `/api/orgs/`, `/api/payment/` | Service APIs through the edge | Oathkeeper | `infra/helm/service/templates/ingressroute.yaml` |
+| `/api/observability/faro` | Faro/RUM browser-telemetry ingest | public | `infra/gateway/frontend-observability.yaml` |
+| `/hubble/` | Cilium **Hubble UI** — live network-flow map | Oathkeeper (Kratos session) | `infra/gateway/ingressroutes.yaml` |
+| `/internal/admin` | **Lowdefy** internal admin console | Oathkeeper (Kratos session) | `infra/gateway/ingressroutes.yaml` |
+
+Not on the edge — reach these by port-forward:
+
+| Service | Command | URL |
+| --- | --- | --- |
+| **Grafana** (LGTM dashboards) | `kubectl -n platform port-forward svc/grafana 3000:80` | <http://localhost:3000> |
+
+The `/hubble`, `/internal/admin`, `/api/*` and `/api/observability/*` routes only
+exist with the `gateway`/`services`/`observability` components up (the `full`
+profile); `min`/`backend`/`obs` bring up a subset (see [Profiles](#profiles)).
+
 #### Login flow (full profile)
 
 The edge serves `*.dev.localtest.me` on `:8443` (real DNS → 127.0.0.1, no
