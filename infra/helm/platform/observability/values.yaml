@@ -15,9 +15,9 @@ opentelemetry-collector:
   # contrib distro: required by the kubernetesAttributes preset (k8sattributes
   # processor) and the `faro` receiver below (faroreceiver landed in contrib 0.128.0).
   # The chart's default image is the core collector, so the repo is overridden; the
-  # tag is pinned to the chart's appVersion (0.128.0) to keep config schema + binary
+  # tag is pinned to the chart's appVersion (0.154.0) to keep config schema + binary
   # aligned — see the chart dependency version in Chart.yaml.
-  image: { repository: otel/opentelemetry-collector-contrib, tag: "0.128.0" }
+  image: { repository: otel/opentelemetry-collector-contrib, tag: "0.154.0" }
   presets: { kubernetesAttributes: { enabled: true } }
   # Browser beacons reach the collector through a ClusterIP Service (Traefik →
   # otel-collector:8027). Services still emit to localhost:4317, not this Service.
@@ -118,6 +118,11 @@ loki:
   backend: { replicas: 0 }
   chunksCache: { enabled: false }
   resultsCache: { enabled: false }
+  # The nginx gateway fronts the distributed read/write/backend split; in
+  # SingleBinary mode the OTel collector pushes and Grafana queries the loki
+  # service directly, so it is dead weight. The chart (7.x) also gives it a hard
+  # pod-anti-affinity that can't schedule on a single-node local cluster.
+  gateway: { enabled: false }
 
 # Tempo — single-binary monolithic chart, bucket-backed.
 tempo:
@@ -141,7 +146,7 @@ tempo:
 # Rendered by templates/mimir.yaml (ConfigMap + Deployment + Service), not a
 # subchart. dev/staging run 1 replica; prod overrides to 2.
 mimir:
-  image: grafana/mimir:2.14.0
+  image: grafana/mimir:3.1.2
   replicas: 1
   httpPort: 8080
   resources:

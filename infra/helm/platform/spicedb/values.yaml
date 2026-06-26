@@ -3,7 +3,7 @@
 # the rare phased datastore migration is handled manually per SpiceDB release notes.
 image:
   repository: authzed/spicedb
-  tag: "v1.39.1"
+  tag: "v1.54.0"
 
 replicas: 2
 logLevel: info
