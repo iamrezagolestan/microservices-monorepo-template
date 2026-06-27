@@ -17,6 +17,7 @@
         "@hookform/resolvers": "5.4.0",
         "@openfeature/web-sdk": "1.9.0",
         "@tanstack/react-query": "5.101.0",
+        "@untitledui/icons": "^0.0.22",
         "clsx": "2.1.1",
         "lucide": "^1.21.0",
         "lucide-react": "1.21.0",
@@ -232,6 +233,8 @@
     "@types/react": ["@types/react@19.2.17", "", { "dependencies": { "csstype": "^3.2.2" } }, "sha512-MXfmqaVPEVgkBT/aY0aGCkRWWtByiYQXo3xdQ8r5RzuFrPiRn8Gar2tQdXSUQ2GKV3bkXckek89V8wQBY2Q/Aw=="],
 
     "@types/react-dom": ["@types/react-dom@19.2.3", "", { "peerDependencies": { "@types/react": "^19.2.0" } }, "sha512-jp2L/eY6fn+KgVVQAOqYItbF0VY/YApe5Mz2F0aykSO8gx31bYCZyvSeYxCHKvzHG5eZjc+zyaS5BrBWya2+kQ=="],
+
+    "@untitledui/icons": ["@untitledui/icons@0.0.22", "https://registry.npmmirror.com/@untitledui/icons/-/icons-0.0.22.tgz", { "peerDependencies": { "react": ">= 16" } }, "sha512-lEUdk2Ni7SocXMjIokJDoBeECzmZO1qAIuZc+91rAqwSMln0CKRnk+r2dC2TJ9ccION/1ZFed2fIeKvAEAs0lQ=="],
 
     "acorn": ["acorn@8.17.0", "", { "bin": { "acorn": "bin/acorn" } }, "sha512-xRQbDb9BnwDafYNn6Vwl839DYVjqXYb1XVGtWAZ1kcDc6iwAL4hg3B1dZlRiuENFeO2H53gFG3in621AdERVAg=="],
 

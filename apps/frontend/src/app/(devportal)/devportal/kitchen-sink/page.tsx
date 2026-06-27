@@ -1,4 +1,4 @@
-﻿// Visual sanity check for src/components/ui primitives. The cheap alternative
+// Visual sanity check for src/components/ui primitives. The cheap alternative
 // to a Storybook install: one page that renders every primitive once. Gated by
 // the (devportal) Kratos session check (proxy.ts).
 //
@@ -6,6 +6,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { ButtonExamples } from "./button-examples";
+import { ChatBoxExamples } from "./chat-box-examples";
 import { InputExamples } from "./input-examples";
 
 export const metadata: Metadata = { title: "UI kitchen sink" };
@@ -21,7 +22,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 
 export default function KitchenSink() {
   return (
-    <main className="mx-auto max-w-3xl p-6">
+    <main className="mx-auto max-w-[1600px] p-6">
       <header>
         <h1 className="text-2xl font-semibold">UI kitchen sink</h1>
         <p className="mt-1 text-sm text-slate-600">
@@ -36,6 +37,10 @@ export default function KitchenSink() {
 
       <Section title="Input">
         <InputExamples />
+      </Section>
+
+      <Section title="ChatBox">
+        <ChatBoxExamples />
       </Section>
     </main>
   );

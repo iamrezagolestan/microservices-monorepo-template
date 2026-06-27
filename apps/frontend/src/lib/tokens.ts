@@ -1,4 +1,4 @@
-﻿// Untitled UI token bridge (ADR-0014). Ports of the upstream Tailwind preset
+// Untitled UI token bridge (ADR-0014). Ports of the upstream Tailwind preset
 // live here as committed source; see ./UPSTREAM.md for the tracked version.
 //
 // Real token wiring lives in apps/frontend/src/styles/globals.css via the
@@ -52,6 +52,7 @@ export const tokens = {
     },
     gray: {
       0: "#ffffff",
+      5: "#f3f3f3",
       10: "#e6e6e6",
       20: "#cccccc",
       30: "#b2b2b2",
@@ -60,8 +61,10 @@ export const tokens = {
       60: "#666666",
       70: "#4d4d4d",
       80: "#333333",
+      85: "#252525",
       90: "#1a1a1a",
       100: "#ededed",
+      1000: "#000000",
     },
     stroke: {
       primary: "#cccccc",
@@ -72,6 +75,7 @@ export const tokens = {
     sm: "0.375rem",
     md: "0.5rem",
     lg: "0.5rem",
+    xl: "0.75rem",
     "2xl": "1rem",
   },
   shadow: {
@@ -124,6 +128,37 @@ export const tokens = {
     icon: "#b2b2b2",
     border: "#cccccc",
     borderFocus: "#151515",
+  },
+  textarea: {
+    background: "#ffffff",
+    foreground: "#1a1a1a",
+    placeholder: "#999999",
+    border: "#cccccc",
+    borderFocus: "#1a1a1a",
+    resizeHandle: "#d5d7da",
+    resizeHandleDark: "#333333",
+  },
+  chatBox: {
+    canvas: "#444444",
+    backgroundLight: "#ededed",
+    backgroundDark: "#252525",
+    borderLight: "#f3f3f3",
+    borderDark: "#000000",
+    placeholder: "#808080",
+    text: "#4d4d4d",
+    iconLight: "#4d4d4d",
+    iconHoverLight: "#1a1a1a",
+    iconBackgroundHover: "rgba(0, 0, 0, 0.06)",
+    iconDark: "#f3f3f3",
+    attachmentBackground: "#ffffff",
+    attachmentChipBackground: "#e6e6e6",
+    attachmentChipBackgroundHover: "#cccccc",
+    attachmentIcon: "#4d4d4d",
+    scrollThumb: "#b2b2b2",
+    backdropBlur: "47.8px",
+    widthDesktop: "744px",
+    widthMobile: "390px",
+    paddingDesktop: "20px",
   },
   searchModal: {
     background: "#ffffff",
