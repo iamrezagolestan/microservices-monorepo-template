@@ -1,4 +1,4 @@
-// Untitled UI token bridge (ADR-0014). Ports of the upstream Tailwind preset
+﻿// Untitled UI token bridge (ADR-0014). Ports of the upstream Tailwind preset
 // live here as committed source; see ./UPSTREAM.md for the tracked version.
 //
 // Real token wiring lives in apps/frontend/src/styles/globals.css via the
@@ -52,7 +52,9 @@ export const tokens = {
     },
     gray: {
       0: "#ffffff",
+      10: "#e6e6e6",
       20: "#cccccc",
+      30: "#b2b2b2",
       40: "#999999",
       50: "#808080",
       60: "#666666",
@@ -92,6 +94,9 @@ export const tokens = {
       foreground: "#333333",
       foregroundHover: "#252b37",
       foregroundDisabled: "#808080",
+      icon: "#51525a",
+      iconHover: "#717680",
+      iconDisabled: "#d5d7da",
       border: "#cccccc",
       borderHover: "#d5d7da",
       borderDisabled: "#e9eaeb",

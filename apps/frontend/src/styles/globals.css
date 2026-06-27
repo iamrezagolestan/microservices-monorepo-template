@@ -50,7 +50,9 @@
   --color-info-700: #26447d;
 
   --color-gray-0: #ffffff;
+  --color-gray-10: #e6e6e6;
   --color-gray-20: #cccccc;
+  --color-gray-30: #b2b2b2;
   --color-gray-100: #ededed;
   --color-gray-40: #999999;
   --color-gray-50: #808080;
@@ -87,6 +89,9 @@
   --button-secondary-fg: #333333;
   --button-secondary-fg-hover: #252b37;
   --button-secondary-fg-disabled: #808080;
+  --button-secondary-icon: #51525a;
+  --button-secondary-icon-hover: #717680;
+  --button-secondary-icon-disabled: #d5d7da;
   --button-secondary-border: #cccccc;
   --button-secondary-border-hover: #d5d7da;
   --button-secondary-border-disabled: #e9eaeb;
@@ -94,6 +99,7 @@
   --button-text-fg: #4c89fa;
   --button-text-fg-hover: #26447d;
   --button-text-fg-disabled: #b2b2b2;
+  --shadow-xs-color: rgba(10, 13, 18, 0.05);
   --button-focus-inner: #ffffff;
   --button-focus-outer: #999999;
   --button-focus-ring:

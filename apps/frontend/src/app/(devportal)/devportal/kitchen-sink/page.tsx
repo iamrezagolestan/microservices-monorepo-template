@@ -1,10 +1,11 @@
-// Visual sanity check for src/components/ui primitives. The cheap alternative
+﻿// Visual sanity check for src/components/ui primitives. The cheap alternative
 // to a Storybook install: one page that renders every primitive once. Gated by
 // the (devportal) Kratos session check (proxy.ts).
 //
 // Add one <Section> per primitive added to @/components/ui.
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import { ButtonExamples } from "./button-examples";
 import { InputExamples } from "./input-examples";
 
 export const metadata: Metadata = { title: "UI kitchen sink" };
@@ -28,6 +29,10 @@ export default function KitchenSink() {
           the Untitled UI bump cadence; not a replacement for component tests.
         </p>
       </header>
+
+      <Section title="Button">
+        <ButtonExamples />
+      </Section>
 
       <Section title="Input">
         <InputExamples />
