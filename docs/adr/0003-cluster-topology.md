@@ -99,7 +99,7 @@ Traefik (k3s default)  (TLS termination via cert-manager + Let's Encrypt, L7 rou
   ├── /internal/admin/* ─▶ Oathkeeper (identity) ─▶ Lowdefy pod (internal admin, per ADR-0012)
   ├── /(landing|panel|admin|devportal)/* ─▶ Next.js frontend pod (one app, route groups per ADR-0014)
   ├── /grafana/*        ─▶ Grafana (auth-gated)
-  └── /hubble/*         ─▶ Hubble UI (Cilium network / service-map dashboard, auth-gated)
+  └── hubble.<host>/    ─▶ Hubble UI (Cilium network / service-map dashboard, auth-gated; own subdomain at root — its router can't run under a path prefix)
 ```
 
 **Traefik is the only ingress; Oathkeeper is an auth filter behind it, not a second gateway.** Traefik does TLS,
@@ -115,8 +115,8 @@ hostname/path routing, load balancing, and rate limiting; Ory Oathkeeper validat
 **Cluster networking:** Cilium. Network policies are the platform's internal service-to-service trust boundary
 ([ADR-0009](0009-api-gateway.md), [ADR-0010](0010-auth.md)): the default is **deny**, and each service's chart declares
 which callers may reach it. Because internal calls carry forwarded identity headers and no token, NetworkPolicy is what
-guarantees only sanctioned callers reach a service's port. Hubble (bundled, UI exposed auth-gated at `/hubble/*`)
-provides per-flow visibility and is the audit surface for these policies. k3s is installed with
+guarantees only sanctioned callers reach a service's port. Hubble (bundled, UI exposed auth-gated at the `hubble.<host>`
+subdomain) provides per-flow visibility and is the audit surface for these policies. k3s is installed with
 `--flannel-backend=none --disable-network-policy`; Cilium is installed by the Ansible bootstrap role before ArgoCD is
 started, then adopted by ArgoCD for upgrades.
 
@@ -130,8 +130,9 @@ started, then adopted by ArgoCD for upgrades.
   Tempo, CNPG backups (and Pyroscope where profiling is enabled, [ADR-0011](0011-observability.md)) all write here.
   **No MinIO in production**; offloading durability to a managed
   bucket eliminates an entire stateful component.
-- **Object storage locally:** not installed by default; add a small MinIO manifest to `infra/local/deps.yaml` when a
-  service under test needs object storage. Local-only.
+- **Object storage in non-prod:** in-cluster MinIO (`infra/helm/platform/minio`), exposing the same S3 API as the prod
+  bucket. It runs in the full-platform local tier and in dev/staging; the inner loop omits it unless a service under
+  test needs it ([ADR-0016](0016-environment-parity.md)).
 
 When the storage-scale trigger fires, Longhorn becomes the default for new block PVCs; the external bucket strategy is
 unchanged.
@@ -183,9 +184,11 @@ runtime, keeping local and prod on the same manifests.
 
 ### Local development
 
-The local runtime is **k3d**; the inner loop is driven by **Skaffold**. The full platform is **not** installed locally —
-that is ArgoCD's job in staging/prod ([ADR-0004](0004-gitops.md)). Locally you run the service(s) you are changing
-against lightweight dependency stand-ins.
+The local runtime is **k3d**, in two tiers ([ADR-0016](0016-environment-parity.md)). The **inner loop** below — driven
+by **Skaffold** against lightweight dependency stand-ins — is the day-to-day path: you run the service(s) you are
+changing, fast. The **full platform** (`mise run cluster:full`) brings the real charts up at a single replica for
+end-to-end and pre-merge validation; ArgoCD remains the deploy mechanism for the persistent dev/staging/prod clusters
+([ADR-0004](0004-gitops.md)).
 
 | Step         | Command                         | Brings up                                                                                            |
 |--------------|---------------------------------|------------------------------------------------------------------------------------------------------|
@@ -203,11 +206,11 @@ Skaffold `Config` module in `skaffold.yaml` (selectable with `skaffold dev -m <s
 one module block there. Each service's `Dockerfile` copies only `libs/go` + its own tree (and the root `.dockerignore`
 trims the build context), so editing one service rebuilds only that service's images.
 
-**Lightweight deps, not prod components.** `infra/local/deps.yaml` ships throwaway Postgres / Temporal-dev / in-memory
-SpiceDB so a service has something to talk to. Their production counterparts (CNPG, the Temporal Helm chart,
-operator-backed SpiceDB, the observability stack, the gateway and auth edge) are exercised by ArgoCD in a real staging
-cluster, where their operators and ordering behave correctly. Add MinIO (or any other dep) to `deps.yaml` when a service
-needs it.
+**Lightweight deps in the inner loop only.** `infra/local/deps.yaml` ships throwaway Postgres / Temporal-dev / in-memory
+SpiceDB so a service has something to talk to without paying for the full platform. Their production counterparts (CNPG,
+the Temporal Helm chart, the SpiceDB chart, the observability stack, the gateway and auth edge) run in the full-platform
+local tier (`cluster:full`) and in dev/staging/prod, where their operators and ordering behave correctly
+([ADR-0016](0016-environment-parity.md)).
 
 **What is not swapped out, ever:** the Kubernetes API, the service chart, the service images, the env contract (
 `DATABASE_URL`, `TEMPORAL_HOST_PORT`, OTLP, SpiceDB), the Postgres major version. A bug reproduced locally reproduces in
@@ -224,7 +227,8 @@ cannot absorb.
 encryption), L7 network policies, and per-flow observability (Hubble) without an injected proxy or a second
 component. **Hubble UI is deployed as the cluster's network / service-map dashboard** — live service-to-service flows,
 dropped connections, and L7 traffic — and is the audit surface for the NetworkPolicy-based internal trust boundary
-([ADR-0009](0009-api-gateway.md), [ADR-0010](0010-auth.md)); it is exposed auth-gated at `/hubble/*`. Cilium is
+([ADR-0009](0009-api-gateway.md), [ADR-0010](0010-auth.md)); it is exposed auth-gated at the `hubble.<host>` subdomain
+(its React Router is hardwired to basename `/`, so it must be served at a root origin, not under a path prefix). Cilium is
 installed
 from day one because CNI cannot be hot-swapped on a live cluster.
 
@@ -278,11 +282,13 @@ alongside the backup restore drill above.
   When infra is pre-provided, Terraform is skipped and Ansible bootstraps the existing hosts from a committed inventory.
 - Every environment runs k3s with three control-plane nodes (embedded etcd). Adding workers follows the
   resource-pressure trigger.
-- Local development runs on k3d. The inner loop is Skaffold deploying the same `infra/helm/service` chart as production
-  against lightweight deps (`infra/local/deps.yaml`); the full platform and ArgoCD are staging/prod-only.
+- Local development runs on k3d in two tiers ([ADR-0016](0016-environment-parity.md)): a fast inner loop (Skaffold +
+  lightweight deps) and a full-platform tier (`cluster:full`) running the real charts at a single replica. ArgoCD is the
+  deploy mechanism for the persistent dev/staging/prod clusters.
 - Ingress is Traefik with TLS via cert-manager. Ory Oathkeeper sits behind Traefik as the edge identity filter
   ([ADR-0009](0009-api-gateway.md)); there is no API-management gateway in the default stack.
-- Object storage in production is an external S3-compatible bucket. MinIO exists only in local development.
+- Object storage in production is an external S3-compatible bucket. Non-prod (local full tier, dev, staging) uses
+  in-cluster MinIO behind the same S3 API ([ADR-0016](0016-environment-parity.md)).
 - Database backups are written off-cluster to the same external bucket and rehearsed quarterly.
 - Storage class is k3s `local-path` until the storage-scale trigger fires, then Longhorn.
 - CNI is Cilium from day one. k3s is installed with `--flannel-backend=none --disable-network-policy`. Cilium is
@@ -294,5 +300,5 @@ alongside the backup restore drill above.
   resource cost and component count. Cilium covers CNI + zero-trust + L7 policies + Hubble observability in a single
   component with no per-pod proxy overhead.
 - Cilium NetworkPolicy is the internal service-to-service trust boundary; the default is deny and each service declares
-  its allowed callers ([ADR-0009](0009-api-gateway.md), [ADR-0010](0010-auth.md)). Hubble UI (auth-gated at `/hubble/*`)
+  its allowed callers ([ADR-0009](0009-api-gateway.md), [ADR-0010](0010-auth.md)). Hubble UI (auth-gated at `hubble.<host>`)
   is the dashboard and audit surface for cluster network flows.

@@ -136,7 +136,9 @@ Liberal use of workflows for multi-step / compensable / cross-system operations;
 - **Task queues:** named per-service (e.g. `payments-tq`, `checkout-tq`), plus a shared `background-tq`.
 - **Namespaces:** one per environment (`dev`, `staging`, `prod`).
 - **History retention:** 30 days production, 7 days non-prod.
-- **Local development:** `temporal server start-dev` invoked by `mise run cluster:up`.
+- **Local development:** the inner loop uses `temporal server start-dev` (`mise run cluster:up`) for speed; the
+  full-platform local tier (`mise run cluster:full`) runs this same Helm chart at a single replica, Postgres-backed via
+  CNPG, so workflow behaviour is validated against the real server before merge ([ADR-0016](0016-environment-parity.md)).
 
 ### Conventions
 

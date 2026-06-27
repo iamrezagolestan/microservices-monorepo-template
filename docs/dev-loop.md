@@ -50,6 +50,24 @@ hot-restart all work — the service is a plain host process.
 mise run cluster:down                    # stops port-forwards + deletes the k3d cluster
 ```
 
+## End-to-end & visual tests
+
+End-to-end and visual-regression tests are owned by [ADR-0018](adr/0018-testing-strategy.md):
+**Playwright** drives them from the repo-root `e2e/` workspace against the full platform.
+
+```sh
+mise run cluster:full:up      # the environment e2e runs against
+mise run e2e:smoke            # product golden path + a key dashboard render
+mise run e2e                  # full suite: every journey, every dashboard, all visual baselines
+```
+
+The browser test is the acceptance gauge — a rendered, authenticated dashboard (Grafana,
+Hubble, Temporal) is the proof the whole stack underneath is wired. A Go/shell **preflight
+readiness** check runs first so a red e2e reads "infra down" vs "app broken". The suite ships a
+committed deterministic test identity (an AAL1 user + an AAL2 operator); there is nothing to seed
+by hand. Playwright's runner is Node — the **one** sanctioned Node tool in the repo
+([ADR-0001](adr/0001-language-and-runtime.md)), scoped to `e2e/` and CI; everything else stays on Bun.
+
 ## Formatting & linting
 
 `mise run format` / `mise run lint` cover every language, including Markdown.
@@ -81,14 +99,110 @@ auth, or GitOps in the path, reproduce it in a staging environment rather than l
 ### Heavier local option: `mise run cluster:full`
 
 For testing the edge / NetworkPolicy / observability on a laptop without a staging
-cluster, `mise run cluster:full` (scripts/cluster-full.sh) stands up a fuller
-platform: **Cilium** as the CNI (real NetworkPolicy + Hubble), Traefik + Oathkeeper,
-Kratos, SpiceDB, and a **MinIO-backed** Grafana LGTM stack, installed directly with
-`helm` (not ArgoCD — that reconciles from git@master, not your tree). It needs
-~16GB free RAM and uses local stand-ins for the off-cluster bucket (MinIO),
-TLS (self-signed `*.dev.localtest.me`), secrets (plain, not SOPS), and data
-(the lightweight deps, not CNPG / the Temporal chart). Tear down with
-`mise run cluster:full:down`.
+cluster, `mise run cluster:full:up` (scripts/cluster-full.sh) stands up the **same
+charts production runs**, at a single replica ([ADR-0016](adr/0016-environment-parity.md)):
+**Cilium** as the CNI (real NetworkPolicy + Hubble), **CNPG**, the **Temporal**
+chart, the **SpiceDB** chart, in-cluster **MinIO**, the **observability** chart,
+and Traefik + Ory (Kratos + Oathkeeper). It is installed directly with `helm` (not
+ArgoCD — that reconciles from git@master, not your tree; for the ArgoCD path see
+[cluster/gitops-local.md](cluster/gitops-local.md)).
+
+Local diverges from prod **only** through one values overlay,
+`infra/gitops/platform/local/values.yaml`, consumed the same way the ArgoCD
+ApplicationSet consumes the dev/staging/prod overlays. The only genuine local
+substitutions are: in-cluster MinIO instead of the off-cluster bucket (S3 API both
+sides), a self-signed `*.dev.localtest.me` wildcard cert, and a **committed
+throwaway age key** so SOPS decrypts locally exactly as it does in prod (the
+`sops-operator` materialises every credential from
+`infra/gitops/platform/local/secrets/platform.enc.yaml` — nothing is `kubectl
+create secret`'d). Plan for ~16GB free RAM; a measured `full`-profile bring-up
+settles around **5GB resident / <0.5 core idle** on the single k3d node. Tear down
+with `mise run cluster:full:down`.
+
+#### Profiles
+
+`cluster:full:up` takes an optional **profile** that selects the component subset —
+thin overlays on the same charts, for the different roles that need a partial
+platform:
+
+```sh
+mise run cluster:full:up            # full (default): everything incl. edge + services
+mise run cluster:full:up min        # Postgres only — a service author iterating on a DB
+mise run cluster:full:up backend    # + Temporal + SpiceDB (workflows + authz)
+mise run cluster:full:up obs        # observability + its MinIO backend (the LGTM/Faro slice)
+```
+
+The cluster, Cilium, namespace, TLS, and the SOPS secrets are the always-on
+baseline; the profile gates everything else.
+
+#### Endpoints (full profile)
+
+Everything is served from one origin, **`https://dev.localtest.me:8443`** (real DNS
+→ 127.0.0.1, self-signed wildcard TLS — accept the cert once). The edge (Traefik)
+matches longest-prefix, so the specific routes below win over the `/` catch-all.
+
+| URL | What it gives you | Auth | Defined in |
+| --- | --- | --- | --- |
+| `/` | Landing page (host-run `next dev`) | public | `infra/local/edge-auth.yaml` |
+| `/panel`, `/admin`, `/devportal` | Frontend authenticated areas | Kratos session | `apps/frontend/src/proxy.ts` |
+| `/auth/login`, `/auth/registration`, … | Kratos UI pages (host-run `next dev`) | public | `infra/local/edge-auth.yaml` |
+| `/auth/self-service`, `/auth/.well-known`, `/auth/sessions` | Kratos public API | public | `infra/local/edge-auth.yaml` |
+| `/api/catalog/`, `/api/orders/`, `/api/orgs/`, `/api/payment/` | Service APIs through the edge | Oathkeeper | `infra/helm/service/templates/ingressroute.yaml` |
+| `/api/observability/faro` | Faro/RUM browser-telemetry ingest | public | `infra/gateway/frontend-observability.yaml` |
+
+The **ops tier** (ADR-0017) is a separate origin per operator dashboard under
+`*.ops.<host>` — never a product path. Each requires an authorized (AAL2 operator)
+session; a bare login does not grant tool access.
+
+| Ops URL | Tool | Auth | Defined in |
+| --- | --- | --- | --- |
+| `grafana.ops.dev.localtest.me/` | **Grafana** — LGTM dashboards | Oathkeeper (`dashboard:grafana#view`) | `infra/gateway/ingressroutes.yaml` |
+| `hubble.ops.dev.localtest.me/` | Cilium **Hubble UI** — network-flow map | Oathkeeper (`dashboard:hubble#view`) | `infra/gateway/ingressroutes.yaml` |
+| `temporal.ops.dev.localtest.me/` | **Temporal Web UI** | Oathkeeper (`dashboard:temporal#view`) | `infra/gateway/ingressroutes.yaml` |
+| `minio.ops.dev.localtest.me/` | **MinIO console** (non-prod) | Oathkeeper (`dashboard:minio#view`) | `infra/gateway/ingressroutes.yaml` |
+| `console.ops.<host>/` | **Lowdefy** admin console (deployed envs) | Oathkeeper (`dashboard:console#view`) | `infra/gateway/ingressroutes.yaml` |
+| `argo.ops.<host>/` | **Argo CD** (deployed envs) | Oathkeeper (`dashboard:argo#view`) | `infra/gateway/ingressroutes.yaml` |
+
+Grafana has its own login behind the Kratos gate — sign in with `admin` / `admin`
+(the local `grafana.adminPassword`). Without the edge you can still reach it by
+port-forward: `kubectl -n platform port-forward svc/grafana 3000:80`, then
+<http://localhost:3000/> (it now serves at root, not a sub-path).
+
+The `/api/*`, `/api/observability/*` and the `*.ops.<host>` dashboard routes only
+exist with the `gateway`/`services`/`observability` components up (the `full`
+profile); `min`/`backend`/`obs` bring up a subset (see [Profiles](#profiles)).
+Argo CD and the Lowdefy console are deployed-env only (not in the local profile).
+
+#### Login flow (full profile)
+
+The edge serves `*.dev.localtest.me` on `:8443` (real DNS → 127.0.0.1, no
+`/etc/hosts` edits). Auth-gated routes (e.g. the Hubble UI at
+`https://hubble.dev.localtest.me:8443/`) redirect an unauthenticated browser to
+Kratos at `…/auth/login`; register/login there and the redirect returns you to the
+gated page. The Kratos session cookie is scoped to `dev.localtest.me` (parent
+domain), so one login covers the edge and every `*.dev.localtest.me` subdomain. The landing page and `/auth` UI are served by a host-run `next dev`
+(run `next dev -H 0.0.0.0` on the host — the dev server is not in-cluster), wired
+through `infra/local/edge-auth.yaml`.
+
+**There is no seeded user** — Kratos starts with an empty identity store. Create
+one at <https://dev.localtest.me:8443/auth/register> with any email and a password
+that clears Kratos' defaults (≥ 8 chars and not a known-breached password — it runs
+a HaveIBeenPwned check, so `password123` is rejected); then log in with it. Email
+verification is configured but the local SMTP sink isn't wired up, so verification
+mail isn't delivered — login doesn't require it.
+
+Start the host `next dev` with **`APP_ORIGIN=dev.localtest.me`** so the login and
+registration **server actions** pass Next's Origin/CSRF check (it feeds
+`serverActions.allowedOrigins` in `next.config.mjs`). Without it, form submits from
+the edge origin are rejected as cross-origin:
+
+```sh
+APP_ORIGIN=dev.localtest.me next dev -H 0.0.0.0
+```
+
+The full Kratos self-service set is served under `/auth/` — `login`, `register`,
+`recovery`, and `settings` (these are frontend pages, identical in every env, not
+local-only).
 
 > On a restricted network whose registry blocks **digest** pulls (only tags
 > resolve), pre-pull the platform images by tag and `k3d image import` them; the

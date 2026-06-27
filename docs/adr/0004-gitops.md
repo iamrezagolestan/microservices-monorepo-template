@@ -131,12 +131,14 @@ Secret values are not in git. Encrypted SOPS files in the repo are decrypted by 
 
 ### Local development
 
-GitOps is **not used locally.** `mise run cluster:up` runs `helm install` directly against k3d:
+GitOps is **not the inner loop's engine.** `mise run cluster:up` runs `helm install` directly against k3d so engineers
+iterate on chart changes without committing — ArgoCD reconciles committed git state, which is the opposite of what a
+working-tree loop needs.
 
-- Engineers iterate on Helm chart changes without committing.
-- ArgoCD itself is a component under test in some workflows; running it locally adds startup time without value.
-
-A `mise run dev:gitops` task installs ArgoCD locally for engineers debugging the GitOps layer specifically.
+The **full-platform local tier** (`mise run cluster:full`) and the CI/preview tier do run this same app-of-apps, pointed
+at a local git source, so sync ordering and app discovery are exercised exactly as in prod
+([ADR-0016](0016-environment-parity.md)). A `mise run dev:gitops` task installs ArgoCD locally for debugging the GitOps
+layer specifically.
 
 ## Consequences
 

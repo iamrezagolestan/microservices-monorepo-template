@@ -13,12 +13,27 @@ opentelemetry-collector:
   mode: daemonset
   fullnameOverride: otel-collector
   # contrib distro: required by the kubernetesAttributes preset (k8sattributes
-  # processor). The chart ships no default image, so it must be set explicitly.
-  image: { repository: otel/opentelemetry-collector-contrib }
+  # processor) and the `faro` receiver below (faroreceiver landed in contrib 0.128.0).
+  # The chart's default image is the core collector, so the repo is overridden; the
+  # tag is pinned to the chart's appVersion (0.154.0) to keep config schema + binary
+  # aligned — see the chart dependency version in Chart.yaml.
+  image: { repository: otel/opentelemetry-collector-contrib, tag: "0.154.0" }
   presets: { kubernetesAttributes: { enabled: true } }
+  # Browser beacons reach the collector through a ClusterIP Service (Traefik →
+  # otel-collector:8027). Services still emit to localhost:4317, not this Service.
+  # In daemonset mode the chart omits the Service unless explicitly enabled.
+  service: { enabled: true }
+  # Expose the Faro receiver port on that Service so Traefik can route to it
+  # (infra/gateway/frontend-observability.yaml, ADR-0014).
+  ports:
+    faro: { enabled: true, containerPort: 8027, servicePort: 8027, protocol: TCP }
   config:
     receivers:
       otlp: { protocols: { grpc: { endpoint: 0.0.0.0:4317 }, http: { endpoint: 0.0.0.0:4318 } } }
+      # Browser RUM from the frontend's Grafana Faro agent (ADR-0014). Emits
+      # web traces and RUM logs/events; fed into the traces + logs pipelines
+      # below so browser signals land in the same Tempo/Loki as services.
+      faro: { endpoint: 0.0.0.0:8027 }
     processors:
       memory_limiter:
         check_interval: 1s
@@ -39,13 +54,29 @@ opentelemetry-collector:
       otlphttp/loki:    { endpoint: http://loki.platform.svc.cluster.local:3100/otlp }
     service:
       pipelines:
-        traces:  { receivers: [otlp], processors: [memory_limiter, probabilistic_sampler, batch], exporters: [otlphttp/tempo] }
+        traces:  { receivers: [otlp, faro], processors: [memory_limiter, probabilistic_sampler, batch], exporters: [otlphttp/tempo] }
         metrics: { receivers: [otlp], processors: [memory_limiter, batch], exporters: [otlphttp/mimir] }
-        logs:    { receivers: [otlp], processors: [memory_limiter, batch], exporters: [otlphttp/loki] }
+        logs:    { receivers: [otlp, faro], processors: [memory_limiter, batch], exporters: [otlphttp/loki] }
 
 grafana:
   fullnameOverride: grafana
   adminPassword: ""                # supplied via SOPS-decrypted Secret in prod
+  # Served at the ROOT of its own ops origin grafana.ops.<host> (ADR-0017), not
+  # under a /grafana path — so serve_from_sub_path is off. Each env overrides
+  # root_url with its external origin (the local overlay sets the :8443 edge).
+  grafana.ini:
+    server:
+      serve_from_sub_path: false
+      root_url: "%(protocol)s://%(domain)s/"
+    # The ops edge is the authentication gate (Oathkeeper: an AAL2 operator holding
+    # dashboard:grafana#view, ADR-0017). Grafana trusts it and serves anonymously
+    # instead of running a second, redundant login that would redirect to /login and
+    # never render. Only AAL2 operators ever reach this origin.
+    auth:
+      disable_login_form: true
+    "auth.anonymous":
+      enabled: true
+      org_role: Admin
   datasources:
     datasources.yaml:
       apiVersion: 1
@@ -58,8 +89,17 @@ grafana:
 
 # Loki — single-binary monolithic (-target=all), bucket-backed (ADR-0011).
 loki:
+  # Pin the service name to `loki` (not the release-prefixed `observability-loki`)
+  # so the OTel exporter and Grafana datasource below — and prod — reach it at
+  # loki.<ns>.svc:3100. Mirrors grafana/mimir, which also fix their names.
+  fullnameOverride: loki
   deploymentMode: SingleBinary
   loki:
+    # Single-tenant (ADR-0011): no X-Scope-OrgID required, matching Mimir's
+    # multitenancy_enabled:false. Without this the chart defaults to multi-tenant
+    # and every header-less query (incl. Grafana's datasource health check) 401s
+    # with "no org id".
+    auth_enabled: false
     commonConfig: { replication_factor: 1 }
     schemaConfig:
       configs:
@@ -75,20 +115,36 @@ loki:
         endpoint: s3.eu-central-1.amazonaws.com
         region: eu-central-1
         s3ForcePathStyle: true
-        # access_key_id / secret_access_key come from the observability-bucket Secret.
-  singleBinary: { replicas: 1 }
+        # access_key_id / secret_access_key are left empty so Loki's S3 client uses
+        # the AWS SDK env credentials injected below from the observability-bucket Secret.
+  singleBinary:
+    replicas: 1
+    extraEnvFrom:
+      - secretRef: { name: observability-bucket }
   # Disable the microservices read/write/backend topology.
   read: { replicas: 0 }
   write: { replicas: 0 }
   backend: { replicas: 0 }
   chunksCache: { enabled: false }
   resultsCache: { enabled: false }
+  # The nginx gateway fronts the distributed read/write/backend split; in
+  # SingleBinary mode the OTel collector pushes and Grafana queries the loki
+  # service directly, so it is dead weight. The chart (7.x) also gives it a hard
+  # pod-anti-affinity that can't schedule on a single-node local cluster.
+  gateway: { enabled: false }
 
 # Tempo — single-binary monolithic chart, bucket-backed.
 tempo:
+  # Pin the service name to `tempo` so the OTel exporter (tempo:4318) and Grafana
+  # datasource (tempo:3200) resolve it, instead of the release-prefixed default.
+  fullnameOverride: tempo
   replicas: 1
   tempo:
     reportingEnabled: false
+    # S3 creds (AWS_ACCESS_KEY_ID/SECRET) from the observability-bucket Secret;
+    # access_key/secret_key under s3 are left empty for the AWS SDK env fallback.
+    extraEnvFrom:
+      - secretRef: { name: observability-bucket }
     storage:
       trace:
         backend: s3
@@ -102,7 +158,7 @@ tempo:
 # Rendered by templates/mimir.yaml (ConfigMap + Deployment + Service), not a
 # subchart. dev/staging run 1 replica; prod overrides to 2.
 mimir:
-  image: grafana/mimir:2.14.0
+  image: grafana/mimir:3.1.2
   replicas: 1
   httpPort: 8080
   resources:

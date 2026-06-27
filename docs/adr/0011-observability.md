@@ -98,6 +98,8 @@ Head sampling (errors at 100%, healthy traces at a low rate) runs on the agent. 
 
 **Logs follow a distinct path.** Services write structured JSON to **stdout**. The agent Collector reads `/var/log/pods/` via the `filelog` receiver, parses JSON, attaches k8s attributes, forwards. Stdout-first means logs survive even when the OTel SDK fails to start.
 
+**Browser telemetry** from the frontend's Grafana Faro agent ([ADR-0014](0014-frontend.md)) enters through a `faro` receiver on the same Collector, fed by a Traefik route (`infra/gateway/frontend-observability.yaml`) for `/api/observability/faro/*`. The receiver emits web traces and RUM logs/events into the traces and logs pipelines, so browser and service signals share the same Tempo/Loki backends and trace IDs.
+
 ### Continuous profiling: latent by default
 
 `obs.Init` registers the `pprof` HTTP endpoints on the admin port (see above) — every Go service is profileable on day one at zero cost. **No profile-storage backend (Pyroscope) and no eBPF node profiler are deployed by default.** Profiling is the least-reached-for of the four signals and the only one needing a privileged node-level agent (with kernel-version sensitivities).
@@ -130,9 +132,13 @@ High-cardinality labels (`user_id`, `request_id` as metric labels) destroy Mimir
 
 ### Local development
 
-For local observability, a `grafana/otel-lgtm` single-image bundle runs in k3d — it accepts OTLP on `localhost:4317` and exposes Grafana on `localhost:3000` with Loki/Mimir/Tempo/Pyroscope pre-wired. It is **not** part of the lightweight `mise run cluster:up` deps (Postgres, Temporal, SpiceDB only); add it to `infra/local/deps.yaml` and point `OTEL_EXPORTER_OTLP_ENDPOINT` at it when you need to inspect telemetry locally.
+Two paths, by tier ([ADR-0016](0016-environment-parity.md)). For the **inner loop**, a `grafana/otel-lgtm` single-image bundle runs in k3d — it accepts OTLP on `localhost:4317` and exposes Grafana on `localhost:3000` with Loki/Mimir/Tempo/Pyroscope pre-wired. It is **not** part of the lightweight `mise run cluster:up` deps (Postgres, Temporal, SpiceDB only); opt in via the Skaffold `obs` profile when you need to inspect telemetry while iterating. The **full-platform tier** (`mise run cluster:full`) instead runs the real observability chart (`infra/helm/platform/observability`, the same one dev/staging/prod run) at a single replica, backed by in-cluster MinIO — so the LGTM wiring itself is validated, not just the service-side OTLP.
 
 Service code is unchanged between local and prod. The same `obs.Init` call works against the local bundle and the production stack; without the bundle, the OTLP exporter simply has no collector to reach.
+
+The bundle is **opt-in via the Skaffold `obs` profile**, not the lightweight `cluster:up` set: `skaffold dev -p obs` (or `mise run dev:obs` for just the stack) deploys `grafana/otel-lgtm` plus a Grafana Alloy `faro.receiver` from `infra/local/observability.yaml` and port-forwards Grafana (`:3001`) and the Faro ingest (`:12347`). A bare `skaffold dev` deploys none of it.
+
+**Browser RUM (Faro) locally.** The frontend's Faro agent ([ADR-0014](0014-frontend.md)) POSTs beacons to the same-origin path `/api/observability/faro/collect`. In the cluster, Traefik forwards `/api/observability/faro/*` to the Collector's `faro` receiver; but `next dev` runs on the host with no edge in front of it, so a dev-only Next route handler stands in (`apps/frontend/src/app/api/observability/faro/collect/route.ts`). With `FARO_COLLECT_URL=http://localhost:12347/collect` set it forwards beacons to the port-forwarded Alloy `faro.receiver`, which re-exports them as OTLP to the `otel-lgtm` bundle; with `FARO_COLLECT_URL` unset it silently returns `204` so the dev console isn't spammed with 404s. The handler 404s in production, matching the fact that Traefik — not the frontend pod — owns this path in the cluster. Alloy is the local stand-in for the production Collector's `faro` receiver; both turn browser beacons into the same OTLP that lands in Tempo/Loki.
 
 ## Consequences
 
@@ -158,6 +164,7 @@ Service code is unchanged between local and prod. The same `obs.Init` call works
 - `infra/helm/platform/observability/` Loki, Mimir, Tempo (monolithic mode), Grafana, and a single-tier OTel Collector DaemonSet. Pyroscope + eBPF profiler and the OTel Collector gateway tier are per-project add-ons (`profiling` / tail-sampling flags), not in the default release.
 - `services/_template/` with default dashboard and alert YAMLs.
 - `infra/observability/dashboards/_base.json` and `infra/observability/alerts/_base.yaml` shared baselines.
+- Browser-beacon ingest: the `faro` receiver on the OTel Collector (`infra/helm/platform/observability/values.yaml`) + the `infra/gateway/frontend-observability.yaml` Traefik route ([ADR-0014](0014-frontend.md)); locally stood in for by the Alloy `faro.receiver` in `infra/local/observability.yaml`.
 - `docs/observability/conventions.md` (log levels, metric naming, redaction, sampling).
 - Cardinality alerts in Mimir rules; quarterly audit as a Temporal `Schedule`.
 
