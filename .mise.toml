@@ -72,6 +72,8 @@ GOFLAGS= go mod tidy
 run = "bash scripts/cluster-up.sh"
 
 [tasks."cluster:down"]
+# Stops the cluster but KEEPS it (image cache + volumes survive) so the next
+# `cluster:up` resumes without re-pulling.
 run = "bash scripts/cluster-down.sh"
 
 [tasks."cluster:full:up"]

@@ -11,7 +11,13 @@ if ! k3d cluster list 2>/dev/null | awk '{print $1}' | grep -qx "$CLUSTER"; then
   k3d cluster create "$CLUSTER" \
     --servers 1 --agents 0 \
     --port "80:80@loadbalancer" --port "443:443@loadbalancer" \
-    --k3s-arg "--disable=traefik@server:0"
+    --k3s-arg "--disable=traefik@server:0" \
+    --k3s-arg '--kubelet-arg=eviction-hard=imagefs.available<5%,nodefs.available<5%@server:*'
+else
+  # Cluster already exists. `cluster:down` only STOPS it (keeping the node's
+  # image cache), so resume it here — a no-op if it is already running.
+  echo "→ cluster '$CLUSTER' exists; ensuring it is started"
+  k3d cluster start "$CLUSTER" || true
 fi
 
 kubectl config use-context "k3d-${CLUSTER}"
