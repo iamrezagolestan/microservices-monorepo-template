@@ -34,10 +34,12 @@ fi
 
 if ! k3d cluster list 2>/dev/null | awk '{print $1}' | grep -qx "$CLUSTER"; then
   echo "→ creating k3d cluster '$CLUSTER'"
+  # Traefik (k3s-bundled) stays: the full tier's edge needs its IngressRoute /
+  # Middleware CRDs (the inner loop simply ignores it). Flannel + built-in netpol
+  # are disabled because Cilium is the CNI.
   k3d cluster create "$CLUSTER" \
     --servers 1 --agents 0 \
     --port "8080:80@loadbalancer" --port "8443:443@loadbalancer" \
-    --k3s-arg "--disable=traefik@server:0" \
     --k3s-arg '--flannel-backend=none@server:*' \
     --k3s-arg '--disable-network-policy@server:*' \
     --k3s-arg '--kubelet-arg=eviction-hard=imagefs.available<5%,nodefs.available<5%@server:*' \

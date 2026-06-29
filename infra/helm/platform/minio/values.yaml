@@ -1,5 +1,10 @@
 minio:
   enabled: true   # umbrella gate (Chart.yaml condition); prod sets this false
+  # Stable service name `minio` regardless of the Helm release name. Under ArgoCD
+  # the release is `<env>-platform-minio`, so without this the Service would be
+  # `<env>-platform-minio` and the loki/tempo/mimir endpoints (which target
+  # `minio.platform.svc`) would not resolve.
+  fullnameOverride: minio
   mode: standalone
   replicas: 1
   persistence:
