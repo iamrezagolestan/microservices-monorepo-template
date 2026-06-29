@@ -33,6 +33,10 @@ ansible = "14.0.0"
 age = "1.3.1"
 sops = "3.13.1"
 
+# JSON wrangling for runtime glue scripts (ops:grant). Static policy checks use
+# Go tools/ instead; this is the one reproducible binary for shell-side JSON.
+jq = "1.8.1"
+
 # Authorization (SpiceDB schema validation)
 "github:authzed/zed" = "1.1.1"
 
@@ -67,43 +71,72 @@ GOFLAGS= go get -u ./libs/... ./services/... ./tools/...
 GOFLAGS= go mod tidy
 """
 
+[tasks."cluster:create"]
+# Create (or resume) the single local k3d cluster (Cilium-ready). Idempotent.
+run = "bash scripts/cluster-create.sh"
+
 [tasks."cluster:up"]
-# Brings up Postgres, Temporal, SpiceDB alongside the cluster.
+# Inner loop (ADR-0016): cluster + CNI + lightweight deps (Postgres/Temporal/
+# SpiceDB). Run the service you are changing NATIVELY; no Skaffold, no watch.
 run = "bash scripts/cluster-up.sh"
+
+[tasks."dev:forward"]
+# Port-forward the inner-loop deps so a natively-run service can reach them.
+# Long-running — use a separate terminal. See docs/dev-loop.md.
+run = "bash scripts/dev-forward.sh"
 
 [tasks."cluster:down"]
 # Stops the cluster but KEEPS it (image cache + volumes survive) so the next
-# `cluster:up` resumes without re-pulling.
+# bring-up resumes without re-pulling.
 run = "bash scripts/cluster-down.sh"
 
+[tasks."cluster:purge"]
+# Deletes the cluster and wipes its image cache (reclaims disk, clean rebuild).
+run = "k3d cluster delete ${CLUSTER:-platform}"
+
+[tasks."cluster:full"]
+# Full local platform via ArgoCD (ADR-0004, ADR-0016): syncs committed master.
+# Ordering/waits/secrets are Argo's job (sync-waves). See docs/dev-loop.md.
+run = "bash scripts/platform-up.sh"
+
+[tasks."service:deploy"]
+# One-shot in-cluster deploy of a service from the working tree (no watch).
+#   mise run service:deploy -- <svc>
+run = "bash scripts/service-deploy.sh"
+
+[tasks."service:undeploy"]
+#   mise run service:undeploy -- <svc>
+run = "helm --kube-context k3d-${CLUSTER:-platform} uninstall -n platform"
+
+[tasks."platform:deploy"]
+# One-shot working-tree overlay of a platform chart (rare infra iteration).
+#   mise run platform:deploy -- <chart>
+run = "bash scripts/platform-deploy.sh"
+
+[tasks."auth:token"]
+# Mint a Kratos session token for local authenticated calls (needs the full tier).
+#   mise run auth:token -- <email>
+run = "bash scripts/auth-token.sh"
+
+# --- Deprecated inner loop (Skaffold) — removed once cluster:full + e2e verified.
 [tasks."cluster:full:up"]
-# Heavy local platform. Optional profile arg selects the component subset:
-#   mise run cluster:full:up [min|backend|obs|full]   (default full)
-# See docs/dev-loop.md.
 run = "bash scripts/cluster-full.sh"
 
 [tasks."cluster:full:down"]
-# Stops the cluster but KEEPS it (image cache + volumes survive) so the next
-# `cluster:full:up` resumes without re-pulling. To delete entirely, use :purge.
 run = "bash scripts/cluster-full-down.sh"
 
 [tasks."cluster:full:purge"]
-# Deletes the cluster and wipes its image cache (reclaims disk, clean rebuild).
 run = "bash scripts/cluster-full-purge.sh"
 
 [tasks.dev]
-# Trailing args forward to skaffold; -m scopes to one service (ADR-0003).
 depends = ["cluster:up"]
 run = "skaffold dev"
 
 [tasks."dev:obs"]
-# Opt-in observability (ADR-0011). For host-run `next dev`, set
-# FARO_COLLECT_URL=http://localhost:12347/collect.
 depends = ["cluster:up"]
 run = "skaffold dev -m observability -p obs"
 
 [tasks."dev:all"]
-# Services + observability in one loop.
 depends = ["cluster:up"]
 run = "skaffold dev -p obs"
 

@@ -7,8 +7,9 @@
 #   mise run ops:grant -- alice@example.com --revoke   # remove
 #
 # The per-tool dashboard grants (dashboard:<tool>#viewer@group:operator#member)
-# are platform policy seeded once per env (scripts/seed-spicedb.sh); this only
-# manages individual membership. The new operator must still enrol a second factor
+# are platform policy seeded once per env by the Argo-synced SpiceDB schema-seed
+# Job (infra/helm/platform/spicedb); this only manages individual membership. The
+# new operator must still enrol a second factor
 # (AAL2) before any ops dashboard renders. Run against the target cluster
 # (KUBE_CONTEXT overrides the current kubectl context).
 set -euo pipefail
@@ -40,7 +41,7 @@ trap 'kill "$kpf" "$spf" 2>/dev/null || true' EXIT
 sleep 4
 
 id="$(curl -fsS "http://localhost:4434/admin/identities?credentials_identifier=${email}" \
-  | python3 -c 'import sys,json; d=json.load(sys.stdin); print(d[0]["id"] if d else "")')"
+  | jq -r '.[0].id // ""')"
 if [ -z "$id" ]; then
   echo "no Kratos identity for ${email} — they must register first" >&2
   exit 1

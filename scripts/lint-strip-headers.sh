@@ -7,8 +7,8 @@
 set -euo pipefail
 cd "$(cd "$(dirname "$0")/.." && pwd)"
 
-tmp="$(mktemp --suffix=.yaml)"
-trap 'rm -f "$tmp"' EXIT
+# Render the gateway + per-service /api route, then feed the manifests to the
+# single-binary Go gate (no ambient Python). The Go tool reads YAML from stdin.
 {
   kubectl kustomize infra/gateway
   echo '---'
@@ -16,29 +16,4 @@ trap 'rm -f "$tmp"' EXIT
   helm template svc infra/helm/service \
     --set name=svc --set image.repository=svc --set image.tag=dev \
     --set ingress.enabled=true --set ingress.host=example.com
-} > "$tmp"
-
-python3 - "$tmp" <<'PY'
-import sys, yaml
-bad = []
-checked = 0
-for d in yaml.safe_load_all(open(sys.argv[1])):
-    if not d or d.get("kind") != "IngressRoute":
-        continue
-    name = d.get("metadata", {}).get("name", "?")
-    for route in d.get("spec", {}).get("routes", []):
-        mws = [m.get("name") for m in route.get("middlewares", [])]
-        if "oathkeeper-forward-auth" not in mws:
-            continue
-        checked += 1
-        if "strip-identity-headers" not in mws:
-            bad.append(f"{name}: forward-auth route without strip-identity-headers")
-        elif mws.index("strip-identity-headers") > mws.index("oathkeeper-forward-auth"):
-            bad.append(f"{name}: strip-identity-headers must come BEFORE forward-auth")
-if bad:
-    print("✗ anti-spoofing gate failed:", file=sys.stderr)
-    for b in bad:
-        print("  " + b, file=sys.stderr)
-    sys.exit(1)
-print(f"✓ all {checked} forward-auth routes strip identity headers first")
-PY
+} | go run ./tools/lint-strip-headers

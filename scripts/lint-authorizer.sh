@@ -11,21 +11,5 @@ cd "$(cd "$(dirname "$0")/.." && pwd)"
 
 RULES="infra/auth/oathkeeper/access-rules.json"
 
-python3 - "$RULES" <<'PY'
-import json, sys
-rules = json.load(open(sys.argv[1]))
-bad = []
-for r in rules:
-    rid = r.get("id", "")
-    handler = r.get("authorizer", {}).get("handler")
-    # Ops dashboards are identified by the `ops-` rule-id prefix (one origin per
-    # tool under *.ops.<host>). They must use remote_json, not allow.
-    if rid.startswith("ops-") and handler != "remote_json":
-        bad.append(f"{rid}: authorizer is {handler!r}, expected 'remote_json'")
-if bad:
-    print("✗ ops dashboard rules must authorize via remote_json, never allow:", file=sys.stderr)
-    for b in bad:
-        print("  " + b, file=sys.stderr)
-    sys.exit(1)
-print(f"✓ all ops dashboard rules use remote_json ({sum(r.get('id','').startswith('ops-') for r in rules)} rules)")
-PY
+# Single-binary Go check (toolchain philosophy: Go + bun only, no ambient Python).
+go run ./tools/lint-authorizer "$RULES"
