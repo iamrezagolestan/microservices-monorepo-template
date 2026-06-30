@@ -21,6 +21,11 @@ cd "$ROOT"
 
 k() { kubectl --context "k3d-${CLUSTER}" "$@"; }
 h() { helm --kube-context "k3d-${CLUSTER}" "$@"; }
+# argocd CLI in core mode: talks straight to the Application CRDs (no `argocd
+# login` / argocd-server, ADR-0004). Core mode derives the install namespace from
+# the kube-context, so it runs against a throwaway kubeconfig pinned to `argocd`
+# (set up in step 5) rather than mutating the user's real context.
+ac() { KUBECONFIG="$AC_KUBECONFIG" argocd --core "$@"; }
 
 # 1. Cluster + CNI (a CNI must exist before Argo's pods can schedule).
 bash scripts/cluster-ensure.sh
@@ -47,30 +52,26 @@ k -n "$NS" create secret generic sops-age-key \
 echo "→ applying local root application"
 k apply -f infra/gitops/bootstrap-local/root-application-local.yaml
 
-# 5. Wait for Argo to converge. Generated apps appear asynchronously (the appsets
-#    must reconcile first), so poll until every app is Synced + Healthy.
+# 5. Wait for Argo to converge with `argocd app wait` — it blocks in the
+#    foreground, streams per-resource sync/health as it changes, and exits
+#    non-zero with the offending resource the moment a sync operation fails
+#    (no silent wait to the timeout). Two phases because apps are generated
+#    asynchronously: first the root app (its 2 child apps + 2 appsets), then
+#    every app the appsets produced. Appset generation lags appset sync, so the
+#    set is re-listed until stable.
 echo "→ waiting for ArgoCD to converge (this is a full platform; first run is slow)…"
-deadline=$(( $(date +%s) + 1800 ))
+AC_KUBECONFIG="$(mktemp)"
+trap 'rm -f "$AC_KUBECONFIG"' EXIT
+k config view --minify --flatten >"$AC_KUBECONFIG"
+kubectl --kubeconfig "$AC_KUBECONFIG" config set-context --current --namespace argocd >/dev/null
+ac app wait root-local --sync --health --operation --timeout 600
 while :; do
-  # No apps yet (appsets still generating)? keep waiting.
-  total=$(k -n argocd get applications.argoproj.io -o name 2>/dev/null | wc -l)
-  if [ "$total" -gt 0 ]; then
-    notdone=$(k -n argocd get applications.argoproj.io \
-      -o jsonpath='{range .items[*]}{.metadata.name} {.status.sync.status}/{.status.health.status}{"\n"}{end}' 2>/dev/null \
-      | grep -vE ' Synced/Healthy$' || true)
-    if [ -z "$notdone" ]; then
-      echo "✓ all ${total} ArgoCD applications Synced + Healthy"
-      break
-    fi
-  fi
-  if [ "$(date +%s)" -ge "$deadline" ]; then
-    echo "✗ timed out waiting for convergence; current state:" >&2
-    k -n argocd get applications.argoproj.io \
-      -o custom-columns=NAME:.metadata.name,SYNC:.status.sync.status,HEALTH:.status.health.status 2>/dev/null >&2 || true
-    exit 1
-  fi
-  sleep 15
+  apps="$(ac app list -o name)"
+  # shellcheck disable=SC2086  # names are newline-separated, intentional split
+  ac app wait $apps --sync --health --operation --timeout 1800
+  [ "$(ac app list -o name)" = "$apps" ] && break
 done
+echo "✓ all ArgoCD applications Synced + Healthy"
 
 # 6. Host-specific edge tail (cannot be GitOps — depends on per-machine state):
 #    local Traefik tuning, the /auth + landing routes to a host-run frontend, and
@@ -98,6 +99,21 @@ endpoints:
     conditions: { ready: true }
 EOF
 
+# 7. Lowdefy admin console (ADR-0012): its image is a repo-local build, not a
+#    registry/CI image Argo can pull, so it is excluded from the platform
+#    ApplicationSet and installed here imperatively — build, import into k3d, then
+#    helm install pinned to that local tag. The local overlay supplies replicas=1.
+echo "→ building + installing Lowdefy admin console"
+docker build -t admin:local -f apps/admin/Dockerfile apps/admin
+k3d image import admin:local -c "$CLUSTER"
+h upgrade --install lowdefy infra/helm/platform/lowdefy -n "$NS" \
+  --set image.repository=admin --set image.tag=local --set image.pullPolicy=IfNotPresent \
+  -f infra/gitops/platform/local/values.yaml --timeout 5m
+# Force a rollout so the pod picks up the freshly-imported tag (k8s won't re-pull
+# an existing tag under imagePullPolicy=IfNotPresent).
+k -n "$NS" rollout restart deploy/lowdefy
+k -n "$NS" rollout status deploy/lowdefy --timeout=180s
+
 cat <<EOF
 
 ✓ cluster:full up (ArgoCD-driven from master).
@@ -110,5 +126,7 @@ cat <<EOF
     Lowdefy console:  https://console.ops.${DOMAIN}:8443/
   Frontend:           run it natively on :3000 (the frontend-dev EndpointSlice
                       routes /auth + landing to the host).
+  Diagnose:           argocd --core --kube-context k3d-${CLUSTER} app get <app>
+                      UI: kubectl -n argocd port-forward svc/argocd-server 8080:443
   Teardown:           mise run cluster:stop  (keep cache) / cluster:delete (delete)
 EOF

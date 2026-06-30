@@ -22,6 +22,10 @@ biome = "2.5.0"
 # Kubernetes & infra
 helm = "4.2.2"
 kubectl = "1.36.2"
+# CLI pinned to the server appVersion (infra/helm/platform/argocd). cluster:full
+# drives convergence with `argocd app wait --core` (talks to the Application CRDs
+# via kubeconfig, no argocd-server login).
+argocd = "3.4.4"
 cilium-cli = "0.19.4"
 kustomize = "5.8.1"
 terraform = "1.15.6"

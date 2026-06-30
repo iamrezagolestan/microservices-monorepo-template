@@ -27,6 +27,11 @@ spec:
                 # not fight the imperative releases. Everything else is Argo-managed.
                 - { path: "infra/helm/platform/cilium", exclude: true }
                 - { path: "infra/helm/platform/argocd", exclude: true }
+                # Lowdefy's image is a repo-local build (admin:local), not a
+                # registry/CI image Argo can pull. Like cilium/argocd it is
+                # installed imperatively by cluster:full (build + k3d import +
+                # helm) and excluded here so Argo does not fight that release.
+                - { path: "infra/helm/platform/lowdefy", exclude: true }
   template:
     metadata:
       name: "{{ .env }}-platform-{{ .path.basename }}"
