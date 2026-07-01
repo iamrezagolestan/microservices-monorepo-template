@@ -48,6 +48,38 @@ k -n "$NS" create secret generic sops-age-key \
   --from-file=keys.txt=infra/gitops/platform/local/age.key \
   --dry-run=client -o yaml | k apply -f -
 
+# 3b. Grafana mounts the `grafana-dashboards` ConfigMap (observability chart values
+#     dashboardsConfigMaps.default) built from the committed dashboards at
+#     infra/observability/dashboards/ (ADR-0011, kept outside the chart). The chart
+#     does not create it, so materialise it before Argo starts Grafana; untracked by
+#     Argo, so selfHeal/prune leave it alone.
+echo "→ materialising grafana-dashboards ConfigMap"
+k -n "$NS" create configmap grafana-dashboards \
+  --from-file=infra/observability/dashboards/ \
+  --dry-run=client -o yaml | k apply -f -
+
+# 3c. Build + push repo images to the local registry — the local stand-in for CI.
+#     Argo then deploys services + lowdefy from the registry exactly as prod pulls
+#     from ghcr; the only difference is the registry host in the values overlay
+#     (ADR-0016). Must run before step 4 so images exist before Argo creates pods.
+#     Build args mirror scripts/service-deploy.sh.
+REG="k3d-registry.localhost:5000"
+build_push() {  # <image-name> <dockerfile> <context> [extra docker build args…]
+  local name="$1" dockerfile="$2" context="$3"; shift 3
+  docker build -t "${REG}/${name}:local" -f "$dockerfile" "$@" "$context"
+  docker push "${REG}/${name}:local"
+}
+echo "→ building + pushing repo images to ${REG}"
+for svc in authz catalog orders orgs payment; do
+  build_push "${svc}-server" "services/${svc}/Dockerfile" . \
+    --build-arg SERVICE="${svc}" --build-arg APP_CMD=server
+done
+for svc in orders payment; do
+  build_push "${svc}-worker" "services/${svc}/Dockerfile" . \
+    --build-arg SERVICE="${svc}" --build-arg APP_CMD=worker
+done
+build_push admin apps/admin/Dockerfile apps/admin
+
 # 4. Local root App-of-Apps → Argo discovers the local appsets + apps from git.
 echo "→ applying local root application"
 k apply -f infra/gitops/bootstrap-local/root-application-local.yaml
@@ -98,21 +130,6 @@ endpoints:
   - addresses: ["${GW}"]
     conditions: { ready: true }
 EOF
-
-# 7. Lowdefy admin console (ADR-0012): its image is a repo-local build, not a
-#    registry/CI image Argo can pull, so it is excluded from the platform
-#    ApplicationSet and installed here imperatively — build, import into k3d, then
-#    helm install pinned to that local tag. The local overlay supplies replicas=1.
-echo "→ building + installing Lowdefy admin console"
-docker build -t admin:local -f apps/admin/Dockerfile apps/admin
-k3d image import admin:local -c "$CLUSTER"
-h upgrade --install lowdefy infra/helm/platform/lowdefy -n "$NS" \
-  --set image.repository=admin --set image.tag=local --set image.pullPolicy=IfNotPresent \
-  -f infra/gitops/platform/local/values.yaml --timeout 5m
-# Force a rollout so the pod picks up the freshly-imported tag (k8s won't re-pull
-# an existing tag under imagePullPolicy=IfNotPresent).
-k -n "$NS" rollout restart deploy/lowdefy
-k -n "$NS" rollout status deploy/lowdefy --timeout=180s
 
 cat <<EOF
 

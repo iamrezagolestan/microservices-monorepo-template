@@ -125,3 +125,15 @@ grafana:
   grafana.ini:
     server:
       root_url: "https://grafana.ops.dev.localtest.me:8443/"
+
+# --- Lowdefy admin console (ADR-0012) -------------------------------------
+# Repo-built image: pulled from the local registry (the CI stand-in) at the
+# stable `local` tag; Always so a cluster:full re-run picks up a rebuild.
+# Namespaced under `lowdefy:` to avoid colliding with the spicedb chart's
+# top-level `image` (both charts share this overlay).
+lowdefy:
+  replicas: 1
+  image:
+    repository: k3d-registry.localhost:5000/admin
+    tag: local
+    pullPolicy: Always

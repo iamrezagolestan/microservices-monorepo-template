@@ -104,13 +104,27 @@ chart, in-cluster **MinIO**, the **observability** chart, Traefik + Ory (Kratos 
 Oathkeeper), and the Lowdefy console.
 
 `cluster:full` creates the cluster, installs the two components ArgoCD cannot
-bootstrap (the CNI and ArgoCD itself), plants the SOPS age key, then applies a
-local root-app (`infra/gitops/bootstrap-local/`) that syncs committed **`master`**
-from the remote. Ordering, readiness, and secret materialisation are ArgoCD's job
-(sync waves), not a shell script's. Because it syncs committed `master`, services
-run **CI-built images**; to put uncommitted service code in the cluster use
-`service:deploy`, and for uncommitted infra see
-[cluster/gitops-local.md](cluster/gitops-local.md).
+bootstrap (the CNI and ArgoCD itself), plants the SOPS age key, **builds + pushes the
+repo images (the 5 services and the Lowdefy console) to a local registry**, then
+applies a local root-app (`infra/gitops/bootstrap-local/`) that syncs committed
+**`master`** from the remote. Ordering, readiness, and secret materialisation are
+ArgoCD's job (sync waves), not a shell script's. Because it syncs committed `master`,
+uncommitted infra needs a push — see [cluster/gitops-local.md](cluster/gitops-local.md);
+for fast iteration on uncommitted **service** code use `service:deploy`.
+
+**Local image registry (the CI stand-in).** Prod's GitOps works because CI builds
+each repo image, pushes it to ghcr, and Argo pulls it. Locally there is no CI, so
+`cluster:full` builds and pushes those images to a k3d-managed registry
+(`k3d-registry.localhost:5000`) at a stable `:local` tag, and the local overlays point
+`image.repository` there — Argo then deploys services and Lowdefy **exactly as prod
+does**, the only difference being the registry host (the sanctioned env-divergence
+point). The registry is wired at cluster-create via `--registry-use`, so a pre-existing
+cluster must be recreated once to gain it. **One-time host setup:** add
+`127.0.0.1 k3d-registry.localhost` to `/etc/hosts` so the host `docker push` resolves
+the registry to IPv4 (bare `*.localhost` resolves to IPv6 `::1` on some systems, which
+the registry does not listen on). This mirrors the proxy: machine setup, never in the
+repo. The only components still installed imperatively are the two ArgoCD cannot
+bootstrap (Cilium and ArgoCD) — the same pair prod bootstraps before GitOps takes over.
 
 Local diverges from prod **only** through one values overlay,
 `infra/gitops/platform/local/values.yaml`, consumed the same way the ArgoCD

@@ -13,9 +13,21 @@
 # Proxy-free by design. Behind a proxy, in-cluster pulls need proxy env ON the node,
 # which only k3d's create-time -e flags/config set — so create the cluster yourself
 # once (this task then just reuses it). See docs/dev-loop.md ("HTTP proxies").
+#
+# Local image registry (ADR-0016 parity): repo-built images (services, lowdefy) have
+# no CI/ghcr locally, so Argo has nothing to pull. k3d-registry.localhost:5000 is the
+# local stand-in for CI — cluster:full builds+pushes to it, the local values overlays
+# point at it, and Argo pulls exactly as prod pulls from ghcr. Wired via --registry-use
+# at create time, so an existing cluster must be recreated once to gain it.
 set -euo pipefail
 
 CLUSTER="${CLUSTER:-platform}"
+REGISTRY="registry.localhost"   # container becomes k3d-${REGISTRY}, host k3d-registry.localhost
+
+if ! k3d registry list | awk '{print $1}' | grep -qx "k3d-${REGISTRY}"; then
+  echo "→ creating k3d registry 'k3d-${REGISTRY}:5000'"
+  k3d registry create "$REGISTRY" --port 5000
+fi
 
 if ! k3d cluster list | awk '{print $1}' | grep -qx "$CLUSTER"; then
   echo "→ creating k3d cluster '$CLUSTER'"
@@ -23,7 +35,11 @@ if ! k3d cluster list | awk '{print $1}' | grep -qx "$CLUSTER"; then
     --servers 1 --agents 0 \
     --port "8080:80@loadbalancer" --port "8443:443@loadbalancer" \
     --k3s-arg '--flannel-backend=none@server:*' \
-    --k3s-arg '--disable-network-policy@server:*'
+    --k3s-arg '--disable-network-policy@server:*' \
+    --registry-use "k3d-${REGISTRY}:5000" \
+    -e 'HTTP_PROXY=http://host.k3d.internal:8118@server:*' \
+    -e 'HTTPS_PROXY=http://host.k3d.internal:8118@server:*' \
+    -e 'NO_PROXY=localhost,127.0.0.1,.localhost,k3d-registry.localhost,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,.svc,.svc.cluster.local,cluster.local,.localtest.me@server:*'
 else
   echo "→ cluster '$CLUSTER' exists; starting it (no-op if already running)"
   k3d cluster start "$CLUSTER"

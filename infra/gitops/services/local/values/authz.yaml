@@ -6,8 +6,9 @@
 # chart via the SOPS-managed preshared key.
 name: authz
 image:
-  repository: ghcr.io/tabmadi/microservices-monorepo-template/authz-server
-  tag: "0000000000000000000000000000000000000000"
+  repository: k3d-registry.localhost:5000/authz-server
+  tag: local            # local registry (CI stand-in); prod uses a git SHA (ADR-0002)
+  pullPolicy: Always    # re-pull the rebuilt :local on a cluster:full re-run
 worker:     { enabled: false }
 server:     { replicas: 1 }
 ingress:    { enabled: false }   # internal authorizer — no edge route

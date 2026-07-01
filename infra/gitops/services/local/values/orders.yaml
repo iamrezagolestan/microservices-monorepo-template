@@ -5,13 +5,14 @@
 # (infra/gitops/platform/local/secrets/platform.enc.yaml), not dev's *-db-creds.
 name: orders
 image:
-  repository: ghcr.io/tabmadi/microservices-monorepo-template/orders-server
-  tag: "0000000000000000000000000000000000000000"   # bumped by promote-on-merge
+  repository: k3d-registry.localhost:5000/orders-server
+  tag: local            # local registry (CI stand-in); prod uses a git SHA (ADR-0002)
+  pullPolicy: Always    # re-pull the rebuilt :local on a cluster:full re-run
 worker:
   enabled: true
   image:
-    repository: ghcr.io/tabmadi/microservices-monorepo-template/orders-worker
-    tag: "0000000000000000000000000000000000000000"
+    repository: k3d-registry.localhost:5000/orders-worker
+    tag: local
 server:  { replicas: 1 }
 ingress: { enabled: true, host: dev.localtest.me }
 otel:    { deployEnv: local }

@@ -4,13 +4,14 @@
 # creds), so only payment-db is mounted — matching the old skaffold module.
 name: payment
 image:
-  repository: ghcr.io/tabmadi/microservices-monorepo-template/payment-server
-  tag: "0000000000000000000000000000000000000000"
+  repository: k3d-registry.localhost:5000/payment-server
+  tag: local            # local registry (CI stand-in); prod uses a git SHA (ADR-0002)
+  pullPolicy: Always    # re-pull the rebuilt :local on a cluster:full re-run
 worker:
   enabled: true
   image:
-    repository: ghcr.io/tabmadi/microservices-monorepo-template/payment-worker
-    tag: "0000000000000000000000000000000000000000"
+    repository: k3d-registry.localhost:5000/payment-worker
+    tag: local
 server:  { replicas: 1 }
 ingress: { enabled: true, host: dev.localtest.me }
 otel:    { deployEnv: local }

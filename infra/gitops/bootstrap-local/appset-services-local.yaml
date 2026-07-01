@@ -32,7 +32,7 @@ spec:
         path: infra/helm/service
         helm:
           valueFiles:
-            - "../../../gitops/services/{{ .env }}/values/{{ .path.filename }}"
+            - "../../gitops/services/{{ .env }}/values/{{ .path.filename }}"
       destination: { server: "{{ .server }}", namespace: platform }
       syncPolicy:
         automated: { prune: true, selfHeal: true }
