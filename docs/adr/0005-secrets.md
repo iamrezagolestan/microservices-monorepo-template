@@ -35,7 +35,7 @@ Every environment needs secrets: database passwords, JWT signing keys, OAuth cli
 
 Every encrypted file in the repo has exactly three classes of recipient, listed in `.sops.yaml` at the repo root:
 
-1. **Per-engineer keys** — one age public key per engineer with current access. Engineers generate their own key pairs with `age-keygen`; the private key lives at `~/.config/sops/age/keys.txt` and never leaves the laptop.
+1. **Per-engineer keys** — one age public key per engineer with current access, named by that engineer's `{handle}` from [ADR-0015](0015-naming-and-identifiers.md) (e.g. the `eng_alice` recipient) so each key in the list traces to a person. A per-engineer key is a recipient across every environment's files, so it is scoped by project and handle, not by env. Engineers generate their own key pairs with `age-keygen`; the private key lives at `~/.config/sops/age/keys.txt` and never leaves the laptop.
 2. **Per-cluster key** — one age public key per environment (`dev`, `staging`, `prod`), named in `.sops.yaml` by the `{project}-{env}` form from [ADR-0015](0015-naming-and-identifiers.md). The matching private key lives only in that cluster, as a Kubernetes Secret in the `sops` namespace, materialised at cluster bootstrap by Ansible. The in-cluster operator (below) reads it.
 3. **Ops-recovery key** — a single age public key whose private half is held offline by 2–3 senior engineers. It exists so that a lost cluster key can be recovered without re-encrypting every secret. Used only in disaster recovery.
 
