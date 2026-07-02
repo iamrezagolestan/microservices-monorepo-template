@@ -6,8 +6,10 @@
 # kubectl waits.
 #
 # sync-wave "0" on the ApplicationSet itself (see appset-platform.yaml for why
-# this is a real gate, not a no-op) holds back gateway-local/secrets-local/
-# services-local until every platform component here is Synced+Healthy.
+# this is a real gate, not a no-op) holds back gateway-local (wave "5") and
+# services-local (wave "25") until every platform component here is Synced+Healthy.
+# secrets-local shares wave "0" (it delivers Secrets these charts consume, so it
+# must run concurrently, not after — see app-secrets-local.yaml).
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
