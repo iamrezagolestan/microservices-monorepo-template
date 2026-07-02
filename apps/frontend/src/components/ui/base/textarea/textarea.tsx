@@ -85,7 +85,10 @@ export const TextArea = ({
       {({ isInvalid, isRequired }) => (
         <>
           {label && (
-            <Label isRequired={hideRequiredIndicator ? !hideRequiredIndicator : isRequired} tooltip={tooltip}>
+            <Label
+              isRequired={hideRequiredIndicator ? !hideRequiredIndicator : isRequired}
+              tooltip={tooltip}
+            >
               {label}
             </Label>
           )}

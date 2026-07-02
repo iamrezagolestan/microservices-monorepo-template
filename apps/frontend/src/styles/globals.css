@@ -137,7 +137,6 @@
   --search-modal-result-fg: var(--color-gray-90);
   --search-modal-empty-fg: var(--color-gray-50);
 
-
   --textarea-bg: var(--color-gray-0);
   --textarea-fg: var(--color-gray-90);
   --textarea-placeholder: var(--color-gray-40);
@@ -218,5 +217,3 @@ body {
 .figma-input-field svg {
   transform: translateY(1px);
 }
-
-

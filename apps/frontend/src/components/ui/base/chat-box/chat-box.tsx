@@ -91,7 +91,10 @@ function getIconClassName(theme: ChatBoxTheme) {
   return "text-(--chatbox-icon-light) hover:text-(--chatbox-icon-hover-light)";
 }
 
-function getInitialTextValue(defaultValue: string | undefined, fallbackDefaultValue: string | undefined) {
+function getInitialTextValue(
+  defaultValue: string | undefined,
+  fallbackDefaultValue: string | undefined,
+) {
   if (typeof defaultValue !== "undefined") {
     return defaultValue;
   }
@@ -123,7 +126,13 @@ function IconButton({
   const closeTooltip = () => setIsTooltipOpen(false);
 
   return (
-    <Tooltip title={label} placement="top" delay={0} isDisabled={isDisabled} isOpen={!isDisabled && isTooltipOpen}>
+    <Tooltip
+      title={label}
+      placement="top"
+      delay={0}
+      isDisabled={isDisabled}
+      isOpen={!isDisabled && isTooltipOpen}
+    >
       <TooltipTrigger
         aria-label={label}
         isDisabled={isDisabled}
@@ -266,7 +275,9 @@ export function ChatBox({
   const loading = isLoadingVariant(variant);
   const edge = variantEdge[variant];
   const fallbackDefaultValue = long ? LONG_TEXT : undefined;
-  const [internalValue, setInternalValue] = useState(() => getInitialTextValue(defaultValue, fallbackDefaultValue));
+  const [internalValue, setInternalValue] = useState(() =>
+    getInitialTextValue(defaultValue, fallbackDefaultValue),
+  );
   const textValue = value ?? internalValue;
   const canSend = textValue.trim().length > 0;
   const baseSurfaceClassName = cx(
@@ -303,9 +314,7 @@ export function ChatBox({
   if (long) {
     return (
       <div className={baseSurfaceClassName} data-testid={dataTestId} dir="rtl">
-        <div
-          className="flex w-full min-w-px items-start justify-between gap-10 rounded-xl bg-(--chatbox-bg-light) pt-5 pr-1 pb-2 pl-5"
-        >
+        <div className="flex w-full min-w-px items-start justify-between gap-10 rounded-xl bg-(--chatbox-bg-light) pt-5 pr-1 pb-2 pl-5">
           <EditableChatTextArea
             label="Chat message"
             value={textValue}

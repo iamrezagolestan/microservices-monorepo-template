@@ -4,7 +4,16 @@ import path from "node:path";
 
 const screenshotDir = path.join(process.cwd(), "tests", "actual", "chat-box");
 const themes = ["dark", "light"] as const;
-const desktopVariants = ["default", "edge-1", "edge-2", "edge-3", "edge-4", "edge-5", "edge-6", "edge-7"] as const;
+const desktopVariants = [
+  "default",
+  "edge-1",
+  "edge-2",
+  "edge-3",
+  "edge-4",
+  "edge-5",
+  "edge-6",
+  "edge-7",
+] as const;
 const specialVariants = ["uploader", "long", "loading"] as const;
 const mobileVariants = ["default", "long"] as const;
 const editText = "\u0633\u0644\u0627\u0645";
@@ -38,24 +47,38 @@ test.describe("ChatBox screenshots", () => {
   for (const theme of themes) {
     for (const variant of desktopVariants) {
       test(`capture ${theme} desktop ${variant} chat box`, async ({ page }) => {
-        await captureChatBox(page, ["chatbox", theme, "desktop", variant].join("-"), `${theme}-desktop-${variant}.png`);
+        await captureChatBox(
+          page,
+          ["chatbox", theme, "desktop", variant].join("-"),
+          `${theme}-desktop-${variant}.png`,
+        );
       });
     }
   }
 
   for (const variant of specialVariants) {
     test(`capture light desktop ${variant} chat box`, async ({ page }) => {
-      await captureChatBox(page, ["chatbox", "light", "desktop", variant].join("-"), `light-desktop-${variant}.png`);
+      await captureChatBox(
+        page,
+        ["chatbox", "light", "desktop", variant].join("-"),
+        `light-desktop-${variant}.png`,
+      );
     });
   }
 
   for (const variant of mobileVariants) {
     test(`capture light mobile ${variant} chat box`, async ({ page }) => {
-      await captureChatBox(page, ["chatbox", "light", "mobile", variant].join("-"), `light-mobile-${variant}.png`);
+      await captureChatBox(
+        page,
+        ["chatbox", "light", "mobile", variant].join("-"),
+        `light-mobile-${variant}.png`,
+      );
     });
   }
 
-  test("places action buttons on the physical left in RTL layout and keeps Figma icon order", async ({ page }) => {
+  test("places action buttons on the physical left in RTL layout and keeps Figma icon order", async ({
+    page,
+  }) => {
     const chatBox = page.getByTestId("chatbox-light-desktop-default");
     const sendButton = chatBox.getByRole("button", { name: "Send" });
     const attachButton = chatBox.getByRole("button", { name: "Attach file" });
@@ -73,7 +96,9 @@ test.describe("ChatBox screenshots", () => {
     expect(attachBox?.x).toBeLessThan(aiBox?.x ?? 0);
     expect(aiBox?.x).toBeLessThan(textareaBox?.x ?? 0);
   });
-  test("allows text editing and toggles send disabled state from trimmed content", async ({ page }) => {
+  test("allows text editing and toggles send disabled state from trimmed content", async ({
+    page,
+  }) => {
     const chatBox = page.getByTestId("chatbox-light-desktop-default");
     const textarea = chatBox.locator("textarea");
     const sendButton = chatBox.getByRole("button", { name: "Send" });
