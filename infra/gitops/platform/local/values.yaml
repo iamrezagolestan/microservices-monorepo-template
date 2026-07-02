@@ -1,11 +1,24 @@
-# Local overrides for `cluster:full` (scripts/cluster-full.sh), consumed the
-# same way the ArgoCD ApplicationSet consumes dev/staging/prod values (ADR-0016):
-# local diverges from prod only through this overlay, layered over each
-# platform chart's own values.
-#
-# Best-effort: the LGTM/Ory layers may need per-chart tuning on first bring-up in
-# a given environment; the script installs them with `|| true` so a partial
-# platform still lets you iterate on the edge + services.
+# Local overrides for `cluster:full`, consumed the same way the ArgoCD
+# ApplicationSet consumes dev/staging/prod values (ADR-0016): local diverges from
+# prod only through this overlay, layered over each platform chart's own values.
+# Locally the local platform ApplicationSet (infra/gitops/bootstrap-local) syncs
+# these from master; ordering/readiness is Argo's job (sync-waves).
+
+# --- Cilium (CNI): k3d keeps kube-proxy, so disable kubeProxyReplacement; one
+# operator replica (the default 2 needs 2 nodes for anti-affinity). Cilium itself
+# is installed imperatively by cluster:full before Argo runs and is excluded from
+# the local platform ApplicationSet, but these values keep parity if it is synced.
+cilium:
+  kubeProxyReplacement: false
+  operator:
+    replicas: 1
+
+# --- TLS (cert-manager): self-signed wildcard for *.dev.localtest.me + ops, in
+# the platform namespace where the edge IngressRoutes resolve the secrets. Same
+# cert-manager mechanism as deployed envs; only the issuer differs (ADR-0016).
+envHost: dev.localtest.me
+selfSigned:
+  enabled: true
 
 # --- Data tier: instances=1 / small storage (laptop-sized) -----------------
 # Top-level `cluster:` — the postgres chart's own values schema has no
@@ -112,3 +125,15 @@ grafana:
   grafana.ini:
     server:
       root_url: "https://grafana.ops.dev.localtest.me:8443/"
+
+# --- Lowdefy admin console (ADR-0012) -------------------------------------
+# Repo-built image: pulled from the local registry (the CI stand-in) at the
+# stable `local` tag; Always so a cluster:full re-run picks up a rebuild.
+# Namespaced under `lowdefy:` to avoid colliding with the spicedb chart's
+# top-level `image` (both charts share this overlay).
+lowdefy:
+  replicas: 1
+  image:
+    repository: k3d-registry.localhost:5000/admin
+    tag: local
+    pullPolicy: Always

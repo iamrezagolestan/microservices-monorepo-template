@@ -73,8 +73,8 @@ Adding a new service is: create the service folder ([ADR-0002](0002-monorepo.md)
 
 Two ApplicationSets per environment:
 
-1. **Platform ApplicationSet** — list generator over `infra/helm/platform/*`. Sync waves order CRDs → operators → instances.
-2. **Services ApplicationSet** — git-directory generator over `infra/gitops/services/<env>/values/*.yaml`. One Application per service per environment, created and deleted automatically as files are added and removed.
+1. **Platform ApplicationSet** — list generator over `infra/helm/platform/*`, all charts at one sync-wave (no CRD-before-consumer split within the tier yet — a follow-up). The ApplicationSet itself sits at wave `0` so later waves (gateway, secrets, services) block until every platform component it generates is actually Synced+Healthy — the default ApplicationSet health only reflects successful templating, so a custom health check on the `ApplicationSet` kind (`infra/helm/platform/argocd/values.yaml`) walks `.status.resources` to make that gate real.
+2. **Services ApplicationSet** — git-directory generator over `infra/gitops/services/<env>/values/*.yaml`. One Application per service per environment, created and deleted automatically as files are added and removed. Sits at a later sync-wave than platform and gateway (and, locally, secrets) so service pods aren't created until their platform-tier dependencies (Postgres/Temporal/SpiceDB, CNI/CoreDNS stability, DB credentials) are actually up — see `infra/gitops/bootstrap(-local)/appset-*.yaml` for the exact wave numbers.
 
 A new service appears in dev the moment its `dev/values/<svc>.yaml` lands in `master`. No ArgoCD config changes required to onboard a service. This is the property that makes 100 services tractable for an 8-engineer team.
 
@@ -131,14 +131,16 @@ Secret values are not in git. Encrypted SOPS files in the repo are decrypted by 
 
 ### Local development
 
-GitOps is **not the inner loop's engine.** `mise run cluster:up` runs `helm install` directly against k3d so engineers
-iterate on chart changes without committing — ArgoCD reconciles committed git state, which is the opposite of what a
-working-tree loop needs.
+GitOps is **not the inner loop's engine.** The inner loop runs the service natively against `mise run cluster:lite`'s
+lightweight deps — ArgoCD reconciles committed git state, which is the opposite of what a working-tree loop needs.
 
-The **full-platform local tier** (`mise run cluster:full`) and the CI/preview tier do run this same app-of-apps, pointed
-at a local git source, so sync ordering and app discovery are exercised exactly as in prod
-([ADR-0016](0016-environment-parity.md)). A `mise run dev:gitops` task installs ArgoCD locally for debugging the GitOps
-layer specifically.
+The **full-platform local tier** (`mise run cluster:full`) and the CI/preview tier do run this same app-of-apps. Locally
+a sibling bootstrap (`infra/gitops/bootstrap-local/`) applies a local root-app that syncs committed `master` from the
+remote, so sync ordering, app discovery, and secret materialisation are exercised exactly as in prod
+([ADR-0016](0016-environment-parity.md)). The only components installed imperatively first are the two ArgoCD cannot
+bootstrap — the CNI (Cilium) and ArgoCD itself; everything else is Argo-managed. To iterate on uncommitted infra, use
+`platform:deploy -- <chart>` (working-tree overlay, Argo auto-sync paused) or push a branch and point the local root-app
+`targetRevision` at it.
 
 ## Consequences
 
@@ -175,6 +177,7 @@ layer specifically.
 - AppProject manifests with the `05:00 UTC` staging sync window and `manualSync: true`.
 - `helm template` snapshot tests in CI; `helm lint` and `kubeconform` on the chart.
 - `docs/gitops/runbook.md` covering sync failures, drift, rollback, and fresh-cluster bootstrap.
+- Per-chart sync-waves within the platform ApplicationSet (CRDs → operators → instances) — today every platform chart shares one wave; they only need to tolerate concurrent apply with each other, not with services (which sits at a later wave, see "Fan-out" above).
 
 ## Rules
 
@@ -188,4 +191,5 @@ layer specifically.
 - ArgoCD Image Updater and similar auto-promoters are not used.
 - Prod platform syncs are manual with `selfHeal=false`. Prod services sync automatically with `selfHeal=true`.
 - Secret values never appear in git. Manifests carry SOPS-encrypted files or ExternalSecret references; see [ADR-0005](0005-secrets.md).
-- Local development uses `helm install` directly against k3d; ArgoCD is not part of the local default loop.
+- The inner loop runs services natively against k3d (no ArgoCD); the full-platform local tier (`cluster:full`) is
+  ArgoCD-driven from committed `master` via `infra/gitops/bootstrap-local/`, the same engine prod uses.

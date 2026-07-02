@@ -7,6 +7,32 @@ argo-cd:
     cm:
       kustomize.buildOptions: "--enable-helm"
       timeout.reconciliation: "60s"
+      # ArgoCD's built-in health for ApplicationSet only reflects successful
+      # templating ("all Applications generated"), not whether the Applications
+      # it spawned actually synced and became healthy. That default makes
+      # sync-wave gating on an ApplicationSet a no-op — the ADR-0004 root
+      # app-of-apps (root(-local)) relies on the platform ApplicationSet
+      # (wave 0) truly blocking the gateway/secrets/services waves until every
+      # platform component is up, so this override walks .status.resources
+      # (populated with each generated Application's own sync + health status)
+      # and reports Progressing until all of them are Synced and Healthy.
+      resource.customizations.health.argoproj.io_ApplicationSet: |
+        hs = {}
+        if obj.status ~= nil and obj.status.resources ~= nil and #obj.status.resources > 0 then
+          hs.status = "Healthy"
+          hs.message = "All generated Applications are Synced and Healthy"
+          for i, r in ipairs(obj.status.resources) do
+            if r.status ~= "Synced" or r.health == nil or r.health.status ~= "Healthy" then
+              hs.status = "Progressing"
+              hs.message = "Waiting for " .. r.name .. " (sync=" .. tostring(r.status) .. ", health=" .. tostring(r.health and r.health.status) .. ")"
+              return hs
+            end
+          end
+          return hs
+        end
+        hs.status = "Progressing"
+        hs.message = "Waiting for ApplicationSet to generate Applications"
+        return hs
     rbac:
       policy.default: role:readonly
   server:

@@ -102,15 +102,12 @@ mise run setup                # install git hooks
 age-keygen -o ~/.config/sops/age/keys.txt   # SOPS private key (ADR-0005)
 
 # Local cluster
-mise run cluster:up               # k3d cluster + local deps (Postgres, Temporal, SpiceDB)
+mise run cluster:lite         # k3d cluster + local deps (Postgres, Temporal, SpiceDB)
 
 # Inner loop on a single service
 cd services/catalog
 mise run run                  # http server
 mise run worker               # temporal worker
-
-# Health check
-bash scripts/doctor.sh
 ```
 
 ## Layout

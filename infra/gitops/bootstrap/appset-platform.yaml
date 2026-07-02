@@ -1,9 +1,24 @@
 # Platform ApplicationSet (ADR-0004). One Application per platform component
-# per environment. Sync waves order CRDs → operators → instances.
+# per environment. All platform charts currently share one sync-wave (every
+# chart must tolerate being applied concurrently with the others; none yet
+# encodes a CRD-before-consumer split — see ADR-0004 follow-ups).
+#
+# The ApplicationSet itself carries sync-wave "0" so the root app-of-apps
+# holds back later-wave siblings (gateway, services) until every platform
+# component Application it generates is actually Synced+Healthy — not just
+# "generated" (ArgoCD's default ApplicationSet health only reflects successful
+# templating). That real gate is a custom health check registered on the
+# ApplicationSet kind; see infra/helm/platform/argocd/values.yaml.
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
-metadata: { name: platform, namespace: argocd }
+metadata:
+  name: platform
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
 spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
   generators:
     - matrix:
         generators:
@@ -29,6 +44,11 @@ spec:
         targetRevision: master
         path: "{{ .path.path }}"
         helm:
+          # Stable Helm release name = chart basename, so resources are named
+          # the same under ArgoCD as under a direct `helm install <chart>` (a
+          # bare release name would prefix every resource with the app name and
+          # break in-cluster DNS / cross-component refs).
+          releaseName: "{{ .path.basename }}"
           # Auth config single source (Phase 0.4): the Ory app pulls its kratos/
           # oathkeeper config from the canonical infra/auth tree — map configs as
           # valueFiles, the identity-schema + access-rules strings as fileParameters.
@@ -45,6 +65,10 @@ spec:
               path: "../../../auth/kratos/identity-schemas/user.v1.json"
             - name: oathkeeper.oathkeeper.accessRules
               path: "../../../auth/oathkeeper/access-rules.json"
+            # SpiceDB schema for the seed Job (ADR-0007); only the spicedb chart
+            # reads it, the rest ignore the extra value.
+            - name: seed.schema
+              path: "../../../auth/spicedb/schema.zed"
       destination: { server: "{{ .server }}", namespace: platform }
       syncPolicy:
         automated: { prune: true, selfHeal: true }

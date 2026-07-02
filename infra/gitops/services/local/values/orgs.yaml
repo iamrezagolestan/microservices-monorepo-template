@@ -1,0 +1,12 @@
+# Local full-tier values for the orgs service (ADR-0016). See orders.yaml for the
+# secret-naming note (orgs-db = local SopsSecret resource).
+name: orgs
+image:
+  repository: k3d-registry.localhost:5000/orgs-server
+  tag: local            # local registry (CI stand-in); prod uses a git SHA (ADR-0002)
+  pullPolicy: Always    # re-pull the rebuilt :local on a cluster:full re-run
+worker:  { enabled: false }
+server:  { replicas: 1 }
+ingress: { enabled: true, host: dev.localtest.me }
+otel:    { deployEnv: local }
+secrets: { envFrom: [orgs-db] }

@@ -7,8 +7,9 @@
 #   mise run ops:grant -- alice@example.com --revoke   # remove
 #
 # The per-tool dashboard grants (dashboard:<tool>#viewer@group:operator#member)
-# are platform policy seeded once per env (scripts/seed-spicedb.sh); this only
-# manages individual membership. The new operator must still enrol a second factor
+# are platform policy seeded once per env by the Argo-synced SpiceDB schema-seed
+# Job (infra/helm/platform/spicedb); this only manages individual membership. The
+# new operator must still enrol a second factor
 # (AAL2) before any ops dashboard renders. Run against the target cluster
 # (KUBE_CONTEXT overrides the current kubectl context).
 set -euo pipefail
@@ -29,18 +30,22 @@ fi
 
 k() { kubectl "${ctx_args[@]}" -n "$NS" "$@"; }
 
+# Cleanup must be armed before backgrounding anything, or a failure in between
+# (e.g. the secret read) would orphan a port-forward.
+kpf=""; spf=""
+trap 'kill "$kpf" "$spf" 2>/dev/null || true' EXIT
+
 # 1. Resolve the Kratos identity id from the email via the admin API.
-k port-forward svc/ory-kratos-admin 4434:80 >/dev/null 2>&1 &
+k port-forward svc/ory-kratos-admin 4434:80 >/dev/null &
 kpf=$!
 # 2. Open the SpiceDB gRPC port with its preshared key.
 sk="$(k get secret spicedb-creds -o jsonpath='{.data.preshared_key}' | base64 -d)"
-k port-forward svc/spicedb 50051:50051 >/dev/null 2>&1 &
+k port-forward svc/spicedb 50051:50051 >/dev/null &
 spf=$!
-trap 'kill "$kpf" "$spf" 2>/dev/null || true' EXIT
 sleep 4
 
 id="$(curl -fsS "http://localhost:4434/admin/identities?credentials_identifier=${email}" \
-  | python3 -c 'import sys,json; d=json.load(sys.stdin); print(d[0]["id"] if d else "")')"
+  | jq -r '.[0].id // ""')"
 if [ -z "$id" ]; then
   echo "no Kratos identity for ${email} — they must register first" >&2
   exit 1
