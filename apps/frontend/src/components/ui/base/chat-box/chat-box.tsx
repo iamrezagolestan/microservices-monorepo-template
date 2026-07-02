@@ -8,7 +8,6 @@ import { Tooltip, TooltipTrigger } from "../tooltip/tooltip";
 import { TextAreaBase } from "../textarea/textarea";
 
 export type ChatBoxTheme = "light" | "dark";
-export type ChatBoxDevice = "desktop" | "mobile";
 export type ChatBoxVariant =
   | "default"
   | "edge-1"
@@ -32,7 +31,6 @@ type TextValueProps = {
 
 export interface ChatBoxProps extends TextValueProps {
   theme?: ChatBoxTheme;
-  device?: ChatBoxDevice;
   variant?: ChatBoxVariant;
   placeholder?: string;
   className?: string;
@@ -148,15 +146,13 @@ function IconButton({
 function ChatControls({
   theme,
   loading,
-  device,
   canSend,
 }: {
   theme: ChatBoxTheme;
   loading: boolean;
-  device: ChatBoxDevice;
   canSend: boolean;
 }) {
-  const sendAndAttachmentSize = device === "mobile" ? "size-5" : "size-6";
+  const sendAndAttachmentSize = "size-6";
   const magicSize = "size-5";
   const iconClassName = getIconClassName(theme);
 
@@ -175,7 +171,7 @@ function ChatControls({
       <IconButton label="Send" className={iconClassName} isDisabled={!canSend}>
         <Send03 className={cx(sendAndAttachmentSize, "rotate-180")} />
       </IconButton>
-      <div className={cx("flex items-center", device === "mobile" ? "gap-3" : "gap-4")}>
+      <div className="flex items-center gap-4">
         <IconButton label="Attach file" className={iconClassName}>
           <Paperclip className={cx(sendAndAttachmentSize, "rotate-90")} />
         </IconButton>
@@ -257,7 +253,6 @@ function EditableChatTextArea({
 
 export function ChatBox({
   theme = "light",
-  device = "desktop",
   variant = "default",
   placeholder = DEFAULT_PLACEHOLDER,
   value,
@@ -269,20 +264,15 @@ export function ChatBox({
   const long = isLongVariant(variant);
   const uploader = isUploaderVariant(variant);
   const loading = isLoadingVariant(variant);
-  const mobile = device === "mobile";
   const edge = variantEdge[variant];
   const fallbackDefaultValue = long ? LONG_TEXT : undefined;
   const [internalValue, setInternalValue] = useState(() => getInitialTextValue(defaultValue, fallbackDefaultValue));
   const textValue = value ?? internalValue;
   const canSend = textValue.trim().length > 0;
-  const widthClassName = mobile ? "w-(--chatbox-width-mobile)" : "w-(--chatbox-width-desktop)";
-  const heightClassName = long && mobile ? "h-[159px]" : "h-auto";
   const baseSurfaceClassName = cx(
-    "relative overflow-hidden rounded-xl border-solid backdrop-blur-(--chatbox-backdrop-blur)",
+    "relative h-auto w-full overflow-hidden rounded-xl border-solid backdrop-blur-(--chatbox-backdrop-blur)",
     getSurfaceClassName(theme),
     borderClassName[edge],
-    widthClassName,
-    heightClassName,
     className,
   );
   const handleTextAreaChange: ChangeEventHandler<HTMLTextAreaElement> = (event) => {
@@ -292,7 +282,7 @@ export function ChatBox({
 
   if (uploader) {
     return (
-      <div className={cx("flex flex-col", widthClassName, className)} data-testid={dataTestId} dir="rtl">
+      <div className={cx("flex w-full flex-col", className)} data-testid={dataTestId} dir="rtl">
         <div className="relative mb-[-22px] h-[62px] w-full shrink-0 overflow-hidden rounded-xl bg-(--chatbox-attachment-bg)">
           <AttachmentButtons />
         </div>
@@ -304,7 +294,7 @@ export function ChatBox({
             onChange={handleTextAreaChange}
             className="h-6 min-w-px flex-1 text-md leading-6 text-(--chatbox-placeholder)"
           />
-          <ChatControls theme="light" loading={false} device="desktop" canSend={canSend} />
+          <ChatControls theme="light" loading={false} canSend={canSend} />
         </div>
       </div>
     );
@@ -314,22 +304,16 @@ export function ChatBox({
     return (
       <div className={baseSurfaceClassName} data-testid={dataTestId} dir="rtl">
         <div
-          className={cx(
-            "flex min-w-px items-start justify-between",
-            mobile ? "h-full gap-3 py-5 pr-0 pl-3" : "w-full gap-10 rounded-xl bg-(--chatbox-bg-light) pt-5 pr-1 pb-2 pl-5",
-          )}
+          className="flex w-full min-w-px items-start justify-between gap-10 rounded-xl bg-(--chatbox-bg-light) pt-5 pr-1 pb-2 pl-5"
         >
           <EditableChatTextArea
             label="Chat message"
             value={textValue}
             onChange={handleTextAreaChange}
             scrollsOnRight
-            className={cx(
-              "min-w-px flex-1 overflow-y-auto overflow-x-hidden text-(--chatbox-text) [scrollbar-gutter:stable]",
-              mobile ? "h-[124px] text-sm leading-5" : "h-[131px] text-md leading-6",
-            )}
+            className="h-[131px] min-w-px flex-1 overflow-y-auto overflow-x-hidden text-md leading-6 text-(--chatbox-text) [scrollbar-gutter:stable]"
           />
-          <ChatControls theme="light" loading={false} device={device} canSend={canSend} />
+          <ChatControls theme="light" loading={false} canSend={canSend} />
         </div>
       </div>
     );
@@ -344,13 +328,10 @@ export function ChatBox({
             placeholder={placeholder}
             value={textValue}
             onChange={handleTextAreaChange}
-            className={cx(
-              "h-6 min-w-px flex-1 overflow-hidden text-(--chatbox-placeholder)",
-              mobile ? "text-sm leading-5" : "text-md leading-6",
-            )}
+            className="h-6 min-w-px flex-1 overflow-hidden text-md leading-6 text-(--chatbox-placeholder)"
           />
         )}
-        <ChatControls theme={theme} loading={loading} device={device} canSend={canSend} />
+        <ChatControls theme={theme} loading={loading} canSend={canSend} />
       </div>
     </div>
   );
