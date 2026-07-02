@@ -8,9 +8,9 @@ type Props = ButtonHTMLAttributes<HTMLButtonElement> & {
 };
 
 const variants: Record<Variant, string> = {
-  primary: "bg-brand-600 text-white hover:bg-brand-700",
-  secondary: "bg-slate-100 text-slate-900 hover:bg-slate-200",
-  ghost: "bg-transparent text-slate-900 hover:bg-slate-100",
+  primary: "bg-brand-solid text-white hover:bg-brand-solid_hover",
+  secondary: "bg-tertiary text-primary hover:bg-quaternary",
+  ghost: "bg-transparent text-primary hover:bg-tertiary",
 };
 
 export function Button({ className, variant = "primary", ...rest }: Props) {

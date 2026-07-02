@@ -56,13 +56,13 @@ export default function Checkout() {
         <input
           {...register("product_id")}
           placeholder={panel.checkout.productPlaceholder}
-          className="w-full rounded-md border border-slate-300 px-3 py-2"
+          className="w-full rounded-md border border-primary px-3 py-2"
         />
         <Button type="submit" disabled={formState.isSubmitting}>
           {panel.checkout.buy}
         </Button>
       </form>
-      <p className="mt-3 text-sm text-slate-600">{status}</p>
+      <p className="mt-3 text-sm text-tertiary">{status}</p>
     </main>
   );
 }

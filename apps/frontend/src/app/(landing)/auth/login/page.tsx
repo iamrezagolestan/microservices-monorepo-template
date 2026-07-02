@@ -10,7 +10,10 @@ export default function LoginPage() {
       kind="login"
       strings={landing.auth}
       footer={
-        <Link href="/auth/register" className="mt-4 block text-sm text-brand-600 hover:underline">
+        <Link
+          href="/auth/register"
+          className="mt-4 block text-sm text-brand-tertiary hover:underline"
+        >
           {landing.auth.toRegister}
         </Link>
       }

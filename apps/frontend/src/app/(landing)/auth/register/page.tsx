@@ -11,7 +11,7 @@ export default function RegisterPage() {
       kind="registration"
       strings={landing.register}
       footer={
-        <Link href="/auth/login" className="mt-4 block text-sm text-brand-600 hover:underline">
+        <Link href="/auth/login" className="mt-4 block text-sm text-brand-tertiary hover:underline">
           {landing.register.toLogin}
         </Link>
       }

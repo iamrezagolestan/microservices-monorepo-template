@@ -23,11 +23,11 @@ export default async function Products() {
   return (
     <main className="mx-auto max-w-3xl p-6">
       <h1 className="text-2xl font-semibold">{panel.products.title}</h1>
-      <ul className="mt-4 divide-y divide-slate-200">
+      <ul className="mt-4 divide-y divide-secondary">
         {products.map((p) => (
           <li key={p.id} className="flex justify-between py-2">
             <span>{p.name}</span>
-            <span className="tabular-nums text-slate-600">${(p.price_cents / 100).toFixed(2)}</span>
+            <span className="tabular-nums text-tertiary">${(p.price_cents / 100).toFixed(2)}</span>
           </li>
         ))}
       </ul>

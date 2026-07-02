@@ -18,7 +18,7 @@ export default function RootError({
   return (
     <main className="p-6">
       <h1 className="text-xl font-semibold">Something went wrong</h1>
-      <p className="mt-2 text-sm text-slate-600">{error.message}</p>
+      <p className="mt-2 text-sm text-tertiary">{error.message}</p>
       <Button className="mt-4" onClick={reset}>
         Try again
       </Button>

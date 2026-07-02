@@ -11,7 +11,7 @@ export default function RecoveryPage() {
       kind="recovery"
       strings={landing.recovery}
       footer={
-        <Link href="/auth/login" className="mt-4 block text-sm text-brand-600 hover:underline">
+        <Link href="/auth/login" className="mt-4 block text-sm text-brand-tertiary hover:underline">
           {landing.recovery.toLogin}
         </Link>
       }

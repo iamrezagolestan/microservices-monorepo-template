@@ -1,9 +1,6 @@
-// Untitled UI token bridge (ADR-0014). Ports of the upstream Tailwind preset
-// live here as committed source; see ./UPSTREAM.md for the tracked version.
-//
-// Real token wiring lives in apps/frontend/src/styles/globals.css via the
-// Tailwind v4 `@theme` block. This file exports the same tokens to TS code
-// that needs them outside CSS (chart palettes, inline SVG fills, etc.).
+// Untitled UI token mirror (ADR-0014). CSS is the runtime source of truth in
+// src/styles/theme.css; this file exposes the same project-preserved values to
+// TypeScript consumers that need tokens outside Tailwind classes.
 
 export const tokens = {
   color: {
@@ -14,6 +11,25 @@ export const tokens = {
       600: "#2563eb",
       700: "#1d4ed8",
       900: "#1e3a8a",
+    },
+    text: {
+      primary: "#0f172a",
+      tertiary: "#475569",
+      quaternary: "#64748b",
+      errorPrimary: "#dc2626",
+      white: "#ffffff",
+      brandTertiary: "#2563eb",
+    },
+    border: {
+      primary: "#cbd5e1",
+      secondary: "#e2e8f0",
+    },
+    background: {
+      primary: "#ffffff",
+      tertiary: "#f1f5f9",
+      quaternary: "#e2e8f0",
+      brandSolid: "#2563eb",
+      brandSolidHover: "#1d4ed8",
     },
   },
   radius: {
