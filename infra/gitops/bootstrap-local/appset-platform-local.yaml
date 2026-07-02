@@ -1,12 +1,20 @@
 # Local Platform ApplicationSet (ADR-0004, ADR-0016). Identical to
 # bootstrap/appset-platform.yaml except the list generator carries a single
 # { env: local } element, so it deploys the same platform charts at the local
-# overlay (infra/gitops/platform/local/values.yaml). Sync waves order
-# CRDs → operators → instances; this replaces the imperative ordering that
-# scripts/cluster-full.sh did with two-pass helm + kubectl waits.
+# overlay (infra/gitops/platform/local/values.yaml). This replaces the
+# imperative ordering that scripts/cluster-full.sh did with two-pass helm +
+# kubectl waits.
+#
+# sync-wave "0" on the ApplicationSet itself (see appset-platform.yaml for why
+# this is a real gate, not a no-op) holds back gateway-local/secrets-local/
+# services-local until every platform component here is Synced+Healthy.
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
-metadata: { name: platform-local, namespace: argocd }
+metadata:
+  name: platform-local
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
 spec:
   goTemplate: true
   goTemplateOptions: ["missingkey=error"]

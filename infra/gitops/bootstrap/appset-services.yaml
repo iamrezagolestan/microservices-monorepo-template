@@ -1,9 +1,20 @@
 # Services ApplicationSet (ADR-0004). Git-directory generator over per-env
 # values files; one Application per service per environment, auto-onboarded
 # when its values file lands in master.
+#
+# sync-wave "10" holds this back until the platform ApplicationSet (wave "0",
+# gated by a custom health check — see infra/helm/platform/argocd/values.yaml)
+# and the gateway Application (wave "5") are both Synced+Healthy. Services
+# depend on both: platform for Postgres/Temporal/SpiceDB/CoreDNS-affecting
+# CNI stability, gateway for the Traefik middlewares their IngressRoutes
+# reference.
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
-metadata: { name: services, namespace: argocd }
+metadata:
+  name: services
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "10"
 spec:
   goTemplate: true
   goTemplateOptions: ["missingkey=error"]

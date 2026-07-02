@@ -73,8 +73,8 @@ Adding a new service is: create the service folder ([ADR-0002](0002-monorepo.md)
 
 Two ApplicationSets per environment:
 
-1. **Platform ApplicationSet** — list generator over `infra/helm/platform/*`. Sync waves order CRDs → operators → instances.
-2. **Services ApplicationSet** — git-directory generator over `infra/gitops/services/<env>/values/*.yaml`. One Application per service per environment, created and deleted automatically as files are added and removed.
+1. **Platform ApplicationSet** — list generator over `infra/helm/platform/*`, all charts at one sync-wave (no CRD-before-consumer split within the tier yet — a follow-up). The ApplicationSet itself sits at wave `0` so later waves (gateway, secrets, services) block until every platform component it generates is actually Synced+Healthy — the default ApplicationSet health only reflects successful templating, so a custom health check on the `ApplicationSet` kind (`infra/helm/platform/argocd/values.yaml`) walks `.status.resources` to make that gate real.
+2. **Services ApplicationSet** — git-directory generator over `infra/gitops/services/<env>/values/*.yaml`. One Application per service per environment, created and deleted automatically as files are added and removed. Sits at a later sync-wave than platform and gateway (and, locally, secrets) so service pods aren't created until their platform-tier dependencies (Postgres/Temporal/SpiceDB, CNI/CoreDNS stability, DB credentials) are actually up — see `infra/gitops/bootstrap(-local)/appset-*.yaml` for the exact wave numbers.
 
 A new service appears in dev the moment its `dev/values/<svc>.yaml` lands in `master`. No ArgoCD config changes required to onboard a service. This is the property that makes 100 services tractable for an 8-engineer team.
 
@@ -177,6 +177,7 @@ bootstrap — the CNI (Cilium) and ArgoCD itself; everything else is Argo-manage
 - AppProject manifests with the `05:00 UTC` staging sync window and `manualSync: true`.
 - `helm template` snapshot tests in CI; `helm lint` and `kubeconform` on the chart.
 - `docs/gitops/runbook.md` covering sync failures, drift, rollback, and fresh-cluster bootstrap.
+- Per-chart sync-waves within the platform ApplicationSet (CRDs → operators → instances) — today every platform chart shares one wave; they only need to tolerate concurrent apply with each other, not with services (which sits at a later wave, see "Fan-out" above).
 
 ## Rules
 
