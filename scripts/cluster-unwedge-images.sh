@@ -45,10 +45,27 @@ if [ "${#stuck[@]}" -eq 0 ]; then
 fi
 
 echo "→ ${#stuck[@]} image(s) stuck behind the proxy; pulling on the host + importing:"
+# The proxy is slow, so a single host pull can trip docker's TLS-handshake timeout
+# even when the image is perfectly reachable — retry a few times before giving up.
+docker_pull() {
+  for attempt in 1 2 3; do
+    docker pull "$1" && return 0
+    echo "    (pull attempt $attempt failed — retrying)"
+  done
+  return 1
+}
+
+# One unreachable image must not abort the batch: import everything that does pull,
+# collect the ones that don't, and fail loudly at the end so nothing is swallowed.
+failed=()
 for img in "${stuck[@]}"; do
   echo "  · $img"
   # Pull by the full, digest-pinned ref so we fetch exactly the bytes the pod wants.
-  docker pull "$img"
+  if ! docker_pull "$img"; then
+    echo "    ✗ could not pull $img — skipping"
+    failed+=("$img")
+    continue
+  fi
   # k3d image import can't resolve a combined `repo:tag@sha256:…` ref (its runtime
   # lookup only matches plain tags), so strip the digest and import by tag. The
   # content digest is unchanged, so the digest-pinned pod still resolves it locally.
@@ -57,7 +74,10 @@ for img in "${stuck[@]}"; do
     no_digest="${img%@sha256:*}"
     [[ "${no_digest##*/}" == *:* ]] && import_ref="$no_digest"
   fi
-  k3d image import "$import_ref" -c "$CLUSTER"
+  if ! k3d image import "$import_ref" -c "$CLUSTER"; then
+    echo "    ✗ could not import $import_ref — skipping"
+    failed+=("$img")
+  fi
 done
 
 # Nudge the stuck pods to retry now (delete Pending/waiting pods; their owners —
@@ -79,4 +99,10 @@ k get pods -A -o json \
       k -n "$ns" delete pod "$pod" --wait=false
     done
 
-echo "✓ imported ${#stuck[@]} image(s); pods will re-pull locally. Re-run if more wedge."
+imported=$(( ${#stuck[@]} - ${#failed[@]} ))
+echo "✓ imported ${imported}/${#stuck[@]} image(s); pods will re-pull locally. Re-run if more wedge."
+if [ "${#failed[@]}" -gt 0 ]; then
+  echo "✗ ${#failed[@]} image(s) could not be pulled (proxy still choking) — re-run to retry:"
+  printf '    · %s\n' "${failed[@]}"
+  exit 1
+fi
