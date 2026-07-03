@@ -161,14 +161,20 @@ session; a bare login does not grant tool access.
 | `grafana.ops.dev.localtest.me/` | **Grafana** — LGTM dashboards | Oathkeeper (`dashboard:grafana#view`) | `infra/gateway/ingressroutes.yaml` |
 | `hubble.ops.dev.localtest.me/` | Cilium **Hubble UI** — network-flow map | Oathkeeper (`dashboard:hubble#view`) | `infra/gateway/ingressroutes.yaml` |
 | `temporal.ops.dev.localtest.me/` | **Temporal Web UI** | Oathkeeper (`dashboard:temporal#view`) | `infra/gateway/ingressroutes.yaml` |
-| `minio.ops.dev.localtest.me/` | **MinIO console** (non-prod) | Oathkeeper (`dashboard:minio#view`) | `infra/gateway/ingressroutes.yaml` |
+| `minio.ops.dev.localtest.me/` | **MinIO console** (non-prod) | Oathkeeper (`dashboard:minio#view`), then MinIO login `minio` / `minio-password` | `infra/gateway/ingressroutes.yaml` |
 | `console.ops.<host>/` | **Lowdefy** admin console (deployed envs) | Oathkeeper (`dashboard:console#view`) | `infra/gateway/ingressroutes.yaml` |
-| `argo.ops.<host>/` | **Argo CD** (deployed envs) | Oathkeeper (`dashboard:argo#view`) | `infra/gateway/ingressroutes.yaml` |
+| `argo.ops.<host>/` | **Argo CD** | Oathkeeper (`dashboard:argo#view`) | `infra/gateway/ingressroutes.yaml` |
 
-Grafana has its own login behind the Kratos gate — sign in with `admin` / `admin`
-(the local `grafana.adminPassword`). Without the edge you can still reach it by
+Grafana trusts the Oathkeeper edge and serves anonymously (its login form is
+disabled, `auth.anonymous` Admin) — an operator who clears the edge lands straight
+on the dashboards, no second login. Without the edge you can still reach it by
 port-forward: `kubectl -n platform port-forward svc/grafana 3000:80`, then
-<http://localhost:3000/> (it now serves at root, not a sub-path).
+<http://localhost:3000/> (anonymous Admin; it serves at root, not a sub-path).
+
+The **MinIO console** is the one dashboard that keeps a second login: unlike
+Grafana/Argo CD (which trust the Oathkeeper edge and serve anonymously), MinIO's
+console has no proxy-trust/SSO mode, so after the edge gate it prompts for MinIO
+credentials — the pre-seeded root user `minio` / `minio-password`.
 
 `cluster:full` brings up the whole platform (edge, services, observability,
 console); Argo CD itself is installed imperatively for the local full tier and is

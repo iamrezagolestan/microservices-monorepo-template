@@ -13,7 +13,7 @@ minio:
   resources:
     requests: { memory: "256Mi" }
   rootUser: minio
-  rootPassword: minio-dev-password
+  rootPassword: minio-password
   # One bucket per backend consumer (platform/observability charts), matching
   # the names each chart's own values.yaml expects.
   buckets:
