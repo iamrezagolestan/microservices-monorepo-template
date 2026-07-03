@@ -78,10 +78,10 @@ grafana:
       enabled: true
       org_role: Admin
     # Skip the "Welcome to Grafana" home page and land operators on a real
-    # dashboard. The chart's sidecar mounts dashboardsConfigMaps under
-    # /tmp/dashboards, so service-red.json (uid service-red) is served there.
+    # dashboard. dashboardsConfigMaps.default (grafana-dashboards) mounts at
+    # /var/lib/grafana/dashboards/default, so service-red.json is served there.
     dashboards:
-      default_home_dashboard_path: /tmp/dashboards/service-red.json
+      default_home_dashboard_path: /var/lib/grafana/dashboards/default/service-red.json
   datasources:
     datasources.yaml:
       apiVersion: 1
@@ -137,6 +137,17 @@ loki:
   # service directly, so it is dead weight. The chart (7.x) also gives it a hard
   # pod-anti-affinity that can't schedule on a single-node local cluster.
   gateway: { enabled: false }
+  # loki-canary is a synthetic log-probe DaemonSet (+ its helm test) used to
+  # measure ingest latency; not something this template needs to run. These two
+  # toggles are the loki chart's own templates, so a values override works.
+  lokiCanary: { enabled: false }
+  test: { enabled: false }
+  # NOTE: the loki chart also bundles minio, rollout-operator and
+  # grafana-agent-operator as *grandchild* subcharts, which Helm renders even
+  # when their conditions are set false (nested-condition limitation). They are
+  # all dead weight here — loki uses the shared platform MinIO, runs one replica,
+  # and self-telemetry goes through the OTel collector — so they are physically
+  # stripped from the vendored charts/loki-7.0.0.tgz (see observability/Chart.yaml).
 
 # Tempo — single-binary monolithic chart, bucket-backed.
 tempo:
