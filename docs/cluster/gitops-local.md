@@ -65,3 +65,16 @@ credentials are needed locally.
 Prefer `mise run cluster:delete` + a fresh `cluster:full` **with** the change over
 an in-place upgrade — hot-swapping a CNI on a live cluster blips networking. This
 is inherent to the component, not a tooling gap.
+
+## Troubleshooting: `root-local` never converges after `cluster:stop`
+
+`cluster:stop` freezes cluster state, including any ArgoCD sync operation that
+was still `Running`. On resume, the controller reattaches to that same operation
+and reuses the task plan (sync-waves included) it computed when the operation
+first started — even if the manifests have since changed. A sync that started
+before a wave-annotation fix can never converge, and `argocd app wait` just times
+out. `scripts/cluster-full.sh` self-heals this: if the initial wait times out, it
+terminates the wedged operation and forces a fresh sync (which recomputes the
+plan against current git) before giving up for real. If you hit this outside
+`cluster:full` (e.g. via the `argocd` CLI directly), the manual equivalent is
+`argocd --core app terminate-op <app>` followed by `argocd --core app sync <app>`.

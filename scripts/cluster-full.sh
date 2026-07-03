@@ -96,11 +96,31 @@ AC_KUBECONFIG="$(mktemp)"
 trap 'rm -f "$AC_KUBECONFIG"' EXIT
 k config view --minify --flatten >"$AC_KUBECONFIG"
 kubectl --kubeconfig "$AC_KUBECONFIG" config set-context --current --namespace argocd >/dev/null
-ac app wait root-local --sync --health --operation --timeout 600
+
+# `cluster:stop` freezes cluster state mid-sync; on resume, the ArgoCD controller
+# reattaches to whatever sync operation was still "Running" and reuses the task
+# plan (incl. per-resource sync-waves) it computed back when that operation
+# started — even if the manifests (and their wave annotations) have since
+# changed. That stale plan can never converge. If the wait times out, that's the
+# first thing to suspect: terminate the wedged operation and force a fresh one
+# (which recomputes the plan against current git) before giving up for real.
+wait_apps() {
+  local timeout="$1"; shift
+  if ac app wait "$@" --sync --health --operation --timeout "$timeout"; then
+    return 0
+  fi
+  echo "⚠ one or more of [$*] did not converge in ${timeout}s — terminating their operations (likely stale from a prior cluster:stop) and forcing a fresh sync"
+  local app
+  for app in "$@"; do ac app terminate-op "$app" || true; done
+  for app in "$@"; do ac app sync "$app" --timeout "$timeout"; done
+  ac app wait "$@" --sync --health --operation --timeout "$timeout"
+}
+
+wait_apps 600 root-local
 while :; do
   apps="$(ac app list -o name)"
   # shellcheck disable=SC2086  # names are newline-separated, intentional split
-  ac app wait $apps --sync --health --operation --timeout 1800
+  wait_apps 1800 $apps
   [ "$(ac app list -o name)" = "$apps" ] && break
 done
 echo "✓ all ArgoCD applications Synced + Healthy"
