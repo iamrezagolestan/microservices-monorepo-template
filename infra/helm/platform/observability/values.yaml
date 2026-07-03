@@ -77,6 +77,11 @@ grafana:
     "auth.anonymous":
       enabled: true
       org_role: Admin
+    # Skip the "Welcome to Grafana" home page and land operators on a real
+    # dashboard. The chart's sidecar mounts dashboardsConfigMaps under
+    # /tmp/dashboards, so service-red.json (uid service-red) is served there.
+    dashboards:
+      default_home_dashboard_path: /tmp/dashboards/service-red.json
   datasources:
     datasources.yaml:
       apiVersion: 1
