@@ -10,9 +10,10 @@
 # (NetworkPolicy + Hubble, ADR-0003). Traefik stays (it provides the IngressRoute/
 # Middleware CRDs the edge uses). Ports 8080/8443 map the loadbalancer.
 #
-# Proxy-free by design. Behind a proxy, in-cluster pulls need proxy env ON the node,
-# which only k3d's create-time -e flags/config set — so create the cluster yourself
-# once (this task then just reuses it). See docs/dev-loop.md ("HTTP proxies").
+# Proxy-free unless YOUR shell is proxied — no proxy value lives in the repo. The
+# node's containerd needs the proxy at create time (it inherits nothing else); the
+# create block below reads it from your exported HTTP(S)_PROXY and injects it, so a
+# clean shell makes a pristine cluster. See docs/dev-loop.md ("HTTP proxies").
 #
 # Local image registry (ADR-0016 parity): repo-built images (services, lowdefy) have
 # no CI/ghcr locally, so Argo has nothing to pull. k3d-registry.localhost:5000 is the
@@ -31,15 +32,32 @@ fi
 
 if ! k3d cluster list | awk '{print $1}' | grep -qx "$CLUSTER"; then
   echo "→ creating k3d cluster '$CLUSTER'"
+  # Node proxy (opt-in, no value baked in). The node's containerd inherits nothing
+  # from the host, so a proxy reaches it only via create-time -e flags. We read it
+  # from YOUR shell instead of hardcoding one machine's setup: a clean shell (no
+  # HTTP(S)_PROXY) creates a pristine cluster; a proxied shell gets its proxy
+  # injected, with loopback rewritten to host.k3d.internal (how the node addresses
+  # the host). Export HTTP_PROXY/HTTPS_PROXY once, system-side, before first run.
+  proxy_flags=()
+  host_proxy="${HTTPS_PROXY:-${https_proxy:-${HTTP_PROXY:-${http_proxy:-}}}}"
+  if [ -n "$host_proxy" ]; then
+    node_proxy="${host_proxy//127.0.0.1/host.k3d.internal}"
+    node_proxy="${node_proxy//localhost/host.k3d.internal}"
+    no_proxy="localhost,127.0.0.1,.localhost,k3d-registry.localhost,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,.svc,.svc.cluster.local,cluster.local,.localtest.me"
+    proxy_flags=(
+      -e "HTTP_PROXY=${node_proxy}@server:*"
+      -e "HTTPS_PROXY=${node_proxy}@server:*"
+      -e "NO_PROXY=${no_proxy}@server:*"
+    )
+    echo "  · proxied shell detected → wiring node proxy ${node_proxy}"
+  fi
   k3d cluster create "$CLUSTER" \
     --servers 1 --agents 0 \
     --port "8080:80@loadbalancer" --port "8443:443@loadbalancer" \
     --k3s-arg '--flannel-backend=none@server:*' \
     --k3s-arg '--disable-network-policy@server:*' \
     --registry-use "k3d-${REGISTRY}:5000" \
-    -e 'HTTP_PROXY=http://host.k3d.internal:8118@server:*' \
-    -e 'HTTPS_PROXY=http://host.k3d.internal:8118@server:*' \
-    -e 'NO_PROXY=localhost,127.0.0.1,.localhost,k3d-registry.localhost,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,.svc,.svc.cluster.local,cluster.local,.localtest.me@server:*'
+    ${proxy_flags[@]+"${proxy_flags[@]}"}
 else
   echo "→ cluster '$CLUSTER' exists; starting it (no-op if already running)"
   k3d cluster start "$CLUSTER"
