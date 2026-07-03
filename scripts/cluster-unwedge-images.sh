@@ -47,8 +47,17 @@ fi
 echo "→ ${#stuck[@]} image(s) stuck behind the proxy; pulling on the host + importing:"
 for img in "${stuck[@]}"; do
   echo "  · $img"
+  # Pull by the full, digest-pinned ref so we fetch exactly the bytes the pod wants.
   docker pull "$img"
-  k3d image import "$img" -c "$CLUSTER"
+  # k3d image import can't resolve a combined `repo:tag@sha256:…` ref (its runtime
+  # lookup only matches plain tags), so strip the digest and import by tag. The
+  # content digest is unchanged, so the digest-pinned pod still resolves it locally.
+  import_ref="$img"
+  if [[ "$img" == *"@sha256:"* ]]; then
+    no_digest="${img%@sha256:*}"
+    [[ "${no_digest##*/}" == *:* ]] && import_ref="$no_digest"
+  fi
+  k3d image import "$import_ref" -c "$CLUSTER"
 done
 
 # Nudge the stuck pods to retry now (delete Pending/waiting pods; their owners —
