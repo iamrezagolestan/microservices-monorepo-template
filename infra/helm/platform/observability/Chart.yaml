@@ -25,6 +25,10 @@ appVersion: "1.0.0"
 # rollout-operator and grafana-agent-operator grandchild charts removed (Helm
 # won't honor their disable conditions two levels deep). After a fresh `helm
 # pull loki`, re-strip those three dirs from charts/ before repacking.
+# NOTE: charts/tempo-1.24.4.tgz is repacked too — its values.yaml receivers and
+# templates/_ports.tpl are trimmed to OTLP + metrics only (the jaeger/zipkin/
+# opencensus/otlp-legacy receiver ports are unused; the OTel collector ships
+# traces over OTLP). Re-apply both edits after a fresh `helm pull tempo`.
 
 # Mimir runs as a hand-written monolithic Deployment (templates/mimir.yaml), not
 # a subchart: there is no official monolithic Mimir chart, and the distributed

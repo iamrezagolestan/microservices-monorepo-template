@@ -1,0 +1,34 @@
+## Namespace-wide default-deny + the egress every pod legitimately needs.
+## `enableDefaultDeny` (Cilium 1.14+) flips every platform pod to deny-by-default
+## for both directions; all allows — here, in the sibling templates, and in the
+## service chart's own NetworkPolicies — are additive on top.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: platform-baseline
+spec:
+  endpointSelector: {}
+  enableDefaultDeny:
+    ingress: true
+    egress: true
+  # No ingress allows here — each backend grants its own callers in the sibling
+  # templates; the demo app services grant theirs via the service chart.
+  egress:
+    # CoreDNS — every pod resolves service names.
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: kube-system
+            k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - { port: "53", protocol: UDP }
+            - { port: "53", protocol: TCP }
+    # Intra-namespace: allow reaching other platform pods. The destination's
+    # ingress rules decide what actually connects — egress is not the gate here.
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: platform
+    # Kubernetes API server — operators (cert-manager, CNPG, sops), the OTel
+    # collector and the CNPG instance manager watch/patch resources.
+    - toEntities:
+        - kube-apiserver

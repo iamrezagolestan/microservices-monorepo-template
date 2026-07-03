@@ -82,6 +82,12 @@ grafana:
     # /var/lib/grafana/dashboards/default, so service-red.json is served there.
     dashboards:
       default_home_dashboard_path: /var/lib/grafana/dashboards/default/service-red.json
+    # No phone-home: version/plugin update checks and usage analytics are the only
+    # reason Grafana reaches the internet (seen in Hubble as grafana -> <gcp-ip>:443).
+    analytics:
+      reporting_enabled: false
+      check_for_updates: false
+      check_for_plugin_updates: false
   datasources:
     datasources.yaml:
       apiVersion: 1
@@ -105,6 +111,9 @@ loki:
     # and every header-less query (incl. Grafana's datasource health check) 401s
     # with "no org id".
     auth_enabled: false
+    # Don't phone home usage stats to stats.grafana.org — the only reason loki
+    # makes an external egress connection (seen in Hubble as loki -> <gcp-ip>:443).
+    analytics: { reporting_enabled: false }
     commonConfig: { replication_factor: 1 }
     schemaConfig:
       configs:

@@ -1,0 +1,36 @@
+## Postgres (CNPG) — the crown jewel. Only the identity/authz/workflow stores may
+## reach 5432. The demo app services go through Temporal, never Postgres directly.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: postgres
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: postgresql
+      app.kubernetes.io/component: database
+  ingress:
+    - fromEndpoints:
+        - matchLabels: { k8s:io.kubernetes.pod.namespace: platform, app.kubernetes.io/name: kratos }
+        - matchLabels: { k8s:io.kubernetes.pod.namespace: platform, app.kubernetes.io/name: ory-kratos-courier }
+        - matchLabels: { k8s:io.kubernetes.pod.namespace: platform, app.kubernetes.io/name: spicedb }
+        - matchLabels: { k8s:io.kubernetes.pod.namespace: platform, app.kubernetes.io/name: temporal }
+      toPorts:
+        - ports: [{ port: "5432", protocol: TCP }]
+---
+## SpiceDB — authorization store. authz-server checks permissions; the admin
+## console (lowdefy) writes relationship grants.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: spicedb
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: spicedb
+  ingress:
+    - fromEndpoints:
+        - matchLabels: { k8s:io.kubernetes.pod.namespace: platform, app.kubernetes.io/name: authz }
+        - matchLabels: { k8s:io.kubernetes.pod.namespace: platform, app.kubernetes.io/name: lowdefy }
+      toPorts:
+        - ports: [{ port: "50051", protocol: TCP }]
