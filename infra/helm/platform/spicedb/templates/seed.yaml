@@ -8,6 +8,12 @@ metadata:
   namespace: platform
   annotations:
     argocd.argoproj.io/sync-wave: "1"
+    # Drift anchor for the grants (the seed Job below is a `hook: Sync`, which Argo
+    # excludes from OutOfSync detection — so a dashboards-only change would never
+    # trigger a sync and the hook would never re-run). Hashing the list onto this
+    # tracked ConfigMap makes any grant change mutate a tracked resource → OutOfSync
+    # → auto-sync → the Sync hook fires. The schema already drifts via data below.
+    seed.spicedb/dashboards-checksum: {{ .Values.seed.dashboards | toJson | sha256sum }}
 data:
   schema.zed: |
 {{ .Values.seed.schema | indent 4 }}
