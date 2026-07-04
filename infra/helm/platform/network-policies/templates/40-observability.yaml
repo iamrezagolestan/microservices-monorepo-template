@@ -70,6 +70,9 @@ spec:
         - ports: [{ port: "3200", protocol: TCP }]
 ---
 ## MinIO — object storage for the LGTM backends (9000). Console (9001) is edge-only.
+## The minio-post-job (app: minio-job) provisions the buckets + users the LGTM
+## backends need, so it must reach 9000 too — without it every backend crashloops
+## on "bucket does not exist".
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
@@ -83,6 +86,7 @@ spec:
         - matchLabels: { k8s:io.kubernetes.pod.namespace: platform, app.kubernetes.io/name: loki }
         - matchLabels: { k8s:io.kubernetes.pod.namespace: platform, app.kubernetes.io/name: mimir }
         - matchLabels: { k8s:io.kubernetes.pod.namespace: platform, app.kubernetes.io/name: tempo }
+        - matchLabels: { k8s:io.kubernetes.pod.namespace: platform, app: minio-job }
       toPorts:
         - ports: [{ port: "9000", protocol: TCP }]
     - fromEndpoints:

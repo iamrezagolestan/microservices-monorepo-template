@@ -67,12 +67,18 @@ for img in "${stuck[@]}"; do
     continue
   fi
   # k3d image import can't resolve a combined `repo:tag@sha256:…` ref (its runtime
-  # lookup only matches plain tags), so strip the digest and import by tag. The
+  # lookup only matches plain tags), so import by the plain tag. But `docker pull`
+  # of a digest-pinned ref stores the image under `repo@sha256:…` only — it does NOT
+  # create the `repo:tag` tag — so we must tag it ourselves first, else the import
+  # fails with "not a file and couldn't be found in the container runtime". The
   # content digest is unchanged, so the digest-pinned pod still resolves it locally.
   import_ref="$img"
   if [[ "$img" == *"@sha256:"* ]]; then
     no_digest="${img%@sha256:*}"
-    [[ "${no_digest##*/}" == *:* ]] && import_ref="$no_digest"
+    if [[ "${no_digest##*/}" == *:* ]]; then
+      docker tag "$img" "$no_digest"
+      import_ref="$no_digest"
+    fi
   fi
   if ! k3d image import "$import_ref" -c "$CLUSTER"; then
     echo "    ✗ could not import $import_ref — skipping"
