@@ -1,10 +1,10 @@
 @theme {
   /* FONT FAMILY */
-  --font-body: var(--font-inter, "Inter"), -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  /* --font-body: var(--font-inter, "Inter"), -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
   --font-display: var(--font-inter, "Inter"), -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
   --font-mono:
     ui-monospace, "Roboto Mono", SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
-    "Courier New", monospace;
+    "Courier New", monospace; */
 
   /* FONT SIZE */
   --text-xs: calc(var(--spacing) * 3);
@@ -424,6 +424,16 @@
   --color-toggle-slim-border_pressed-hover: var(--color-bg-brand-solid_hover);
   --color-toggle-slim-border_pressed: var(--color-bg-brand-solid);
   --color-tooltip-supporting-text: var(--color-neutral-300);
+  --color-input-surface: var(--color-white);
+  --color-input-label: rgb(77 77 77);
+  --color-input-required: rgb(112 26 21);
+  --color-input-border: rgb(204 204 204);
+  --color-input-focus: rgb(21 21 21);
+  --color-input-icon: rgb(153 153 153);
+  --color-input-placeholder: rgb(153 153 153);
+  --color-input-value: rgb(26 26 26);
+  --color-input-disabled: rgb(128 128 128);
+  --color-input-hint: rgb(128 128 128);
 
   /* BACKGROUND PROPERTY COLORS */
   --background-color-primary: var(--color-bg-primary);
@@ -782,6 +792,16 @@
     --color-toggle-slim-border_pressed-hover: var(--color-transparent);
     --color-toggle-slim-border_pressed: var(--color-transparent);
     --color-tooltip-supporting-text: var(--color-neutral-300);
+    --color-input-surface: var(--color-bg-primary);
+    --color-input-label: var(--color-neutral-300);
+    --color-input-required: var(--color-red-400);
+    --color-input-border: var(--color-neutral-700);
+    --color-input-focus: var(--color-neutral-50);
+    --color-input-icon: var(--color-neutral-500);
+    --color-input-placeholder: var(--color-neutral-500);
+    --color-input-value: var(--color-neutral-50);
+    --color-input-disabled: var(--color-neutral-500);
+    --color-input-hint: var(--color-neutral-500);
 
     /* BACKGROUND PROPERTY COLORS */
     --background-color-primary: var(--color-bg-primary);

@@ -1,0 +1,71 @@
+"use client";
+
+import { HelpCircle } from "@untitledui/icons";
+import type { ReactNode, Ref } from "react";
+import type { LabelProps as AriaLabelProps } from "react-aria-components";
+import { Label as AriaLabel } from "react-aria-components";
+import { cn } from "@/lib/cn";
+import { Tooltip, TooltipTrigger } from "./Tooltip";
+
+type LabelProps = AriaLabelProps & {
+  children: ReactNode;
+  indicatorPosition?: "leading" | "trailing";
+  isInvalid?: boolean;
+  isRequired?: boolean;
+  ref?: Ref<HTMLLabelElement>;
+  tooltip?: string;
+  tooltipDescription?: string;
+};
+
+export function Label({
+  children,
+  className,
+  indicatorPosition = "trailing",
+  isInvalid,
+  isRequired,
+  tooltip,
+  tooltipDescription,
+  ...props
+}: LabelProps) {
+  const requiredIndicator = (
+    <span
+      className={cn(
+        "hidden text-input-required",
+        isRequired && "block",
+        typeof isRequired === "undefined" && "group-required:block",
+        isInvalid && "text-error-primary",
+        typeof isInvalid === "undefined" && "group-invalid:text-error-primary",
+      )}
+    >
+      *
+    </span>
+  );
+
+  return (
+    <AriaLabel
+      data-label="true"
+      {...props}
+      className={cn(
+        "flex cursor-default items-center gap-0.5 text-sm font-medium text-input-label",
+        className,
+      )}
+    >
+      {indicatorPosition === "leading" && requiredIndicator}
+      {children}
+      {indicatorPosition === "trailing" && requiredIndicator}
+
+      {tooltip && (
+        <Tooltip title={tooltip} description={tooltipDescription} placement="top">
+          <TooltipTrigger
+            className="cursor-pointer text-input-icon transition duration-200 hover:text-fg-quaternary_hover focus:text-fg-quaternary_hover"
+            isDisabled={false}
+          >
+            <HelpCircle className="size-4" />
+          </TooltipTrigger>
+        </Tooltip>
+      )}
+    </AriaLabel>
+  );
+}
+
+Label.displayName = "Label";

@@ -31,6 +31,18 @@ export const tokens = {
       brandSolid: "#2563eb",
       brandSolidHover: "#1d4ed8",
     },
+    input: {
+      surface: "#ffffff",
+      label: "#4d4d4d",
+      required: "#701a15",
+      border: "#cccccc",
+      focus: "#151515",
+      icon: "#999999",
+      placeholder: "#999999",
+      value: "#1a1a1a",
+      disabled: "#808080",
+      hint: "#808080",
+    },
   },
   radius: {
     sm: "0.25rem",
