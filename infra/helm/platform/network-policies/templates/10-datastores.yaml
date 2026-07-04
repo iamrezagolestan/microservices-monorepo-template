@@ -1,5 +1,8 @@
 ## Postgres (CNPG) — the crown jewel. Only the identity/authz/workflow stores may
 ## reach 5432. The demo app services go through Temporal, never Postgres directly.
+## The CNPG operator scrapes each instance's manager on 8000 (/pg/status) to report
+## cluster health; without it the Cluster sits in "HTTP communication issue" and the
+## Argo app never goes Healthy, wedging convergence.
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
@@ -17,6 +20,10 @@ spec:
         - matchLabels: { k8s:io.kubernetes.pod.namespace: platform, app.kubernetes.io/name: temporal }
       toPorts:
         - ports: [{ port: "5432", protocol: TCP }]
+    - fromEndpoints:
+        - matchLabels: { k8s:io.kubernetes.pod.namespace: platform, app.kubernetes.io/name: cloudnative-pg }
+      toPorts:
+        - ports: [{ port: "8000", protocol: TCP }]
 ---
 ## SpiceDB — authorization store. authz-server checks permissions; the admin
 ## console (lowdefy) writes relationship grants. The spicedb-seed job writes the
