@@ -161,14 +161,20 @@ session; a bare login does not grant tool access.
 | `grafana.ops.dev.localtest.me/` | **Grafana** — LGTM dashboards | Oathkeeper (`dashboard:grafana#view`) | `infra/gateway/ingressroutes.yaml` |
 | `hubble.ops.dev.localtest.me/` | Cilium **Hubble UI** — network-flow map | Oathkeeper (`dashboard:hubble#view`) | `infra/gateway/ingressroutes.yaml` |
 | `temporal.ops.dev.localtest.me/` | **Temporal Web UI** | Oathkeeper (`dashboard:temporal#view`) | `infra/gateway/ingressroutes.yaml` |
-| `minio.ops.dev.localtest.me/` | **MinIO console** (non-prod) | Oathkeeper (`dashboard:minio#view`) | `infra/gateway/ingressroutes.yaml` |
+| `minio.ops.dev.localtest.me/` | **MinIO console** (non-prod) | Oathkeeper (`dashboard:minio#view`), then MinIO login `minio` / `minio-password` | `infra/gateway/ingressroutes.yaml` |
 | `console.ops.<host>/` | **Lowdefy** admin console (deployed envs) | Oathkeeper (`dashboard:console#view`) | `infra/gateway/ingressroutes.yaml` |
-| `argo.ops.<host>/` | **Argo CD** (deployed envs) | Oathkeeper (`dashboard:argo#view`) | `infra/gateway/ingressroutes.yaml` |
+| `argo.ops.<host>/` | **Argo CD** | Oathkeeper (`dashboard:argo#view`) | `infra/gateway/ingressroutes.yaml` |
 
-Grafana has its own login behind the Kratos gate — sign in with `admin` / `admin`
-(the local `grafana.adminPassword`). Without the edge you can still reach it by
+Grafana trusts the Oathkeeper edge and serves anonymously (its login form is
+disabled, `auth.anonymous` Admin) — an operator who clears the edge lands straight
+on the dashboards, no second login. Without the edge you can still reach it by
 port-forward: `kubectl -n platform port-forward svc/grafana 3000:80`, then
-<http://localhost:3000/> (it now serves at root, not a sub-path).
+<http://localhost:3000/> (anonymous Admin; it serves at root, not a sub-path).
+
+The **MinIO console** is the one dashboard that keeps a second login: unlike
+Grafana/Argo CD (which trust the Oathkeeper edge and serve anonymously), MinIO's
+console has no proxy-trust/SSO mode, so after the edge gate it prompts for MinIO
+credentials — the pre-seeded root user `minio` / `minio-password`.
 
 `cluster:full` brings up the whole platform (edge, services, observability,
 console); Argo CD itself is installed imperatively for the local full tier and is
@@ -250,53 +256,39 @@ through the Docker daemon and the Docker CLI on your host. Point both at your pr
 **2. In-cluster pulls (Cilium, the inner-loop deps, every ArgoCD-synced workload).**
 These are pulled by the **containerd that runs inside the k3d node**, using the
 node's own process environment — which none of the settings above reach. k3d creates
-its nodes through the Docker SDK, so it does **not** inherit `~/.docker/config.json`
-proxies, the daemon's proxy env, or your exported shell `HTTP_PROXY`. The proxy has
-to be present on the node, and the only way to put it there is at cluster-create time
-(k3d `-e` flags or a k3d config file).
+its nodes through the Docker SDK, so the node does **not** inherit
+`~/.docker/config.json` proxies, the daemon's proxy env, or your exported shell
+`HTTP_PROXY`. The proxy has to be present on the node, and the only way to put it
+there is at cluster-create time (k3d `-e` flags).
 
-`cluster-ensure.sh` deliberately does **not** pass these — it stays proxy-free. So,
-behind a proxy, create the cluster **once yourself** with your proxy injected, then
-let the tasks take over. `cluster:ensure` is convergent: it reuses an existing
-cluster (only starting it), so every later `cluster:lite` / `cluster:full`
-just works.
+`cluster-ensure.sh` bridges this **from your shell**: at create time it reads your
+exported `HTTP_PROXY`/`HTTPS_PROXY` and, if set, injects it onto the node — rewriting
+a loopback proxy (`127.0.0.1`/`localhost`) to `host.k3d.internal` so the node can
+reach it. No proxy value lives in the repo: a clean shell makes a pristine cluster;
+a proxied shell is wired automatically. So the whole setup is just:
 
 ```sh
-# One-time, on a proxied machine. Mirror the flags cluster-ensure.sh uses, plus
-# YOUR proxy values. Substitute your proxy URL for the example below.
-k3d cluster create platform \
-  --servers 1 --agents 0 \
-  --port 8080:80@loadbalancer --port 8443:443@loadbalancer \
-  --k3s-arg '--flannel-backend=none@server:*' \
-  --k3s-arg '--disable-network-policy@server:*' \
-  -e 'HTTP_PROXY=http://proxy.example.com:8080@server:*' \
-  -e 'HTTPS_PROXY=http://proxy.example.com:8080@server:*' \
-  -e 'NO_PROXY=localhost,127.0.0.1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,.svc,.svc.cluster.local,cluster.local,.localtest.me@server:*'
+# Export your proxy once, system-side (skip on a clean network — nothing to do).
+export HTTPS_PROXY=http://proxy.example.com:8080   # or http://127.0.0.1:8118, etc.
 
-# Verify the node actually has it, then drive the cluster normally:
+mise run cluster:full      # cluster:ensure creates the cluster with your proxy wired
+
+# Verify the node actually got it (only meaningful on a proxied machine):
 docker exec k3d-platform-server-0 env | grep -i proxy
-mise run cluster:lite      # cluster:ensure reuses the cluster you just made
 ```
 
-Prefer keeping those values out of your shell history? Put them in a personal k3d
-config file outside the repo and `k3d cluster create platform --config ~/…/k3d.yaml`
-— same effect, same one-time step.
+`cluster:ensure` is convergent — it reuses an existing cluster (only starting it), so
+export the proxy **before the first** bring-up. To rewire an already-created cluster,
+recreate it (`mise run cluster:delete && mise run cluster:full`). If a node restart
+drops `host.k3d.internal`, re-add `<gateway-ip> host.k3d.internal` to the node's
+`/etc/hosts` (Docker normally provides it as the gateway).
 
-> **Loopback proxies** (e.g. `127.0.0.1:8080`, as some sandboxes use) are not
-> reachable from inside a container as `127.0.0.1`. Point the k3d nodes at the host
-> instead — substitute `host.k3d.internal` for `127.0.0.1`/`localhost` in the proxy
-> URL (e.g. `-e 'HTTPS_PROXY=http://host.k3d.internal:8118@server:*'`), and make
-> sure that name resolves on the node (Docker normally adds it as the gateway; if a
-> restart drops it, re-add `<gateway-ip> host.k3d.internal` to the node's
-> `/etc/hosts`).
->
-> **Large image layers through a proxy.** Some egress proxies truncate large image
-> layers on a single-stream containerd pull — the Cilium agent is the usual victim,
-> leaving the node `NotReady`. If that happens, pre-pull it on the host (where
-> Docker resumes/retries) and import it into the cluster, then re-run the bring-up:
->
-> ```sh
-> img=$(helm template cilium infra/helm/platform/cilium --set cilium.image.useDigest=false \
->   | grep -oE 'quay\.io/cilium/cilium:[A-Za-z0-9._-]+' | head -1)
-> docker pull "$img" && k3d image import "$img" -c platform
-> ```
+> **Stalled image pulls through a proxy.** Even with the node proxied, some egress
+> proxies time out or truncate large image layers on containerd's single-stream pull
+> (Cilium, ArgoCD, and the SpiceDB seed's `authzed/zed` are the usual victims),
+> leaving pods in `ImagePullBackOff`. The opt-in **`mise run cluster:unwedge`**
+> ([`scripts/cluster-unwedge-images.sh`](../scripts/cluster-unwedge-images.sh))
+> recovers them: it host-pulls whatever is stuck (Docker resumes/retries reliably),
+> `k3d image import`s it into the node, and restarts the waiting pods. Re-run it — or
+> `watch -n15 mise run cluster:unwedge` — while a fresh `cluster:full` converges.
+> Clean networks never need it.

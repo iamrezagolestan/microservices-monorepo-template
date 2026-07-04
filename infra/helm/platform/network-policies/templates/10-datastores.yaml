@@ -1,0 +1,53 @@
+## Postgres (CNPG) — the crown jewel. Reachable on 5432 only by the platform stores
+## (identity/authz/workflow) and the demo services that own a schema. A service owns
+## a schema when its values set `migrations.enabled: true`; its migrations init +
+## runtime both dial 5432, so each such service is listed here (authz is spicedb-only
+## — migrations off — and is deliberately absent). Add a new schema-owning service
+## here the same way you add it to a caller's `allowFrom`.
+## The CNPG operator scrapes each instance's manager on 8000 (/pg/status) to report
+## cluster health; without it the Cluster sits in "HTTP communication issue" and the
+## Argo app never goes Healthy, wedging convergence.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: postgres
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: postgresql
+      app.kubernetes.io/component: database
+  ingress:
+    - fromEndpoints:
+        - matchLabels: { k8s:io.kubernetes.pod.namespace: platform, app.kubernetes.io/name: kratos }
+        - matchLabels: { k8s:io.kubernetes.pod.namespace: platform, app.kubernetes.io/name: ory-kratos-courier }
+        - matchLabels: { k8s:io.kubernetes.pod.namespace: platform, app.kubernetes.io/name: spicedb }
+        - matchLabels: { k8s:io.kubernetes.pod.namespace: platform, app.kubernetes.io/name: temporal }
+        - matchLabels: { k8s:io.kubernetes.pod.namespace: platform, app.kubernetes.io/name: catalog }
+        - matchLabels: { k8s:io.kubernetes.pod.namespace: platform, app.kubernetes.io/name: orders }
+        - matchLabels: { k8s:io.kubernetes.pod.namespace: platform, app.kubernetes.io/name: orgs }
+        - matchLabels: { k8s:io.kubernetes.pod.namespace: platform, app.kubernetes.io/name: payment }
+      toPorts:
+        - ports: [{ port: "5432", protocol: TCP }]
+    - fromEndpoints:
+        - matchLabels: { k8s:io.kubernetes.pod.namespace: platform, app.kubernetes.io/name: cloudnative-pg }
+      toPorts:
+        - ports: [{ port: "8000", protocol: TCP }]
+---
+## SpiceDB — authorization store. authz-server checks permissions; the admin
+## console (lowdefy) writes relationship grants. The spicedb-seed job writes the
+## schema + bootstrap grants at bring-up, so it needs 50051 too.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: spicedb
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: spicedb
+  ingress:
+    - fromEndpoints:
+        - matchLabels: { k8s:io.kubernetes.pod.namespace: platform, app.kubernetes.io/name: authz }
+        - matchLabels: { k8s:io.kubernetes.pod.namespace: platform, app.kubernetes.io/name: lowdefy }
+        - matchLabels: { k8s:io.kubernetes.pod.namespace: platform, app.kubernetes.io/name: spicedb-seed }
+      toPorts:
+        - ports: [{ port: "50051", protocol: TCP }]

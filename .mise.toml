@@ -96,6 +96,12 @@ run = "bash scripts/cluster-stop.sh"
 # Deletes the cluster and wipes its image cache (reclaims disk, clean rebuild).
 run = "k3d cluster delete ${CLUSTER:-platform}"
 
+[tasks."cluster:unwedge"]
+# OPT-IN, proxied networks only: host-pull + k3d-import any image the node's
+# containerd is failing to pull through an HTTP proxy (ImagePullBackOff), then
+# restart the stuck pods. Not part of any bring-up — clean networks never need it.
+run = "bash scripts/cluster-unwedge-images.sh"
+
 [tasks."dev:forward"]
 # Port-forward the inner-loop deps so a natively-run service can reach them.
 # Long-running — use a separate terminal. See docs/dev-loop.md.

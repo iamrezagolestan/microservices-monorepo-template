@@ -33,9 +33,3 @@ export async function expectAal1Forbidden(tool: string): Promise<void> {
 export async function expectOperatorAllowed(tool: string): Promise<void> {
   expect(await statusFor(tool, OPERATOR_STATE)).toBe(200);
 }
-
-// The operator is an operator everywhere but only holds specific tools; a tool
-// with no grant is forbidden even for them (the fine gate, ADR-0010).
-export async function expectOperatorForbidden(tool: string): Promise<void> {
-  expect([403, 302, 303]).toContain(await statusFor(tool, OPERATOR_STATE));
-}

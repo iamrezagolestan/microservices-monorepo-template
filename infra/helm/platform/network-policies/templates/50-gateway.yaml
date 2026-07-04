@@ -1,0 +1,31 @@
+## Edge gateway (Traefik, in kube-system) → the remaining ops UIs it fronts.
+## Grafana, MinIO console, Kratos and Oathkeeper get their gateway ingress in
+## their own templates; the demo app services get theirs from the service chart.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: temporal-web
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: temporal
+      app.kubernetes.io/component: web
+  ingress:
+    - fromEndpoints:
+        - matchLabels: { k8s:io.kubernetes.pod.namespace: kube-system }
+      toPorts:
+        - ports: [{ port: "8080", protocol: TCP }]
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: lowdefy
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: lowdefy
+  ingress:
+    - fromEndpoints:
+        - matchLabels: { k8s:io.kubernetes.pod.namespace: kube-system }
+      toPorts:
+        - ports: [{ port: "80", protocol: TCP }]

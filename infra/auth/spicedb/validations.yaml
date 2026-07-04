@@ -10,3 +10,5 @@ relationships: |
   dashboard:grafana#viewer@group:operator#member
   dashboard:hubble#viewer@group:operator#member
   dashboard:temporal#viewer@group:operator#member
+  dashboard:minio#viewer@group:operator#member
+  dashboard:argo#viewer@group:operator#member

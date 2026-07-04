@@ -7,6 +7,13 @@ argo-cd:
     cm:
       kustomize.buildOptions: "--enable-helm"
       timeout.reconciliation: "60s"
+      # The ops edge is the authentication gate (Oathkeeper: an AAL2 operator
+      # holding dashboard:argo#view, ADR-0017). Argo trusts it and serves
+      # anonymously instead of running a second, redundant login — the same stance
+      # Grafana takes (infra/helm/platform/observability/values.yaml). Only AAL2
+      # operators ever reach this origin; the anonymous role is set by rbac
+      # policy.default below.
+      users.anonymous.enabled: "true"
       # ArgoCD's built-in health for ApplicationSet only reflects successful
       # templating ("all Applications generated"), not whether the Applications
       # it spawned actually synced and became healthy. That default makes
@@ -34,9 +41,18 @@ argo-cd:
         hs.message = "Waiting for ApplicationSet to generate Applications"
         return hs
     rbac:
-      policy.default: role:readonly
+      # Anonymous (edge-authenticated operator, see users.anonymous above) gets
+      # admin — mirroring Grafana's anonymous org_role:Admin. The edge already
+      # proved AAL2 + the dashboard:argo grant; full UI access is the point.
+      policy.default: role:admin
   server:
     service: { type: ClusterIP }
   redis-ha: { enabled: false }         # 3-node embedded etcd; HA Redis is overkill (ADR-0003)
+  redis:
+    # Chart defaults to the ecr-public.aws.com vanity host, which only publishes
+    # AAAA records; pin the canonical public.ecr.aws mirror (identical image,
+    # IPv4-reachable) so redis doesn't wedge on IPv6-less networks.
+    image:
+      repository: public.ecr.aws/docker/library/redis
   controller: { replicas: 1 }
   applicationSet: { replicas: 1 }

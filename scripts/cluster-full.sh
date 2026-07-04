@@ -66,8 +66,20 @@ k -n "$NS" create configmap grafana-dashboards \
 REG="k3d-registry.localhost:5000"
 build_push() {  # <image-name> <dockerfile> <context> [extra docker build args…]
   local name="$1" dockerfile="$2" context="$3"; shift 3
-  docker build -t "${REG}/${name}:local" -f "$dockerfile" "$@" "$context"
-  docker push "${REG}/${name}:local"
+  # Behind a slow proxy, buildkit's fetch of the Dockerfile frontend + base images
+  # (docker.io) trips TLS-handshake timeouts intermittently; the layers it did get
+  # are cached, so a retry rides over the transient failure. Fails loudly if all
+  # attempts miss — same explicit retry the unwedge script uses for host pulls.
+  local attempt
+  for attempt in 1 2 3; do
+    if docker build -t "${REG}/${name}:local" -f "$dockerfile" "$@" "$context" \
+        && docker push "${REG}/${name}:local"; then
+      return 0
+    fi
+    echo "    (build/push of ${name} attempt ${attempt} failed — retrying)"
+  done
+  echo "✗ could not build+push ${name} after 3 attempts" >&2
+  return 1
 }
 echo "→ building + pushing repo images to ${REG}"
 for svc in authz catalog orders orgs payment; do
@@ -96,11 +108,31 @@ AC_KUBECONFIG="$(mktemp)"
 trap 'rm -f "$AC_KUBECONFIG"' EXIT
 k config view --minify --flatten >"$AC_KUBECONFIG"
 kubectl --kubeconfig "$AC_KUBECONFIG" config set-context --current --namespace argocd >/dev/null
-ac app wait root-local --sync --health --operation --timeout 600
+
+# `cluster:stop` freezes cluster state mid-sync; on resume, the ArgoCD controller
+# reattaches to whatever sync operation was still "Running" and reuses the task
+# plan (incl. per-resource sync-waves) it computed back when that operation
+# started — even if the manifests (and their wave annotations) have since
+# changed. That stale plan can never converge. If the wait times out, that's the
+# first thing to suspect: terminate the wedged operation and force a fresh one
+# (which recomputes the plan against current git) before giving up for real.
+wait_apps() {
+  local timeout="$1"; shift
+  if ac app wait "$@" --sync --health --operation --timeout "$timeout"; then
+    return 0
+  fi
+  echo "⚠ one or more of [$*] did not converge in ${timeout}s — terminating their operations (likely stale from a prior cluster:stop) and forcing a fresh sync"
+  local app
+  for app in "$@"; do ac app terminate-op "$app" || true; done
+  for app in "$@"; do ac app sync "$app" --timeout "$timeout"; done
+  ac app wait "$@" --sync --health --operation --timeout "$timeout"
+}
+
+wait_apps 600 root-local
 while :; do
   apps="$(ac app list -o name)"
   # shellcheck disable=SC2086  # names are newline-separated, intentional split
-  ac app wait $apps --sync --health --operation --timeout 1800
+  wait_apps 1800 $apps
   [ "$(ac app list -o name)" = "$apps" ] && break
 done
 echo "✓ all ArgoCD applications Synced + Healthy"
@@ -139,8 +171,9 @@ cat <<EOF
     Grafana:          https://grafana.ops.${DOMAIN}:8443/
     Hubble UI:        https://hubble.ops.${DOMAIN}:8443/
     Temporal UI:      https://temporal.ops.${DOMAIN}:8443/
-    MinIO console:    https://minio.ops.${DOMAIN}:8443/
+    MinIO console:    https://minio.ops.${DOMAIN}:8443/  (login: minio / minio-password)
     Lowdefy console:  https://console.ops.${DOMAIN}:8443/
+    ArgoCD:           https://argo.ops.${DOMAIN}:8443/
   Frontend:           run it natively on :3000 (the frontend-dev EndpointSlice
                       routes /auth + landing to the host).
   Diagnose:           argocd --core --kube-context k3d-${CLUSTER} app get <app>
