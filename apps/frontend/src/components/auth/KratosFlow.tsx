@@ -114,17 +114,17 @@ function InputNode({ node, submitLabel }: { node: UiNode; submitLabel: string })
   }
   return (
     <label className="block">
-      <span className="text-sm text-slate-600">{labelText ?? attr.name}</span>
+      <span className="text-sm text-tertiary">{labelText ?? attr.name}</span>
       <input
         name={attr.name}
         type={attr.type}
         required={attr.required}
         disabled={attr.disabled}
         defaultValue={attr.type === "password" ? undefined : value}
-        className="mt-1 w-full rounded border border-slate-300 px-3 py-2"
+        className="mt-1 w-full rounded-lg border border-primary bg-primary px-3 py-2 text-primary shadow-xs outline-brand"
       />
       {node.messages?.map((message) => (
-        <span key={message.id} className="mt-1 block text-sm text-red-600">
+        <span key={message.id} className="mt-1 block text-sm text-error-primary">
           {message.text}
         </span>
       ))}
@@ -142,7 +142,9 @@ function FlowNode({ node, submitLabel }: { node: UiNode; submitLabel: string }) 
     case "text":
       // e.g. the TOTP shared secret to type into an authenticator app.
       return (
-        <p className="break-all rounded bg-slate-100 p-2 font-mono text-sm">{attr.text?.text}</p>
+        <p className="break-all rounded bg-secondary p-2 font-mono text-sm text-primary">
+          {attr.text?.text}
+        </p>
       );
     case "img":
       return <ImgNode src={attr.src} alt={labelText ?? "QR code"} />;
@@ -203,7 +205,7 @@ export function KratosFlow({
     return (
       <main className="mx-auto max-w-md p-6">
         <h1 className="text-2xl font-semibold">{strings.title}</h1>
-        <p className="mt-2 text-slate-600">{strings.starting}</p>
+        <p className="mt-2 text-tertiary">{strings.starting}</p>
       </main>
     );
   }
@@ -212,7 +214,7 @@ export function KratosFlow({
     <main className="mx-auto max-w-md p-6">
       <h1 className="text-2xl font-semibold">{strings.title}</h1>
       {flow.ui.messages?.map((message) => (
-        <p key={message.id} className="mt-2 text-slate-600">
+        <p key={message.id} className="mt-2 text-tertiary">
           {message.text}
         </p>
       ))}

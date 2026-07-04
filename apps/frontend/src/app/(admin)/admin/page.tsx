@@ -11,14 +11,14 @@ export default async function AdminTile() {
     return (
       <main className="mx-auto max-w-3xl p-6">
         <h1 className="text-2xl font-semibold">Forbidden</h1>
-        <p className="mt-2 text-slate-600">{admin.forbidden}</p>
+        <p className="mt-2 text-tertiary">{admin.forbidden}</p>
       </main>
     );
   }
   return (
     <main className="mx-auto max-w-3xl p-6">
       <h1 className="text-2xl font-semibold">{admin.title}</h1>
-      <p className="mt-2 text-slate-600">
+      <p className="mt-2 text-tertiary">
         Open the admin console at{" "}
         <a href={admin.href} className="text-brand-600 hover:underline">
           {admin.href}
