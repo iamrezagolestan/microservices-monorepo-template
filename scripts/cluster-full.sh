@@ -66,8 +66,20 @@ k -n "$NS" create configmap grafana-dashboards \
 REG="k3d-registry.localhost:5000"
 build_push() {  # <image-name> <dockerfile> <context> [extra docker build args…]
   local name="$1" dockerfile="$2" context="$3"; shift 3
-  docker build -t "${REG}/${name}:local" -f "$dockerfile" "$@" "$context"
-  docker push "${REG}/${name}:local"
+  # Behind a slow proxy, buildkit's fetch of the Dockerfile frontend + base images
+  # (docker.io) trips TLS-handshake timeouts intermittently; the layers it did get
+  # are cached, so a retry rides over the transient failure. Fails loudly if all
+  # attempts miss — same explicit retry the unwedge script uses for host pulls.
+  local attempt
+  for attempt in 1 2 3; do
+    if docker build -t "${REG}/${name}:local" -f "$dockerfile" "$@" "$context" \
+        && docker push "${REG}/${name}:local"; then
+      return 0
+    fi
+    echo "    (build/push of ${name} attempt ${attempt} failed — retrying)"
+  done
+  echo "✗ could not build+push ${name} after 3 attempts" >&2
+  return 1
 }
 echo "→ building + pushing repo images to ${REG}"
 for svc in authz catalog orders orgs payment; do
