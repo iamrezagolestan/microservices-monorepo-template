@@ -4,7 +4,7 @@
 // Add one <Section> per primitive added to @/components/ui.
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import { Button } from "@/components/ui";
+import { ButtonKitchenExamples } from "./ButtonKitchenExamples";
 import { InputKitchenExamples } from "./InputKitchenExamples";
 import { KitchenThemeSwitch } from "./KitchenThemeSwitch";
 
@@ -21,7 +21,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 
 export default function KitchenSink() {
   return (
-    <main className="mx-auto max-w-3xl p-6">
+    <main className="mx-auto max-w-6xl p-6">
       <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold">UI kitchen sink</h1>
@@ -34,10 +34,9 @@ export default function KitchenSink() {
       </header>
 
       <Section title="Button">
-        <Button>Primary</Button>
-        <Button variant="secondary">Secondary</Button>
-        <Button variant="ghost">Ghost</Button>
-        <Button disabled>Disabled</Button>
+        <div className="w-full max-w-5xl">
+          <ButtonKitchenExamples />
+        </div>
       </Section>
 
       <Section title="Input">

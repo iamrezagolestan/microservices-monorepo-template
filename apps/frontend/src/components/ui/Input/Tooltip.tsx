@@ -73,7 +73,7 @@ export function Tooltip({
         {({ isEntering, isExiting }) => (
           <div
             className={cn(
-              "z-50 flex max-w-xs origin-(--trigger-anchor-point) flex-col items-start gap-1 rounded-lg bg-primary-solid px-3 shadow-lg will-change-transform",
+              "z-50 flex max-w-xs origin-(--trigger-anchor-point) flex-col items-start gap-1 rounded-lg bg-alpha-black px-3 shadow-lg will-change-transform",
               description ? "py-3" : "py-2",
               isEntering &&
                 "ease-out animate-in fade-in zoom-in-95 in-placement-left:slide-in-from-right-0.5 in-placement-right:slide-in-from-left-0.5 in-placement-top:slide-in-from-bottom-0.5 in-placement-bottom:slide-in-from-top-0.5",
@@ -81,7 +81,7 @@ export function Tooltip({
                 "ease-in animate-out fade-out zoom-out-95 in-placement-left:slide-out-to-right-0.5 in-placement-right:slide-out-to-left-0.5 in-placement-top:slide-out-to-bottom-0.5 in-placement-bottom:slide-out-to-top-0.5",
             )}
           >
-            <span className="text-xs font-semibold text-white">{title}</span>
+            <span className="text-xs font-semibold text-alpha-white">{title}</span>
             {description && (
               <span className="text-xs font-medium text-tooltip-supporting-text">
                 {description}
