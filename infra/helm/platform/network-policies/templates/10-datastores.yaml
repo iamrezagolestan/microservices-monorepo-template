@@ -1,5 +1,9 @@
-## Postgres (CNPG) — the crown jewel. Only the identity/authz/workflow stores may
-## reach 5432. The demo app services go through Temporal, never Postgres directly.
+## Postgres (CNPG) — the crown jewel. Reachable on 5432 only by the platform stores
+## (identity/authz/workflow) and the demo services that own a schema. A service owns
+## a schema when its values set `migrations.enabled: true`; its migrations init +
+## runtime both dial 5432, so each such service is listed here (authz is spicedb-only
+## — migrations off — and is deliberately absent). Add a new schema-owning service
+## here the same way you add it to a caller's `allowFrom`.
 ## The CNPG operator scrapes each instance's manager on 8000 (/pg/status) to report
 ## cluster health; without it the Cluster sits in "HTTP communication issue" and the
 ## Argo app never goes Healthy, wedging convergence.
@@ -18,6 +22,10 @@ spec:
         - matchLabels: { k8s:io.kubernetes.pod.namespace: platform, app.kubernetes.io/name: ory-kratos-courier }
         - matchLabels: { k8s:io.kubernetes.pod.namespace: platform, app.kubernetes.io/name: spicedb }
         - matchLabels: { k8s:io.kubernetes.pod.namespace: platform, app.kubernetes.io/name: temporal }
+        - matchLabels: { k8s:io.kubernetes.pod.namespace: platform, app.kubernetes.io/name: catalog }
+        - matchLabels: { k8s:io.kubernetes.pod.namespace: platform, app.kubernetes.io/name: orders }
+        - matchLabels: { k8s:io.kubernetes.pod.namespace: platform, app.kubernetes.io/name: orgs }
+        - matchLabels: { k8s:io.kubernetes.pod.namespace: platform, app.kubernetes.io/name: payment }
       toPorts:
         - ports: [{ port: "5432", protocol: TCP }]
     - fromEndpoints:
