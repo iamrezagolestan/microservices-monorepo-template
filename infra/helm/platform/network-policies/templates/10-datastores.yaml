@@ -19,7 +19,8 @@ spec:
         - ports: [{ port: "5432", protocol: TCP }]
 ---
 ## SpiceDB — authorization store. authz-server checks permissions; the admin
-## console (lowdefy) writes relationship grants.
+## console (lowdefy) writes relationship grants. The spicedb-seed job writes the
+## schema + bootstrap grants at bring-up, so it needs 50051 too.
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
@@ -32,5 +33,6 @@ spec:
     - fromEndpoints:
         - matchLabels: { k8s:io.kubernetes.pod.namespace: platform, app.kubernetes.io/name: authz }
         - matchLabels: { k8s:io.kubernetes.pod.namespace: platform, app.kubernetes.io/name: lowdefy }
+        - matchLabels: { k8s:io.kubernetes.pod.namespace: platform, app.kubernetes.io/name: spicedb-seed }
       toPorts:
         - ports: [{ port: "50051", protocol: TCP }]
