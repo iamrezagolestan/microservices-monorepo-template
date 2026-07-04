@@ -28,4 +28,6 @@ spec:
     - fromEndpoints:
         - matchLabels: { k8s:io.kubernetes.pod.namespace: kube-system }
       toPorts:
-        - ports: [{ port: "80", protocol: TCP }]
+        # Cilium enforces L4 on the pod's real port (containerPort 3000), not the
+        # Service port 80 that fronts it — the edge connects to targetPort http=3000.
+        - ports: [{ port: "3000", protocol: TCP }]
