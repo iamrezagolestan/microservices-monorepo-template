@@ -50,6 +50,13 @@ type UiNode = {
 function nodeType(node: UiNode): string {
   return node.type ?? node.attributes.node_type ?? "input";
 }
+
+function nodeKey(node: UiNode): string {
+  const attr = node.attributes;
+  return [nodeType(node), attr.name, attr.type, attr.value, attr.id, attr.text?.id, attr.src].join(
+    ":",
+  );
+}
 type Flow = {
   ui: { action: string; method: string; nodes: UiNode[]; messages?: UiText[] };
 };
@@ -219,13 +226,8 @@ export function KratosFlow({
         </p>
       ))}
       <form method={flow.ui.method} action={flow.ui.action} className="mt-4 space-y-3">
-        {flow.ui.nodes.map((node, i) => (
-          <FlowNode
-            // Nodes are stable in order; text/img/script have no name, so index-key.
-            key={node.attributes.name ?? `${nodeType(node)}-${i}`}
-            node={node}
-            submitLabel={strings.submit}
-          />
+        {flow.ui.nodes.map((node) => (
+          <FlowNode key={nodeKey(node)} node={node} submitLabel={strings.submit} />
         ))}
       </form>
       {footer}
