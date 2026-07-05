@@ -13,7 +13,13 @@ export function Providers({ children }: { children: ReactNode }) {
   const [queryClient] = useState(() => new QueryClient());
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider attribute="data-theme" defaultTheme="light" enableSystem={false}>
+      <ThemeProvider
+        attribute="class"
+        defaultTheme="light"
+        disableTransitionOnChange
+        enableSystem={false}
+        value={{ light: "light-mode", dark: "dark-mode" }}
+      >
         <NuqsAdapter>{children}</NuqsAdapter>
       </ThemeProvider>
     </QueryClientProvider>

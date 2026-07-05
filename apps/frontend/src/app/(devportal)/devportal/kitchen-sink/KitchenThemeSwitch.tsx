@@ -1,17 +1,17 @@
 "use client";
 
-import { Moon, Sun } from "lucide-react";
+import { Moon01, Sun } from "@untitledui/icons";
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui";
 
 export function KitchenThemeSwitch() {
-  const { resolvedTheme, setTheme } = useTheme();
+  const { setTheme, theme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => setMounted(true), []);
 
-  const isDark = mounted && resolvedTheme === "dark";
+  const isDark = mounted && theme === "dark";
 
   return (
     <Button
@@ -23,14 +23,10 @@ export function KitchenThemeSwitch() {
       variant="secondary"
     >
       <div className="flex flex-row flex-nowrap items-center gap-5">
-      <div>
-      {isDark ? <Moon aria-hidden="true" size={16} /> : <Sun aria-hidden="true" size={16} />}
-
-      </div>
-      <div>
-      <span>{isDark ? "Dark" : "Light"}</span>
-
-      </div>
+        <div>{isDark ? <Moon01 aria-hidden="true" size={16} /> : <Sun aria-hidden="true" size={16} />}</div>
+        <div>
+          <span>{isDark ? "Dark" : "Light"}</span>
+        </div>
       </div>
     </Button>
   );
