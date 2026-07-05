@@ -6,7 +6,11 @@
 import { ArrowRight, Plus } from "@untitledui/icons";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import { LoadingIndicator } from "@/components/application/loading-indicator/loading-indicator";
+import { Badge } from "@/components/base/badges/badges";
 import { Button } from "@/components/base/buttons/button";
+import { Input } from "@/components/base/input/input";
+import { TableDemo } from "./table-demo";
 
 export const metadata: Metadata = { title: "UI kitchen sink" };
 
@@ -55,6 +59,47 @@ export default function KitchenSink() {
         </Button>
         <Button isLoading>Saving</Button>
         <Button isDisabled>Disabled</Button>
+      </Section>
+
+      <Section title="Input">
+        <Input
+          label="Email"
+          type="email"
+          placeholder="you@example.com"
+          className="w-full max-w-xs"
+        />
+        <Input
+          label="Password"
+          type="password"
+          placeholder="••••••••"
+          className="w-full max-w-xs"
+        />
+        <Input
+          label="Invalid"
+          isInvalid
+          hint="That doesn't look right."
+          defaultValue="nope"
+          className="w-full max-w-xs"
+        />
+      </Section>
+
+      <Section title="Badge — colors">
+        <Badge color="gray">Gray</Badge>
+        <Badge color="brand">Brand</Badge>
+        <Badge color="success">Success</Badge>
+        <Badge color="warning">Warning</Badge>
+        <Badge color="error">Error</Badge>
+        <Badge color="blue">Blue</Badge>
+      </Section>
+
+      <Section title="Loading indicator">
+        <LoadingIndicator type="line-simple" size="md" />
+        <LoadingIndicator type="line-spinner" size="md" />
+        <LoadingIndicator type="dot-circle" size="md" />
+      </Section>
+
+      <Section title="Table">
+        <TableDemo />
       </Section>
     </main>
   );

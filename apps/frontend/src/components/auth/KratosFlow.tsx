@@ -8,6 +8,7 @@
 
 import type { HTMLAttributeReferrerPolicy, ReactNode } from "react";
 import { useEffect, useState } from "react";
+import { Input } from "@/components/base/input/input";
 
 export type FlowKind = "login" | "registration" | "recovery" | "verification" | "settings";
 
@@ -95,16 +96,17 @@ function InputNode({ node, submitLabel }: { node: UiNode; submitLabel: string })
     return <input type="hidden" name={attr.name} value={value} />;
   }
   if (attr.type === "submit" || attr.type === "button") {
+    // Stays a native button (not the Untitled <Button>): Kratos identifies the
+    // pressed method by this button's name=value, and a settings flow renders
+    // every method (password, WebAuthn, TOTP) in one form, each submit needing
+    // `formNoValidate` so one method's empty field can't block another's submit.
+    // React Aria's Button strips name/value/formNoValidate, so it can't be used
+    // here. Kratos validates the submitted method server-side.
     return (
       <button
         type={attr.type === "button" ? "button" : "submit"}
         name={attr.name}
         value={value}
-        // A settings flow renders every method (password, WebAuthn, TOTP) in this
-        // one form, each with its own submit. Native required-field validation
-        // would block one method's submit on another's empty input (e.g. enrolling
-        // TOTP while the password field is blank). Kratos validates the submitted
-        // method server-side, so skip the browser's cross-group check.
         formNoValidate
         className="w-full rounded bg-brand-600 px-4 py-2 text-white hover:bg-brand-700"
       >
@@ -112,23 +114,21 @@ function InputNode({ node, submitLabel }: { node: UiNode; submitLabel: string })
       </button>
     );
   }
+  const messages = node.messages ?? [];
+  const errorText = messages.map((message) => message.text).join(" ");
   return (
-    <label className="block">
-      <span className="text-sm text-tertiary">{labelText ?? attr.name}</span>
-      <input
-        name={attr.name}
-        type={attr.type}
-        required={attr.required}
-        disabled={attr.disabled}
-        defaultValue={attr.type === "password" ? undefined : value}
-        className="mt-1 w-full rounded-lg border border-primary bg-primary px-3 py-2 text-primary shadow-xs outline-brand"
-      />
-      {node.messages?.map((message) => (
-        <span key={message.id} className="mt-1 block text-sm text-error-primary">
-          {message.text}
-        </span>
-      ))}
-    </label>
+    <Input
+      label={labelText ?? attr.name}
+      name={attr.name}
+      // Kratos drives the input type (email, password, text, …).
+      type={attr.type as "text" | "email" | "password" | "search" | "tel" | "url"}
+      isRequired={attr.required}
+      isDisabled={attr.disabled}
+      isInvalid={messages.length > 0}
+      hint={errorText || undefined}
+      // Never pre-fill password fields from the flow response.
+      defaultValue={attr.type === "password" ? undefined : value}
+    />
   );
 }
 

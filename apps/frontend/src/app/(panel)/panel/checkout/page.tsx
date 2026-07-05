@@ -5,9 +5,17 @@ import { zodResolver } from "@hookform/resolvers/zod";
 // 202 + a workflow handle; we poll it with the shared helper instead of
 // hand-rolling fetch loops.
 import { useState } from "react";
-import { useForm } from "react-hook-form";
+import {
+  Controller,
+  type ControllerFieldState,
+  type ControllerRenderProps,
+  useForm,
+} from "react-hook-form";
 import { z } from "zod";
+import type { BadgeColors } from "@/components/base/badges/badge-types";
+import { Badge } from "@/components/base/badges/badges";
 import { Button } from "@/components/base/buttons/button";
+import { Input } from "@/components/base/input/input";
 import { createBrowserClient } from "@/lib/server-fetch/client";
 import { pollWorkflow, type WorkflowHandle } from "@/lib/server-fetch/workflow-handle";
 import { panel } from "@/strings/panel";
@@ -28,41 +36,63 @@ type OrdersPaths = {
   };
 };
 
+type Status = { text: string; tone: BadgeColors };
+
+// Hoisted so the Controller render prop is a stable reference (noJsxPropsBind).
+const renderProductId = ({
+  field,
+  fieldState,
+}: {
+  field: ControllerRenderProps<FormValues, "product_id">;
+  fieldState: ControllerFieldState;
+}) => (
+  <Input
+    name={field.name}
+    ref={field.ref}
+    value={field.value}
+    onChange={field.onChange}
+    onBlur={field.onBlur}
+    isInvalid={fieldState.invalid}
+    hint={fieldState.error?.message}
+    placeholder={panel.checkout.productPlaceholder}
+  />
+);
+
 export default function Checkout() {
-  const [status, setStatus] = useState<string>(panel.checkout.idle);
+  const [status, setStatus] = useState<Status>({ text: panel.checkout.idle, tone: "gray" });
   const orders = createBrowserClient<OrdersPaths>("orders");
 
-  const { register, handleSubmit, formState } = useForm<FormValues>({
+  const { control, handleSubmit, formState } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: { product_id: "", quantity: 1 },
   });
 
   const onSubmit = handleSubmit(async (values) => {
-    setStatus(panel.checkout.starting);
+    setStatus({ text: panel.checkout.starting, tone: "blue" });
     const { data, error } = await orders.POST("/orders", { body: values });
     if (error || !data) {
-      setStatus(panel.checkout.error);
+      setStatus({ text: panel.checkout.error, tone: "error" });
       return;
     }
-    setStatus(panel.checkout.running(data.id));
+    setStatus({ text: panel.checkout.running(data.id), tone: "blue" });
     const result = await pollWorkflow(data);
-    setStatus(result.status);
+    setStatus({ text: result.status, tone: "success" });
   });
 
   return (
     <main className="mx-auto max-w-md p-6">
       <h1 className="text-2xl font-semibold">{panel.checkout.title}</h1>
       <form onSubmit={onSubmit} className="mt-4 space-y-3">
-        <input
-          {...register("product_id")}
-          placeholder={panel.checkout.productPlaceholder}
-          className="w-full rounded-lg border border-primary bg-primary px-3 py-2 text-primary shadow-xs outline-brand placeholder:text-placeholder"
-        />
+        <Controller control={control} name="product_id" render={renderProductId} />
         <Button type="submit" isLoading={formState.isSubmitting}>
           {panel.checkout.buy}
         </Button>
       </form>
-      <p className="mt-3 text-sm text-tertiary">{status}</p>
+      <div className="mt-3">
+        <Badge type="pill-color" color={status.tone}>
+          {status.text}
+        </Badge>
+      </div>
     </main>
   );
 }

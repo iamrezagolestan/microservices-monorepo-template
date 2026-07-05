@@ -45,6 +45,11 @@
       "correctness": {
         // Resolver can't see Next 16 type-only re-exports from next/server.
         "noUnresolvedImports": "off",
+        // React Aria collections (Untitled Table) require stable `id` keys on
+        // columns/rows; these are collection keys, not DOM ids (ADR-0014).
+        "useUniqueElementIds": "off",
+        // Qwik-only rule; this is a React app (ADR-0014).
+        "useQwikValidLexicalScope": "off",
         // Bundler resolves path aliases and extensionless specifiers.
         "useImportExtensions": "off",
         "noProcessGlobal": "off"
