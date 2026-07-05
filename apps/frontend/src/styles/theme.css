@@ -1,7 +1,7 @@
 @theme {
     /* FONT FAMILY */
-    --font-body: var(--font-inter, "Inter"), -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
-    --font-display: var(--font-inter, "Inter"), -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    --font-body: var(--font-vazirmatn, "Vazirmatn"), var(--font-inter, "Inter"), -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    --font-display: var(--font-vazirmatn, "Vazirmatn"), var(--font-inter, "Inter"), -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
     --font-mono: ui-monospace, "Roboto Mono", SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 
     /* FONT SIZE */
@@ -42,6 +42,23 @@
     --text-display-2xl--line-height: calc(var(--spacing) * 22.5);
     --text-display-2xl--letter-spacing: -1.44px;
 
+    /* FONT WEIGHT */
+    --font-weight-regular: 400;
+    --font-weight-medium: 500;
+    --font-weight-semibold: 600;
+    --font-weight-bold: 700;
+
+    /* SPACING */
+    --spacing-none: calc(var(--spacing) * 0);
+    --spacing-xxs: calc(var(--spacing) * 0.5);
+    --spacing-xs: calc(var(--spacing) * 1);
+    --spacing-sm: calc(var(--spacing) * 1.5);
+    --spacing-md: calc(var(--spacing) * 2);
+    --spacing-lg: calc(var(--spacing) * 3);
+    --spacing-xl: calc(var(--spacing) * 4);
+    --spacing-2xl: calc(var(--spacing) * 5);
+    --container-padding-mobile: calc(var(--spacing) * 4);
+
     /* MAX WIDTH */
     --max-width-container: 1280px;
 
@@ -53,10 +70,10 @@
     /* RADIUS */
     --radius-none: 0px;
     --radius-xs: 0.125rem;
-    --radius-sm: 0.25rem;
-    --radius-DEFAULT: 0.25rem;
-    --radius-md: 0.375rem;
-    --radius-lg: 0.5rem;
+    --radius-sm: 0.375rem;
+    --radius-DEFAULT: 0.5rem;
+    --radius-md: 0.5rem;
+    --radius-lg: 0.625rem;
     --radius-xl: 0.75rem;
     --radius-2xl: 1rem;
     --radius-3xl: 1.5rem;
@@ -120,18 +137,40 @@
     /* These will be inverted in dark mode. */
     --color-alpha-white: rgb(255 255 255);
     --color-alpha-black: rgb(0 0 0);
+    --color-alpha-white-12: rgb(255 255 255 / 0.12);
+    --color-alpha-black-10: rgb(0 0 0 / 0.1);
 
-    --color-brand-50: rgb(249 245 255);
-    --color-brand-100: rgb(244 235 255);
-    --color-brand-200: rgb(233 215 254);
-    --color-brand-300: rgb(214 187 251);
-    --color-brand-400: rgb(182 146 246);
-    --color-brand-500: rgb(158 119 237);
-    --color-brand-600: rgb(127 86 217);
-    --color-brand-700: rgb(105 65 198);
-    --color-brand-800: rgb(83 56 158);
-    --color-brand-900: rgb(66 48 125);
-    --color-brand-950: rgb(44 28 95);
+    --color-neutral-50: rgb(255 255 255);
+    --color-neutral-100: rgb(230 230 230);
+    --color-neutral-200: rgb(204 204 204);
+    --color-neutral-300: rgb(178 178 178);
+    --color-neutral-400: rgb(153 153 153);
+    --color-neutral-500: rgb(128 128 128);
+    --color-neutral-600: rgb(102 102 102);
+    --color-neutral-700: rgb(77 77 77);
+    --color-neutral-800: rgb(51 51 51);
+    --color-neutral-900: rgb(26 26 26);
+    --color-neutral-950: rgb(9 9 9);
+
+    --color-surface-primary: rgb(37 37 37);
+    --color-surface-secondary: rgb(13 13 13);
+    --color-surface-tertiary: rgb(255 255 255);
+
+    --color-blue-500: rgb(76 137 250);
+    --color-blue-700: rgb(38 68 125);
+    --color-red-700: rgb(112 26 21);
+
+    --color-brand-50: rgb(255 255 255);
+    --color-brand-100: rgb(237 237 237);
+    --color-brand-200: rgb(230 230 230);
+    --color-brand-300: rgb(204 204 204);
+    --color-brand-400: rgb(178 178 178);
+    --color-brand-500: rgb(153 153 153);
+    --color-brand-600: rgb(21 21 21);
+    --color-brand-700: rgb(77 77 77);
+    --color-brand-800: rgb(51 51 51);
+    --color-brand-900: rgb(26 26 26);
+    --color-brand-950: rgb(9 9 9);
 
     /* LIGHT MODE VARIABLES */
 
@@ -298,29 +337,29 @@
     --color-text-secondary: var(--color-neutral-700);
     --color-text-secondary_hover: var(--color-neutral-800);
     --color-text-tertiary_hover: var(--color-neutral-700);
-    --color-text-brand-secondary: var(--color-brand-700);
+    --color-text-brand-secondary: var(--color-brand-600);
     --color-text-placeholder: var(--color-neutral-500);
-    --color-text-brand-tertiary: var(--color-brand-600);
+    --color-text-brand-tertiary: var(--color-brand-700);
     --color-text-editor-icon-fg: var(--color-neutral-400);
     --color-text-editor-icon-fg_active: var(--color-neutral-500);
     --color-text-quaternary: var(--color-neutral-500);
-    --color-text-brand-primary: var(--color-brand-900);
+    --color-text-brand-primary: var(--color-brand-600);
     --color-text-primary_on-brand: var(--color-white);
-    --color-text-secondary_on-brand: var(--color-brand-200);
-    --color-text-tertiary_on-brand: var(--color-brand-200);
-    --color-text-quaternary_on-brand: var(--color-brand-300);
-    --color-text-brand-tertiary_alt: var(--color-brand-600);
+    --color-text-secondary_on-brand: var(--color-neutral-100);
+    --color-text-tertiary_on-brand: var(--color-neutral-300);
+    --color-text-quaternary_on-brand: var(--color-neutral-400);
+    --color-text-brand-tertiary_alt: var(--color-brand-700);
     --color-text-error-primary_hover: var(--color-red-700);
-    --color-text-brand-secondary_hover: var(--color-brand-800);
+    --color-text-brand-secondary_hover: var(--color-brand-700);
 
     /* BORDER COLORS */
-    --color-border-primary: var(--color-neutral-300);
-    --color-border-secondary: var(--color-neutral-200);
-    --color-border-secondary_alt: rgb(0 0 0 / 0.1);
+    --color-border-primary: var(--color-neutral-200);
+    --color-border-secondary: var(--color-neutral-100);
+    --color-border-secondary_alt: var(--color-alpha-black-10);
     --color-border-tertiary: var(--color-neutral-100);
     --color-border-error: var(--color-red-500);
     --color-border-error_subtle: var(--color-red-300);
-    --color-border-brand: var(--color-brand-500);
+    --color-border-brand: var(--color-brand-600);
     --color-border-brand_alt: var(--color-brand-600);
 
     /* FOREGROUND COLORS */
@@ -331,7 +370,7 @@
     --color-fg-success-secondary: var(--color-green-500);
     --color-fg-secondary_hover: var(--color-neutral-800);
     --color-fg-primary: var(--color-neutral-900);
-    --color-fg-brand-secondary: var(--color-brand-500);
+    --color-fg-brand-secondary: var(--color-brand-700);
     --color-fg-brand-primary: var(--color-brand-600);
     --color-fg-quaternary: var(--color-neutral-400);
     --color-fg-quaternary_hover: var(--color-neutral-500);
@@ -342,12 +381,12 @@
     --color-fg-tertiary_hover: var(--color-neutral-700);
     --color-fg-brand-primary_alt: var(--color-fg-brand-primary);
     --color-fg-brand-secondary_alt: var(--color-fg-brand-secondary);
-    --color-fg-brand-secondary_hover: var(--color-brand-600);
+    --color-fg-brand-secondary_hover: var(--color-brand-700);
 
     /* BACKGROUND COLORS */
     --color-bg-primary: var(--color-white);
-    --color-bg-tertiary: var(--color-neutral-100);
-    --color-bg-brand-primary: var(--color-brand-50);
+    --color-bg-tertiary: var(--color-surface-tertiary);
+    --color-bg-brand-primary: var(--color-brand-100);
     --color-bg-error-secondary: var(--color-red-100);
     --color-bg-warning-primary: var(--color-yellow-50);
     --color-bg-warning-secondary: var(--color-yellow-100);
@@ -358,26 +397,26 @@
     --color-bg-error-solid: var(--color-red-600);
     --color-bg-warning-solid: var(--color-yellow-600);
     --color-bg-success-solid: var(--color-green-600);
-    --color-bg-secondary_hover: var(--color-neutral-100);
-    --color-bg-primary_hover: var(--color-neutral-50);
+    --color-bg-secondary_hover: var(--color-brand-100);
+    --color-bg-primary_hover: var(--color-brand-100);
     --color-bg-active: var(--color-neutral-50);
     --color-bg-brand-solid_hover: var(--color-brand-700);
     --color-bg-error-primary: var(--color-red-50);
-    --color-bg-brand-secondary: var(--color-brand-100);
-    --color-bg-secondary: var(--color-neutral-50);
+    --color-bg-brand-secondary: var(--color-neutral-950);
+    --color-bg-secondary: var(--color-neutral-950);
     --color-bg-quaternary: var(--color-neutral-200);
     --color-bg-primary_alt: var(--color-white);
     --color-bg-brand-primary_alt: var(--color-brand-50);
     --color-bg-secondary_alt: var(--color-neutral-50);
     --color-bg-overlay: var(--color-neutral-950);
-    --color-bg-brand-section: var(--color-brand-800);
-    --color-bg-brand-section_subtle: var(--color-brand-700);
+    --color-bg-brand-section: var(--color-neutral-950);
+    --color-bg-brand-section_subtle: var(--color-brand-900);
     --color-bg-primary-solid: var(--color-neutral-950);
     --color-bg-error-solid_hover: var(--color-red-700);
 
     /* COMPONENT COLORS */
-    --color-app-store-badge-border: 166 166 166 1;
-    --color-avatar-styles-bg-neutral: 224 224 224 1;
+    --color-app-store-badge-border: var(--color-neutral-400);
+    --color-avatar-styles-bg-neutral: var(--color-neutral-100);
     --color-featured-icon-light-fg-brand: var(--color-brand-600);
     --color-featured-icon-light-fg-error: var(--color-red-600);
     --color-featured-icon-light-fg-gray: var(--color-neutral-500);
@@ -706,7 +745,7 @@
         --color-fg-brand-secondary_hover: var(--color-neutral-500);
 
         --color-bg-primary: var(--color-neutral-950);
-        --color-bg-tertiary: var(--color-neutral-800);
+        --color-bg-tertiary: var(--color-surface-primary);
         --color-bg-brand-primary: var(--color-brand-500);
         --color-bg-error-secondary: var(--color-red-600);
         --color-bg-warning-primary: var(--color-yellow-950);
@@ -718,14 +757,14 @@
         --color-bg-error-solid: var(--color-red-600);
         --color-bg-warning-solid: var(--color-yellow-600);
         --color-bg-success-solid: var(--color-green-600);
-        --color-bg-secondary_hover: var(--color-neutral-800);
+        --color-bg-secondary_hover: var(--color-surface-primary);
         --color-bg-primary_hover: var(--color-neutral-900);
         --color-bg-active: var(--color-neutral-800);
         --color-bg-brand-solid_hover: var(--color-brand-500);
         --color-bg-error-primary: var(--color-red-950);
         --color-bg-brand-secondary: var(--color-brand-600);
-        --color-bg-secondary: var(--color-neutral-900);
-        --color-bg-quaternary: var(--color-neutral-700);
+        --color-bg-secondary: var(--color-surface-secondary);
+        --color-bg-quaternary: var(--color-surface-primary);
         --color-bg-primary_alt: var(--color-bg-secondary);
         --color-bg-brand-primary_alt: var(--color-bg-secondary);
         --color-bg-secondary_alt: var(--color-bg-primary);
@@ -736,7 +775,7 @@
         --color-bg-error-solid_hover: var(--color-red-500);
 
         --color-app-store-badge-border: var(--color-white);
-        --color-avatar-styles-bg-neutral: 224 224 224 1;
+        --color-avatar-styles-bg-neutral: var(--color-neutral-100);
         --color-featured-icon-light-fg-brand: var(--color-brand-200);
         --color-featured-icon-light-fg-error: var(--color-red-200);
         --color-featured-icon-light-fg-gray: var(--color-neutral-200);
