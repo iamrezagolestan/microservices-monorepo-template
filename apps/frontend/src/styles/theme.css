@@ -459,6 +459,18 @@
   --color-input-value: rgb(26 26 26);
   --color-input-disabled: rgb(128 128 128);
   --color-input-hint: rgb(128 128 128);
+  --color-chat-surface: rgb(237 237 237);
+  --color-chat-uploader-surface: var(--color-white);
+  --color-chat-border: rgb(243 243 243);
+  --color-chat-text: rgb(77 77 77);
+  --color-chat-placeholder: rgb(128 128 128);
+  --color-chat-icon: rgb(77 77 77);
+  --color-chat-icon_hover: rgb(51 51 51);
+  --color-chat-upload: rgb(230 230 230);
+  --color-chat-upload-icon: rgb(77 77 77);
+  --color-chat-kitchen: rgb(68 68 67);
+  --size-chat-textarea-min-height: 24px;
+  --size-chat-textarea-max-height: 131px;
 
   /* BACKGROUND PROPERTY COLORS */
   --background-color-primary: var(--color-bg-primary);
@@ -854,6 +866,18 @@
     --color-input-value: var(--color-neutral-50);
     --color-input-disabled: var(--color-neutral-500);
     --color-input-hint: var(--color-neutral-500);
+    --color-chat-surface: rgb(37 37 37);
+    --color-chat-uploader-surface: var(--color-bg-primary);
+    --color-chat-border: var(--color-black);
+    --color-chat-text: rgb(153 153 153);
+    --color-chat-placeholder: rgb(153 153 153);
+    --color-chat-icon: rgb(178 178 178);
+    --color-chat-icon_hover: var(--color-neutral-100);
+    --color-chat-upload: var(--color-neutral-800);
+    --color-chat-upload-icon: var(--color-neutral-300);
+    --color-chat-kitchen: rgb(68 68 67);
+    --size-chat-textarea-min-height: 24px;
+    --size-chat-textarea-max-height: 131px;
 
     /* BACKGROUND PROPERTY COLORS */
     --background-color-primary: var(--color-bg-primary);

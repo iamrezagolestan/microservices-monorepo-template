@@ -5,6 +5,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { ButtonKitchenExamples } from "./ButtonKitchenExamples";
+import { ChatBoxKitchenExamples } from "./ChatBoxKitchenExamples";
 import { InputKitchenExamples } from "./InputKitchenExamples";
 import { KitchenThemeSwitch } from "./KitchenThemeSwitch";
 
@@ -41,6 +42,10 @@ export default function KitchenSink() {
 
       <Section title="Input">
         <InputKitchenExamples />
+      </Section>
+
+      <Section title="ChatBox">
+        <ChatBoxKitchenExamples />
       </Section>
     </main>
   );
