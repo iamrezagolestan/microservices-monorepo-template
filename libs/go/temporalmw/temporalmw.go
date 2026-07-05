@@ -52,25 +52,30 @@ func NewClient(serviceName string) (client.Client, error) {
 	// error → CrashLoopBackOff with a growing delay). Runtime blips are handled by
 	// the SDK's own reconnection plus the /readyz gate, not here.
 	var c client.Client
-	err = retry(func() error {
-		var derr error
-		c, derr = client.Dial(opts)
-		if derr != nil {
-			return fmt.Errorf("temporalmw: dial: %w", derr)
-		}
-		return nil
-	})
+	err = retry(
+		func() error {
+			var derr error
+			c, derr = client.Dial(opts)
+			if derr != nil {
+				return fmt.Errorf("temporalmw: dial: %w", derr)
+			}
+			return nil
+		},
+	)
 	if err != nil {
 		return nil, err
 	}
 	// Auto-register the /readyz check for this dependency (ADR-0011).
-	observability.RegisterReadinessCheck("temporal", func(ctx context.Context) error {
-		_, herr := c.CheckHealth(ctx, &client.CheckHealthRequest{})
-		if herr != nil {
-			return fmt.Errorf("temporalmw: health: %w", herr)
-		}
-		return nil
-	})
+	observability.RegisterReadinessCheck(
+		"temporal",
+		func(ctx context.Context) error {
+			_, herr := c.CheckHealth(ctx, &client.CheckHealthRequest{})
+			if herr != nil {
+				return fmt.Errorf("temporalmw: health: %w", herr)
+			}
+			return nil
+		},
+	)
 	return c, nil
 }
 

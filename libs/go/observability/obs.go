@@ -14,7 +14,7 @@ import (
 	"strconv"
 	"time"
 
-	otelslog "go.opentelemetry.io/contrib/bridges/otelslog"
+	"go.opentelemetry.io/contrib/bridges/otelslog"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
@@ -197,14 +197,17 @@ func serveAdmin(addr string) {
 	// Readiness is DEEP — "can I serve?" — 200 only if every registered dependency
 	// check passes; on failure the pod leaves Service rotation WITHOUT restarting,
 	// and rejoins when the dependency recovers (see readiness.go).
-	mux.HandleFunc("/readyz", func(w http.ResponseWriter, r *http.Request) {
-		name, err := checkReadiness(r.Context())
-		if err != nil {
-			http.Error(w, "not ready: "+name+": "+err.Error(), http.StatusServiceUnavailable)
-			return
-		}
-		w.WriteHeader(http.StatusOK)
-	})
+	mux.HandleFunc(
+		"/readyz",
+		func(w http.ResponseWriter, r *http.Request) {
+			name, err := checkReadiness(r.Context())
+			if err != nil {
+				http.Error(w, "not ready: "+name+": "+err.Error(), http.StatusServiceUnavailable)
+				return
+			}
+			w.WriteHeader(http.StatusOK)
+		},
+	)
 	mux.HandleFunc("/debug/pprof/", pprof.Index)
 	mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
 	mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
