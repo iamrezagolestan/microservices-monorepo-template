@@ -3,7 +3,7 @@
 import type { ReactNode, Ref } from "react";
 import type { TextProps as AriaTextProps } from "react-aria-components";
 import { Text as AriaText } from "react-aria-components";
-import { cn } from "@/lib/cn";
+import { cx } from "@/utils/cx";
 
 type HintTextProps = AriaTextProps & {
   children: ReactNode;
@@ -17,7 +17,7 @@ export function HintText({ isInvalid, className, size = "md", ...props }: HintTe
     <AriaText
       {...props}
       slot={isInvalid ? "errorMessage" : "description"}
-      className={cn(
+      className={cx(
         "text-sm text-input-hint",
         size === "sm" && "text-xs",
         "in-data-[input-size=sm]:text-xs",

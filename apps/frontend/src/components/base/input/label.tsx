@@ -4,8 +4,8 @@ import { HelpCircle } from "@untitledui/icons";
 import type { ReactNode, Ref } from "react";
 import type { LabelProps as AriaLabelProps } from "react-aria-components";
 import { Label as AriaLabel } from "react-aria-components";
-import { cn } from "@/lib/cn";
-import { Tooltip, TooltipTrigger } from "./Tooltip";
+import { cx } from "@/utils/cx";
+import { Tooltip, TooltipTrigger } from "../tooltip/tooltip";
 
 type LabelProps = AriaLabelProps & {
   children: ReactNode;
@@ -29,7 +29,7 @@ export function Label({
 }: LabelProps) {
   const requiredIndicator = (
     <span
-      className={cn(
+      className={cx(
         "hidden text-input-required",
         isRequired && "block",
         typeof isRequired === "undefined" && "group-required:block",
@@ -45,7 +45,7 @@ export function Label({
     <AriaLabel
       data-label="true"
       {...props}
-      className={cn(
+      className={cx(
         "flex cursor-default items-center gap-0.5 text-sm font-medium text-input-label",
         className,
       )}

@@ -12,7 +12,7 @@ import {
   Tooltip as AriaTooltip,
   TooltipTrigger as AriaTooltipTrigger,
 } from "react-aria-components";
-import { cn } from "@/lib/cn";
+import { cx } from "@/utils/cx";
 
 type TooltipProps = AriaTooltipTriggerComponentProps &
   Omit<AriaTooltipProps, "children"> & {
@@ -64,7 +64,7 @@ export function Tooltip({
       <AriaTooltip
         {...tooltipProps}
         className={({ isEntering, isExiting }) =>
-          cn(isEntering && "ease-out animate-in", isExiting && "ease-in animate-out")
+          cx(isEntering && "ease-out animate-in", isExiting && "ease-in animate-out")
         }
         crossOffset={crossOffset ?? calculatedCrossOffset}
         offset={offset}
@@ -72,7 +72,7 @@ export function Tooltip({
       >
         {({ isEntering, isExiting }) => (
           <div
-            className={cn(
+            className={cx(
               "z-50 flex max-w-xs origin-(--trigger-anchor-point) flex-col items-start gap-1 rounded-lg bg-alpha-black px-3 shadow-lg will-change-transform",
               description ? "py-3" : "py-2",
               isEntering &&
@@ -112,7 +112,7 @@ export function TooltipTrigger({ children, className, ...buttonProps }: TooltipT
     <AriaButton
       {...buttonProps}
       className={(values) =>
-        cn(
+        cx(
           "h-max w-max outline-hidden",
           typeof className === "function" ? className(values) : className,
         )

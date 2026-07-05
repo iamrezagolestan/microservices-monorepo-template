@@ -7,9 +7,9 @@ import type {
   TextFieldProps as AriaTextFieldProps,
 } from "react-aria-components";
 import { TextArea as AriaTextArea, TextField as AriaTextField } from "react-aria-components";
-import { cn } from "@/lib/cn";
-import { HintText } from "../Input/HintText";
-import { Label } from "../Input/Label";
+import { cx } from "@/utils/cx";
+import { HintText } from "../input/hintText";
+import { Label } from "../input/label";
 
 export type TextAreaBaseProps = AriaTextAreaProps & {
   ref?: Ref<HTMLTextAreaElement>;
@@ -22,7 +22,7 @@ type TextFieldClassName = Exclude<AriaTextFieldProps["className"], string | unde
 export function TextAreaBase({ className, size = "md", ...props }: TextAreaBaseProps) {
   const renderClassName = useCallback<TextAreaClassName>(
     (state) =>
-      cn(
+      cx(
         "w-full scroll-py-3 resize-none rounded-lg bg-input-surface text-input-value shadow-xs ring-1 ring-input-border transition duration-100 ease-linear ring-inset placeholder:text-input-placeholder autofill:rounded-lg autofill:text-input-value focus:outline-hidden",
         size === "sm" && "p-3 text-sm leading-[var(--text-sm--line-height)]",
         size === "md" && "px-3.5 py-3 text-md leading-[var(--text-md--line-height)]",
@@ -76,7 +76,7 @@ export function TextArea({
 }: TextAreaProps) {
   const renderClassName = useCallback<TextFieldClassName>(
     (state) =>
-      cn(
+      cx(
         "group flex h-max w-full flex-col items-start justify-start gap-1.5",
         typeof className === "function" ? className(state) : className,
       ),

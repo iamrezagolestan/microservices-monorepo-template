@@ -7,7 +7,7 @@ import type {
   LinkProps as AriaLinkProps,
 } from "react-aria-components";
 import { Button as AriaButton, Link as AriaLink } from "react-aria-components";
-import { cn } from "@/lib/cn";
+import { cx } from "@/utils/cx";
 
 type ButtonSize = "sm" | "md" | "lg" | "xl";
 type ButtonColor =
@@ -244,7 +244,7 @@ export const Button: {
           data-icon="loading"
           focusable="false"
           viewBox="0 0 20 20"
-          className={cn(
+          className={cx(
             styles.common.icon,
             !showTextWhileLoading &&
               !isIcon &&
@@ -267,7 +267,7 @@ export const Button: {
       {hasChildren && (
         <span
           data-text
-          className={cn("transition-inherit-all", !shouldRemoveTextPadding && "px-0.5")}
+          className={cx("transition-inherit-all", !shouldRemoveTextPadding && "px-0.5")}
         >
           {children}
         </span>
@@ -280,7 +280,7 @@ export const Button: {
     </>
   );
 
-  const commonClassName = cn(
+  const commonClassName = cx(
     styles.common.root,
     styles.sizes[size].root,
     styles.colors[resolvedColor].root,

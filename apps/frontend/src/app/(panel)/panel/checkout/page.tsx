@@ -7,7 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { Button } from "@/components/base/buttons/button";
+import { Button } from "@/components/base/button/button";
 import { createBrowserClient } from "@/lib/server-fetch/client";
 import { pollWorkflow, type WorkflowHandle } from "@/lib/server-fetch/workflow-handle";
 import { panel } from "@/strings/panel";

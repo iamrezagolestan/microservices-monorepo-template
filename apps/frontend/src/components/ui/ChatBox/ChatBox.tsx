@@ -3,9 +3,9 @@
 import { Attachment01, File01, Folder, Paperclip, Send03, Stars01, Stop } from "@untitledui/icons";
 import type { ChangeEvent, ChangeEventHandler, FC, Ref, RefObject } from "react";
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { cn } from "@/lib/cn";
-import { Button } from "../Button/Button";
-import { TextAreaBase } from "../TextArea/TextArea";
+import { cx, sortCx } from "@/utils/cx";
+import { Button } from "../../base/button/button";
+import { TextAreaBase } from "../../base/textArea/textArea";
 
 type ButtonIcon = FC<{ className?: string; "data-icon"?: string }>;
 
@@ -331,7 +331,7 @@ export function ChatBox({
   return (
     <div
       data-state={containerState}
-      className={cn(
+      className={cx(
         "w-full overflow-visible rounded-xl bg-chat-surface border-chat-border backdrop-blur-[47.8px]",
         containerState === "default" && "border-r-[1.5px] border-solid p-5",
         containerState === "loading" && "h-16 bg-transparent",
@@ -343,7 +343,7 @@ export function ChatBox({
 
       <div
         dir="ltr"
-        className={cn(
+        className={cx(
           "flex w-full items-center justify-between",
           containerState === "loading" && "h-16 rounded-xl bg-chat-surface p-5",
           containerState === "default" && "p-0",

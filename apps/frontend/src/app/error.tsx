@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { Button } from "@/components/base/buttons/button";
+import { Button } from "@/components/base/button/button";
 import { obsLog } from "@/lib/observability/client";
 
 export default function RootError({
