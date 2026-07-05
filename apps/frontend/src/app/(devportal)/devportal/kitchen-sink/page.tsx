@@ -1,7 +1,8 @@
-// Visual sanity check for src/components/ui primitives. The cheap alternative
-// to a Storybook install: one public page that renders every primitive once.
+// Visual sanity check for the Untitled UI primitives under src/components/.
+// The cheap alternative to a Storybook install: one page that renders every
+// primitive once. Gated by the (devportal) Kratos session check (proxy.ts).
 //
-// Add one <Section> per primitive added to @/components/ui.
+// Add one <Section> per primitive added under @/components/.
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { ButtonKitchenExamples } from "./ButtonKitchenExamples";

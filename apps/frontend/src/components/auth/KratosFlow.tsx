@@ -121,7 +121,7 @@ function InputNode({ node, submitLabel }: { node: UiNode; submitLabel: string })
         required={attr.required}
         disabled={attr.disabled}
         defaultValue={attr.type === "password" ? undefined : value}
-        className="mt-1 w-full rounded border border-primary px-3 py-2"
+        className="mt-1 w-full rounded-lg border border-primary bg-primary px-3 py-2 text-primary shadow-xs outline-brand"
       />
       {node.messages?.map((message) => (
         <span key={message.id} className="mt-1 block text-sm text-error-primary">
@@ -142,7 +142,9 @@ function FlowNode({ node, submitLabel }: { node: UiNode; submitLabel: string }) 
     case "text":
       // e.g. the TOTP shared secret to type into an authenticator app.
       return (
-        <p className="break-all rounded bg-tertiary p-2 font-mono text-sm">{attr.text?.text}</p>
+        <p className="break-all rounded bg-secondary p-2 font-mono text-sm text-primary">
+          {attr.text?.text}
+        </p>
       );
     case "img":
       return <ImgNode src={attr.src} alt={labelText ?? "QR code"} />;

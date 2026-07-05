@@ -23,7 +23,7 @@ export default async function Products() {
   return (
     <main className="mx-auto max-w-3xl p-6">
       <h1 className="text-2xl font-semibold">{panel.products.title}</h1>
-      <ul className="mt-4 divide-y divide-secondary">
+      <ul className="mt-4 divide-y divide-border-secondary">
         {products.map((p) => (
           <li key={p.id} className="flex justify-between py-2">
             <span>{p.name}</span>

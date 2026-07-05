@@ -60,12 +60,15 @@ Every route segment ships `loading.tsx` and `error.tsx`. Every route-group root 
 - **Client components** use TanStack Query wrapping the same SDKs via `src/lib/server-fetch/client.ts`. Query keys derive from `operationId`.
 - **Mutations** prefer Server Actions when single-service. Cross-service flows return a `202 Accepted` workflow handle ([ADR-0006](0006-temporal.md)) and the client polls via the workflow-handle helper.
 
-### Styling: Tailwind v4 + Untitled UI tokens
+### Styling: Tailwind v4 + Untitled UI, CSS-first
 
-- Tailwind CSS v4 is the styling system. CSS Modules and CSS-in-JS are forbidden in app code; the only exception is third-party components that ship their own styles.
-- Design tokens come from Untitled UI's Tailwind preset, committed as the `@theme` block in `src/styles/globals.css` and mirrored for TS consumers in `src/lib/tokens.ts`. Token edits are PRs; upstream Untitled UI bumps are tracked in `src/components/ui/UPSTREAM.md` with a yearly bump cadence.
-- Class composition uses `clsx` + `tailwind-merge`, re-exported as `cn()` from `src/lib/cn.ts`.
-- Dark mode via `next-themes`; the theme is set as `data-theme` on the root element.
+We follow Untitled UI's Next.js integration exactly, so a component copied from untitledui.com drops in unmodified.
+
+- Tailwind CSS v4 is the styling system, wired CSS-first (no `tailwind.config.js`). CSS Modules and CSS-in-JS are forbidden in app code; the only exception is third-party components that ship their own styles.
+- Design tokens are Untitled UI's committed token file at `src/styles/theme.css` (full brand/gray/error/warning/success palettes, semantic text/bg/border/fg/utility colors, typography, radius, shadows, animations), imported by `src/styles/globals.css` together with `src/styles/typography.css`. There is no JS token mirror; TS consumers that need a raw value read the CSS variable. Token edits are PRs; upstream Untitled UI bumps are tracked in `src/components/UPSTREAM.md` with a yearly bump cadence.
+- `globals.css` registers the plugins Untitled's primitives depend on — `tailwindcss-react-aria-components` (React Aria state variants) and `tailwindcss-animate` — and declares Untitled's custom variants (`dark`, `label`, `focus-input-within`).
+- Class composition uses Untitled's `cx` + `sortCx` from `src/utils/cx.ts` (a `tailwind-merge` wrapper). Hand-written `cn()` helpers are not added.
+- Dark mode via `next-themes`, which writes Untitled's `.dark-mode` class on the root element; the `dark` custom variant keys off it.
 
 ### Code layout: one app, no first-party packages
 
@@ -77,29 +80,30 @@ Applying it, first-party code lives under `apps/frontend/src/`:
 
 | Code                       | Location                                                                                                     |
 |----------------------------|--------------------------------------------------------------------------------------------------------------|
-| UI primitives              | `src/components/ui/`                                                                                         |
-| `cn()` + design tokens     | `src/lib/cn.ts`, `src/lib/tokens.ts`                                                                         |
+| UI primitives              | `src/components/{base,application,foundations}/` (Untitled UI layout)                                        |
+| Design tokens              | `src/styles/theme.css`, `src/styles/typography.css`                                                          |
+| `cx()` / `sortCx()` + helpers | `src/utils/cx.ts`, `src/utils/is-react-component.ts`                                                      |
 | Server/client fetchers     | `src/lib/server-fetch/`                                                                                      |
 | Browser + server telemetry | `src/lib/observability/`                                                                                     |
 | Feature flags              | `src/lib/feature-flags.ts`                                                                                   |
 | User-facing strings        | `src/strings/<route-group>.ts`                                                                               |
 | Generated API SDKs         | `libs/ts/sdks/<service>/` (the **only** `libs/ts` member — generated from OpenAPI, plausibly multi-consumer) |
 
-### Component library: `src/components/ui/`
+### Component library: `src/components/{base,application,foundations}/`
 
-`src/components/ui/` is the only place primitives live (Button, Input, Card, Modal, Toast, Form, Table, etc.). Route groups compose them via the `@/components/ui` alias; they do not duplicate them. The library is built from Untitled UI components ported into the repo as committed source — not runtime-fetched; upstream bumps are tracked in `src/components/ui/UPSTREAM.md`.
+Primitives live under `src/components/` in Untitled UI's own layout — `base/` (Button, Input, Badge, Toggle…), `application/` (Table, Modal, Navigation…), and `foundations/` (icons, logos). Route groups compose them via their explicit `@/components/base/...` paths; they do not duplicate them. Untitled UI React ships source you own, built on [React Aria Components](https://react-spectrum.adobe.com/react-aria/) for accessibility; the components are vendored into the repo as committed source — not runtime-fetched. Keeping upstream's folder layout and utility names (`cx`, `sortCx`) verbatim is deliberate: it makes adding a component (`npx untitledui@latest add <component>`) or a yearly bump a clean diff rather than a rewrite. Upstream bumps are tracked in `src/components/UPSTREAM.md`.
 
-Heuristic: if two route groups would copy a component, it belongs in `src/components/ui/`.
+Heuristic: if two route groups would copy a component, it belongs under `src/components/`.
 
-Icons are `lucide-react` (the icon set Untitled UI uses).
+Icons are `@untitledui/icons` (Untitled UI's own icon set), passed to primitives as components (e.g. `iconLeading={Plus}`).
 
-**Kitchen-sink page.** `apps/frontend/src/app/(devportal)/devportal/kitchen-sink/page.tsx` renders every primitive in `src/components/ui/` once. It is the cheap alternative to Storybook: one route, no separate toolchain, gated by the (devportal) Kratos session. Every primitive added to `src/components/ui/` gets a `<Section>` there in the same PR.
+**Kitchen-sink page.** `apps/frontend/src/app/(devportal)/devportal/kitchen-sink/page.tsx` renders every primitive under `src/components/` once. It is the cheap alternative to Storybook: one route, no separate toolchain, gated by the (devportal) Kratos session. Every primitive added under `src/components/` gets a `<Section>` there in the same PR.
 
 ### Forms
 
 - `react-hook-form` for state and validation orchestration.
 - `zod` for schemas. Schemas for OpenAPI operations are generated from the spec under `tools/codegen/zod-gen/` and committed at `libs/ts/sdks/<service>/schemas/`. The `mise run gen:zod` task is included in `mise run gen` and drift-checked by `ci-drift.yml`.
-- A single `<Form>` primitive in `src/components/ui/` wires react-hook-form + zod + the design-system inputs. Hand-rolled form wiring is a review-blocker.
+- A single `<Form>` primitive under `src/components/base/` wires react-hook-form + zod + the design-system inputs. Hand-rolled form wiring is a review-blocker.
 
 ### Client state
 
@@ -193,7 +197,7 @@ No i18n library is adopted day one. All user-facing strings live as TS constants
 ### Negative / Risks
 
 - **Biome lacks Next-specific lints.** Mitigated by `next build` + Lighthouse-CI + typed `next/image` / `next/font` APIs. Not a behavioural gap, a different enforcement surface.
-- **Untitled UI ports are committed source.** Upgrading from upstream is a real PR, not a `bun update`. Mitigated by `src/components/ui/UPSTREAM.md` and a yearly bump.
+- **Untitled UI source is vendored, committed.** Upgrading from upstream is a real PR, not a `bun update`. Mitigated by keeping the upstream layout verbatim (clean diffs), `src/components/UPSTREAM.md`, and a yearly bump.
 - **OpenTelemetry-JS web SDK is heavier than Faro alone.** Accepted; the trace continuity between browser and services is worth the bytes, re-evaluated under the perf gates.
 - **Deferring i18n risks a painful retrofit.** Mitigated by keeping all strings in one file per route group from day one.
 - **Server Actions are relatively new.** Mitigated by limiting them to single-service mutations; cross-service flows use the well-trodden REST + workflow-handle path.
@@ -201,7 +205,7 @@ No i18n library is adopted day one. All user-facing strings live as TS constants
 ### Follow-ups
 
 - `apps/frontend/` scaffold with the four route groups, `proxy.ts`, `loading.tsx` / `error.tsx` baselines.
-- `src/components/ui/` with Untitled UI ports, `src/lib/tokens.ts`, and `cn()`.
+- `src/components/{base,application,foundations}/` with vendored Untitled UI source, `src/styles/{theme,typography,globals}.css`, and `src/utils/{cx,is-react-component}.ts`.
 - `src/lib/server-fetch/` with the server-only fetcher and TanStack Query glue.
 - `tools/codegen/zod-gen/` and the `mise run gen:zod` task; inclusion in `mise run gen` and `ci-drift.yml`.
 - `biome.json` at repo root with the strict ruleset above.
@@ -222,12 +226,13 @@ No i18n library is adopted day one. All user-facing strings live as TS constants
 - First-party frontend code lives in `apps/frontend/src/`; a `libs/ts/*` package is created only for a second consumer or a generated artifact. Generated SDKs under `libs/ts/sdks/` are the only `libs/ts` members.
 - Server components fetch via `src/lib/server-fetch/server.ts`. Client components use TanStack Query wrapping the generated SDKs via `src/lib/server-fetch/client.ts`. Direct `fetch` to service URLs is forbidden.
 - Hand-written request/response types are forbidden; only types from `libs/ts/sdks/<service>/` are used. Zod schemas for forms are generated from the OpenAPI spec and committed.
-- Tailwind v4 is the styling system. CSS Modules, CSS-in-JS, and inline `<style>` are forbidden in app code.
-- Design tokens come from `src/styles/globals.css` (`@theme`) mirrored in `src/lib/tokens.ts`. Tokens are not redefined per route group.
-- Primitives live in `src/components/ui/`. Route groups compose them via `@/components/ui`; they do not duplicate them.
-- A primitive added to `src/components/ui/` is added to `apps/frontend/src/app/(devportal)/devportal/kitchen-sink/page.tsx` in the same PR.
-- Icons are `lucide-react`. Other icon sets require an ADR amendment.
-- Forms use react-hook-form + zod via the `<Form>` primitive in `src/components/ui/`. Hand-rolled form wiring is forbidden.
+- Tailwind v4 is the styling system, wired CSS-first (no `tailwind.config.js`). CSS Modules, CSS-in-JS, and inline `<style>` are forbidden in app code.
+- Design tokens come from Untitled UI's `src/styles/theme.css`, imported by `src/styles/globals.css`. There is no JS token mirror; tokens are not redefined per route group.
+- Class composition uses `cx`/`sortCx` from `src/utils/cx.ts`. Hand-written `cn()` helpers and `clsx` in app code are not added.
+- Primitives are the vendored Untitled UI source under `src/components/{base,application,foundations}/`, built on React Aria Components. Route groups compose them via their explicit `@/components/...` paths; they do not duplicate them.
+- A primitive added under `src/components/` is added to `apps/frontend/src/app/(devportal)/devportal/kitchen-sink/page.tsx` in the same PR.
+- Icons are `@untitledui/icons`. Other icon sets require an ADR amendment.
+- Forms use react-hook-form + zod via the `<Form>` primitive under `src/components/base/`. Hand-rolled form wiring is forbidden.
 - URL state uses `nuqs`. Client-only state outside a component tree uses Zustand under `apps/frontend/src/stores/`. Redux and MobX are forbidden.
 - The Next.js proxy (`src/proxy.ts`) enforces the Kratos session on `(panel)`, `(admin)`, `(devportal)`. The frontend never mints, decodes, or validates JWTs.
 - CSP is set in `src/proxy.ts` with a per-request nonce (`script-src 'nonce-<x>' 'strict-dynamic'`); inline scripts are forbidden and `connect-src` allowlists the telemetry ingest origin. Static security headers are duplicated at the Traefik edge ([ADR-0009](0009-api-gateway.md)).

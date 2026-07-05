@@ -7,7 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { Button } from "@/components/ui";
+import { Button } from "@/components/base/buttons/button";
 import { createBrowserClient } from "@/lib/server-fetch/client";
 import { pollWorkflow, type WorkflowHandle } from "@/lib/server-fetch/workflow-handle";
 import { panel } from "@/strings/panel";
@@ -56,9 +56,9 @@ export default function Checkout() {
         <input
           {...register("product_id")}
           placeholder={panel.checkout.productPlaceholder}
-          className="w-full rounded-md border border-primary px-3 py-2"
+          className="w-full rounded-lg border border-primary bg-primary px-3 py-2 text-primary shadow-xs outline-brand placeholder:text-placeholder"
         />
-        <Button type="submit" disabled={formState.isSubmitting}>
+        <Button type="submit" isLoading={formState.isSubmitting}>
           {panel.checkout.buy}
         </Button>
       </form>
