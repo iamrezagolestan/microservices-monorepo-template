@@ -239,8 +239,8 @@ function HierarchyExamples({ hierarchy }: { hierarchy: Hierarchy }) {
 
 export function ButtonKitchenExamples() {
   return (
-    <div className="w-full overflow-x-auto">
-      <div className="flex w-max flex-col gap-14 pb-2">
+    <div className="w-full">
+      <div className="flex w-full flex-col gap-14 pb-2 p-2">
         {hierarchies.map((hierarchy) => (
           <HierarchyExamples hierarchy={hierarchy} key={hierarchy} />
         ))}
