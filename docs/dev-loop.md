@@ -156,27 +156,30 @@ Everything is served from one origin, **`https://dev.localtest.me:8443`** (real 
 → 127.0.0.1, self-signed wildcard TLS — accept the cert once). The edge (Traefik)
 matches longest-prefix, so the specific routes below win over the `/` catch-all.
 
-| URL | What it gives you | Auth | Defined in |
-| --- | --- | --- | --- |
-| `/` | Landing page (host-run `next dev`) | public | `infra/local/edge-auth.yaml` |
-| `/panel`, `/admin`, `/devportal` | Frontend authenticated areas | Kratos session | `apps/frontend/src/proxy.ts` |
-| `/auth/login`, `/auth/registration`, … | Kratos UI pages (host-run `next dev`) | public | `infra/local/edge-auth.yaml` |
-| `/auth/self-service`, `/auth/.well-known`, `/auth/sessions` | Kratos public API | public | `infra/local/edge-auth.yaml` |
-| `/api/catalog/`, `/api/orders/`, `/api/orgs/`, `/api/payment/` | Service APIs through the edge | Oathkeeper | `infra/helm/service/templates/ingressroute.yaml` |
-| `/api/observability/faro` | Faro/RUM browser-telemetry ingest | public | `infra/gateway/frontend-observability.yaml` |
+| URL                                                            | What it gives you                     | Auth           | Defined in                                       |
+|----------------------------------------------------------------|---------------------------------------|----------------|--------------------------------------------------|
+| `/`                                                            | Landing page (host-run `next dev`)    | public         | `infra/local/edge-auth.yaml`                     |
+| `/panel`, `/admin`, `/devportal`                               | Frontend authenticated areas          | Kratos session | `apps/frontend/src/proxy.ts`                     |
+| `/auth/login`, `/auth/registration`, …                         | Kratos UI pages (host-run `next dev`) | public         | `infra/local/edge-auth.yaml`                     |
+| `/auth/self-service`, `/auth/.well-known`, `/auth/sessions`    | Kratos public API                     | public         | `infra/local/edge-auth.yaml`                     |
+| `/api/catalog/`, `/api/orders/`, `/api/orgs/`, `/api/payment/` | Service APIs through the edge         | Oathkeeper     | `infra/helm/service/templates/ingressroute.yaml` |
+| `/api/observability/faro`                                      | Faro/RUM browser-telemetry ingest     | public         | `infra/gateway/frontend-observability.yaml`      |
 
 The **ops tier** (ADR-0017) is a separate origin per operator dashboard under
 `*.ops.<host>` — never a product path. Each requires an authorized (AAL2 operator)
 session; a bare login does not grant tool access.
 
-| Ops URL | Tool | Auth | Defined in |
-| --- | --- | --- | --- |
-| `grafana.ops.dev.localtest.me/` | **Grafana** — LGTM dashboards | Oathkeeper (`dashboard:grafana#view`) | `infra/gateway/ingressroutes.yaml` |
-| `hubble.ops.dev.localtest.me/` | Cilium **Hubble UI** — network-flow map | Oathkeeper (`dashboard:hubble#view`) | `infra/gateway/ingressroutes.yaml` |
-| `temporal.ops.dev.localtest.me/` | **Temporal Web UI** | Oathkeeper (`dashboard:temporal#view`) | `infra/gateway/ingressroutes.yaml` |
-| `minio.ops.dev.localtest.me/` | **MinIO console** (non-prod) | Oathkeeper (`dashboard:minio#view`), then MinIO login `minio` / `minio-password` | `infra/gateway/ingressroutes.yaml` |
-| `console.ops.<host>/` | **Lowdefy** admin console (deployed envs) | Oathkeeper (`dashboard:console#view`) | `infra/gateway/ingressroutes.yaml` |
-| `argo.ops.<host>/` | **Argo CD** | Oathkeeper (`dashboard:argo#view`) | `infra/gateway/ingressroutes.yaml` |
+The local edge is published on the unprivileged port **`:8443`** (see the URLs
+below); deployed envs terminate on standard `443` and omit the port.
+
+| Ops URL                                       | Tool                                      | Auth                                                                             | Defined in                         |
+|-----------------------------------------------|-------------------------------------------|----------------------------------------------------------------------------------|------------------------------------|
+| `https://grafana.ops.dev.localtest.me:8443/`  | **Grafana** — LGTM dashboards             | Oathkeeper (`dashboard:grafana#view`)                                            | `infra/gateway/ingressroutes.yaml` |
+| `https://hubble.ops.dev.localtest.me:8443/`   | Cilium **Hubble UI** — network-flow map   | Oathkeeper (`dashboard:hubble#view`)                                             | `infra/gateway/ingressroutes.yaml` |
+| `https://temporal.ops.dev.localtest.me:8443/` | **Temporal Web UI**                       | Oathkeeper (`dashboard:temporal#view`)                                           | `infra/gateway/ingressroutes.yaml` |
+| `https://minio.ops.dev.localtest.me:8443/`    | **MinIO console** (non-prod)              | Oathkeeper (`dashboard:minio#view`), then MinIO login `minio` / `minio-password` | `infra/gateway/ingressroutes.yaml` |
+| `https://console.ops.<host>/`                 | **Lowdefy** admin console (deployed envs) | Oathkeeper (`dashboard:console#view`)                                            | `infra/gateway/ingressroutes.yaml` |
+| `https://argo.ops.<host>/`                    | **Argo CD**                               | Oathkeeper (`dashboard:argo#view`)                                               | `infra/gateway/ingressroutes.yaml` |
 
 Grafana trusts the Oathkeeper edge and serves anonymously (its login form is
 disabled, `auth.anonymous` Admin) — an operator who clears the edge lands straight
@@ -200,7 +203,8 @@ The edge serves `*.dev.localtest.me` on `:8443` (real DNS → 127.0.0.1, no
 `https://hubble.dev.localtest.me:8443/`) redirect an unauthenticated browser to
 Kratos at `…/auth/login`; register/login there and the redirect returns you to the
 gated page. The Kratos session cookie is scoped to `dev.localtest.me` (parent
-domain), so one login covers the edge and every `*.dev.localtest.me` subdomain. The landing page and `/auth` UI are served by a host-run `next dev`
+domain), so one login covers the edge and every `*.dev.localtest.me` subdomain. The landing page and `/auth` UI are
+served by a host-run `next dev`
 (run `next dev -H 0.0.0.0` on the host — the dev server is not in-cluster), wired
 through `infra/local/edge-auth.yaml`.
 
