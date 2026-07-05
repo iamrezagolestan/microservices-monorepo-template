@@ -51,7 +51,8 @@ func main() {
 2. Configures global OTel `TracerProvider`, `MeterProvider`, `LoggerProvider` with OTLP exporters pointing at the local OTel Collector (`localhost:4317`).
 3. Configures `slog` as the default logger with an OTel-aware handler that **automatically attaches `trace_id` and `span_id` from `context.Context`**.
 4. Registers `pprof` HTTP endpoints on the admin port; the Pyroscope agent scrapes them when profiling is enabled (see *Continuous profiling*).
-5. Returns a shutdown function that flushes all signals.
+5. Serves the two Kubernetes health endpoints on the admin port: `/livez` (liveness — shallow, always 200 while the process runs) and `/readyz` (readiness — deep, 200 only if every registered dependency check passes). Liveness never consults dependencies, so a dependency blip parks the pod out of Service rotation via `/readyz` **without** triggering a restart. The shared dependency wiring self-registers its checks (`dbmw.MustOpen` → `postgres`, `temporalmw.NewClient` → `temporal`), so each service gets exactly the checks for the dependencies it opens, with no per-service code. Servers probe both; workers (no inbound traffic) probe liveness only.
+6. Returns a shutdown function that flushes all signals.
 
 Service authors never touch the OTel SDK directly. Custom spans use `obs.StartSpan(ctx, "name")`; custom counters use `obs.Counter("name", ...)`. The library hides the SDK; the service hides nothing.
 

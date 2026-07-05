@@ -53,6 +53,19 @@ mise run cluster:stop        # stops the cluster, keeps the image cache + volume
 mise run cluster:delete       # deletes the cluster (reclaims disk, forces a clean recreate)
 ```
 
+## After a reboot
+
+If the whole cluster is stuck (every pod `ContainerCreating`, Cilium down) after
+your machine rebooted, it's almost always the node's `host.k3d.internal` alias:
+Docker's restart policy replays the node container raw, skipping the k3d start
+step that injects it, so image pulls fail and the CNI never comes up. Heal it:
+
+```sh
+mise run cluster:heal        # stop + start so k3d re-injects host.k3d.internal
+```
+
+This is idempotent; run it whenever the cluster looks wedged after a reboot.
+
 ## End-to-end & visual tests
 
 End-to-end and visual-regression tests are owned by [ADR-0018](adr/0018-testing-strategy.md):

@@ -96,6 +96,13 @@ run = "bash scripts/cluster-stop.sh"
 # Deletes the cluster and wipes its image cache (reclaims disk, clean rebuild).
 run = "k3d cluster delete ${CLUSTER:-platform}"
 
+[tasks."cluster:heal"]
+# Recover a cluster wedged after a host reboot: Docker's raw restart of the node
+# skips k3d's host.k3d.internal injection, so pulls fail and Cilium/pods hang. This
+# stop+starts to re-inject it. Run it when everything is stuck ContainerCreating
+# after a reboot.
+run = "bash scripts/cluster-heal.sh"
+
 [tasks."cluster:unwedge"]
 # OPT-IN, proxied networks only: host-pull + k3d-import any image the node's
 # containerd is failing to pull through an HTTP proxy (ImagePullBackOff), then

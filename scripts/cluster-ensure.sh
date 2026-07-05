@@ -51,11 +51,17 @@ if ! k3d cluster list | awk '{print $1}' | grep -qx "$CLUSTER"; then
     )
     echo "  · proxied shell detected → wiring node proxy ${node_proxy}"
   fi
+  # registry-qps/burst=0 (unlimited) disables kubelet's per-registry image-pull
+  # rate limiter. Its default (5 qps / 10 burst) exists to spare PUBLIC registries;
+  # against our OWN local registry it just throttles cold/mass reschedules into a
+  # "pull QPS exceeded" storm that adds minutes of backoff. Create-time only.
   k3d cluster create "$CLUSTER" \
     --servers 1 --agents 0 \
     --port "8080:80@loadbalancer" --port "8443:443@loadbalancer" \
     --k3s-arg '--flannel-backend=none@server:*' \
     --k3s-arg '--disable-network-policy@server:*' \
+    --k3s-arg '--kubelet-arg=registry-qps=0@server:*' \
+    --k3s-arg '--kubelet-arg=registry-burst=0@server:*' \
     --registry-use "k3d-${REGISTRY}:5000" \
     ${proxy_flags[@]+"${proxy_flags[@]}"}
 else

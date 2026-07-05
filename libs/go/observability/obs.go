@@ -191,7 +191,20 @@ func Counter(name string, opts ...metric.Int64CounterOption) metric.Int64Counter
 
 func serveAdmin(addr string) {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
+	// Liveness is SHALLOW — "the process is running", never a dependency check.
+	// (A dep-aware liveness turns a dependency blip into a self-inflicted restart.)
+	mux.HandleFunc("/livez", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
+	// Readiness is DEEP — "can I serve?" — 200 only if every registered dependency
+	// check passes; on failure the pod leaves Service rotation WITHOUT restarting,
+	// and rejoins when the dependency recovers (see readiness.go).
+	mux.HandleFunc("/readyz", func(w http.ResponseWriter, r *http.Request) {
+		name, err := checkReadiness(r.Context())
+		if err != nil {
+			http.Error(w, "not ready: "+name+": "+err.Error(), http.StatusServiceUnavailable)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	})
 	mux.HandleFunc("/debug/pprof/", pprof.Index)
 	mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
 	mux.HandleFunc("/debug/pprof/profile", pprof.Profile)

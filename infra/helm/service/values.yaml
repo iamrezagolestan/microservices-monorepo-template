@@ -25,7 +25,7 @@ worker:
 server:
   replicas: 2
   port: 8080
-  adminPort: 9090       # pprof + healthz + metrics (ADR-0011)
+  adminPort: 9090       # pprof + livez/readyz + metrics (ADR-0011)
   resources:
     requests: { cpu: "50m",  memory: "64Mi" }
     limits:   { cpu: "500m", memory: "256Mi" }
