@@ -13,6 +13,21 @@ export default function Landing() {
           </Link>
         </li>
         <li>
+          <Link href="/auth/register" className="text-brand-600 hover:underline">
+            {landing.createAccount}
+          </Link>
+        </li>
+        <li>
+          <Link href="/auth/recovery" className="text-brand-600 hover:underline">
+            {landing.forgotPassword}
+          </Link>
+        </li>
+        <li>
+          <Link href="/auth/settings" className="text-brand-600 hover:underline">
+            {landing.accountSettings}
+          </Link>
+        </li>
+        <li>
           <Link href="/panel" className="text-brand-600 hover:underline">
             {landing.customerPanel}
           </Link>
@@ -20,6 +35,11 @@ export default function Landing() {
         <li>
           <Link href="/devportal" className="text-brand-600 hover:underline">
             {landing.developerPortal}
+          </Link>
+        </li>
+        <li>
+          <Link href="/admin" className="text-brand-600 hover:underline">
+            {landing.adminConsole}
           </Link>
         </li>
       </ul>
