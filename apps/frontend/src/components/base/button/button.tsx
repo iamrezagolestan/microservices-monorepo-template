@@ -26,7 +26,7 @@ type IconComponent = FC<{ className?: string; "data-icon"?: string }>;
 const styles = {
   common: {
     root: [
-      "group relative inline-flex h-max w-full cursor-pointer items-center justify-center whitespace-nowrap outline-button-focus transition duration-100 ease-linear before:absolute data-loading:flex-row-reverse focus:ring-2 focus:ring-button-focus focus:ring-inset focus:shadow-button-focus focus-visible:outline-0 focus-visible:shadow-button-focus",
+      "group relative inline-flex h-max w-full cursor-pointer items-center justify-center whitespace-nowrap outline-focus-ring transition duration-100 ease-linear before:absolute data-loading:flex-row-reverse focus:ring-2 focus:ring-focus-ring focus:ring-inset focus:shadow-[var(--shadow-xs),0_0_0_2px_var(--color-bg-primary),0_0_0_4px_var(--color-focus-ring)] focus-visible:outline-0 focus-visible:shadow-[var(--shadow-xs),0_0_0_2px_var(--color-bg-primary),0_0_0_4px_var(--color-focus-ring)]",
       "in-data-input-wrapper:shadow-xs in-data-input-wrapper:focus:!z-50 in-data-input-wrapper:in-data-leading:-mr-px in-data-input-wrapper:in-data-leading:rounded-r-none in-data-input-wrapper:in-data-leading:before:rounded-r-none in-data-input-wrapper:in-data-trailing:-ml-px in-data-input-wrapper:in-data-trailing:rounded-l-none in-data-input-wrapper:in-data-trailing:before:rounded-l-none",
       "disabled:cursor-not-allowed in-data-input-wrapper:disabled:opacity-100",
       "*:data-icon:pointer-events-none *:data-icon:size-5 *:data-icon:shrink-0 *:data-icon:transition-inherit-all",
@@ -37,42 +37,42 @@ const styles = {
     sm: {
       root: [
         "gap-1 rounded-lg px-3 py-2 font-semibold before:rounded-[7px] data-icon-only:size-9 data-icon-only:p-2",
-        "text-[length:var(--text-md)] leading-[var(--text-sm--line-height)]",
+        "text-md leading-5",
         "in-data-input-wrapper:px-3.5 in-data-input-wrapper:py-2.5 in-data-input-wrapper:data-icon-only:p-2.5",
       ].join(" "),
       linkRoot: [
-        "gap-1 px-3 py-2 text-sm font-medium leading-[var(--text-sm--line-height)]",
+        "gap-1 px-3 py-2 text-sm font-medium leading-5",
         "*:data-icon:size-4 *:data-icon:stroke-[2.25px] *:data-text:underline-offset-3",
       ].join(" "),
     },
     md: {
       root: [
         "gap-1 rounded-lg px-3.5 py-2.5 font-semibold before:rounded-[7px] data-icon-only:size-10 data-icon-only:p-2.5",
-        "text-[length:var(--text-md)] leading-[var(--text-sm--line-height)]",
+        "text-md leading-5",
         "in-data-input-wrapper:gap-1.5 in-data-input-wrapper:px-4 in-data-input-wrapper:data-icon-only:p-3",
       ].join(" "),
       linkRoot: [
-        "gap-1 px-3.5 py-2.5 text-sm font-medium leading-[var(--text-sm--line-height)]",
+        "gap-1 px-3.5 py-2.5 text-sm font-medium leading-5",
         "*:data-icon:size-4 *:data-icon:stroke-[2.25px] *:data-text:underline-offset-4",
       ].join(" "),
     },
     lg: {
       root: [
         "gap-1.5 rounded-lg px-4 py-2.5 font-semibold before:rounded-[7px] data-icon-only:size-11 data-icon-only:p-3",
-        "text-[length:var(--text-md)] leading-[var(--text-sm--line-height)]",
+        "text-md leading-5",
       ].join(" "),
       linkRoot: [
-        "gap-1.5 px-4 py-2.5 text-[length:var(--text-md)] font-medium leading-[var(--text-sm--line-height)]",
+        "gap-1.5 px-4 py-2.5 text-md font-medium leading-5",
         "*:data-text:underline-offset-4",
       ].join(" "),
     },
     xl: {
       root: [
         "gap-1.5 rounded-lg px-4.5 py-3 font-semibold before:rounded-[7px] data-icon-only:size-12 data-icon-only:p-3.5",
-        "text-[length:var(--text-md)] leading-[var(--text-sm--line-height)]",
+        "text-md leading-5",
       ].join(" "),
       linkRoot: [
-        "gap-1.5 px-4.5 py-3 text-[length:var(--text-md)] font-medium leading-[var(--text-sm--line-height)]",
+        "gap-1.5 px-4.5 py-3 text-md font-medium leading-5",
         "*:data-text:underline-offset-4",
       ].join(" "),
     },
@@ -80,33 +80,33 @@ const styles = {
   colors: {
     primary: {
       root: [
-        "bg-button-primary text-alpha-white shadow-xs-skeuomorphic ring-1 ring-transparent ring-inset hover:bg-button-primary_hover data-loading:bg-button-primary",
-        "before:absolute before:inset-px before:border before:border-white/12 before:mask-b-from-0%",
-        "disabled:bg-button-primary_disabled disabled:ring-white disabled:before:hidden disabled:opacity-200",
+        "bg-brand-solid text-alpha-white shadow-xs-skeuomorphic ring-1 ring-transparent ring-inset hover:bg-brand-solid_hover data-loading:bg-brand-solid",
+        "before:absolute before:inset-px before:border before:border-alpha-white-12 before:mask-b-from-0%",
+        "disabled:bg-neutral-300 disabled:ring-white disabled:before:hidden disabled:opacity-200",
         "*:data-icon:text-alpha-white/80 hover:*:data-icon:text-alpha-white/80 disabled:*:data-icon:text-white/60",
       ].join(" "),
     },
     secondary: {
       root: [
-        "bg-button-secondary-bg text-button-secondary shadow-xs-skeuomorphic ring-1 ring-button-secondary-border ring-inset hover:bg-button-secondary-bg_hover hover:text-button-secondary_hover data-loading:bg-button-secondary-bg focus:ring-button-secondary-focus focus:shadow-button-secondary-focus focus-visible:shadow-button-secondary-focus",
-        "disabled:bg-button-secondary-bg_disabled disabled:text-button-secondary_disabled disabled:ring-button-secondary-border_disabled disabled:before:hidden",
-        "*:data-icon:text-button-secondary_icon hover:*:data-icon:text-button-secondary_icon_hover disabled:*:data-icon:text-button-secondary_icon_disabled",
+        "bg-tertiary text-secondary shadow-xs-skeuomorphic ring-1 ring-primary ring-inset hover:bg-primary_hover hover:text-secondary_hover data-loading:bg-tertiary focus:ring-focus-ring focus:shadow-[var(--shadow-xs),0_0_0_2px_var(--color-bg-primary),0_0_0_4px_var(--color-focus-ring)] focus-visible:shadow-[var(--shadow-xs),0_0_0_2px_var(--color-bg-primary),0_0_0_4px_var(--color-focus-ring)]",
+        "disabled:bg-neutral-100 disabled:text-quaternary disabled:ring-secondary disabled:before:hidden",
+        "*:data-icon:text-fg-secondary hover:*:data-icon:text-fg-secondary_hover disabled:*:data-icon:text-fg-quaternary",
       ].join(" "),
     },
     tertiary: {
       root: [
-        "text-button-link hover:text-button-link_hover data-loading:text-button-link",
+        "text-blue-500 hover:text-blue-700 data-loading:text-blue-500",
         "focus:ring-0 focus:shadow-none focus-visible:shadow-none focus-visible:*:data-text:underline",
-        "disabled:text-button-link_disabled",
-        "*:data-icon:text-button-link hover:*:data-icon:text-button-link_hover disabled:*:data-icon:text-button-link_disabled",
+        "disabled:text-neutral-300",
+        "*:data-icon:text-blue-500 hover:*:data-icon:text-blue-700 disabled:*:data-icon:text-neutral-300",
       ].join(" "),
     },
     "link-color": {
       root: [
-        "justify-normal rounded p-0! text-button-link hover:text-button-link_hover",
-        "disabled:text-button-link_disabled",
+        "justify-normal rounded p-0! text-blue-500 hover:text-blue-700",
+        "disabled:text-neutral-300",
         "*:data-text:underline *:data-text:decoration-transparent hover:*:data-text:decoration-current focus-visible:*:data-text:decoration-current disabled:*:data-text:decoration-current",
-        "*:data-icon:text-button-link hover:*:data-icon:text-button-link_hover disabled:*:data-icon:text-button-link_disabled",
+        "*:data-icon:text-blue-500 hover:*:data-icon:text-blue-700 disabled:*:data-icon:text-neutral-300",
       ].join(" "),
     },
     "link-gray": {
@@ -119,7 +119,7 @@ const styles = {
     "primary-destructive": {
       root: [
         "bg-error-solid text-white shadow-xs-skeuomorphic ring-1 ring-transparent outline-error ring-inset hover:bg-error-solid_hover data-loading:bg-error-solid_hover",
-        "before:absolute before:inset-px before:border before:border-white/12 before:mask-b-from-0%",
+        "before:absolute before:inset-px before:border before:border-alpha-white-12 before:mask-b-from-0%",
         "*:data-icon:text-white/60 hover:*:data-icon:text-white/70",
       ].join(" "),
     },

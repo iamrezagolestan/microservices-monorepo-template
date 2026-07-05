@@ -30,7 +30,7 @@ export function Label({
   const requiredIndicator = (
     <span
       className={cx(
-        "hidden text-input-required",
+        "hidden text-red-700",
         isRequired && "block",
         typeof isRequired === "undefined" && "group-required:block",
         isInvalid && "text-error-primary",
@@ -46,7 +46,7 @@ export function Label({
       data-label="true"
       {...props}
       className={cx(
-        "flex cursor-default items-center gap-0.5 text-sm font-medium text-input-label",
+        "flex cursor-default items-center gap-0.5 text-sm font-medium text-secondary",
         className,
       )}
     >
@@ -57,7 +57,7 @@ export function Label({
       {tooltip && (
         <Tooltip title={tooltip} description={tooltipDescription} placement="top">
           <TooltipTrigger
-            className="cursor-pointer text-input-icon transition duration-200 hover:text-fg-quaternary_hover focus:text-fg-quaternary_hover"
+            className="cursor-pointer text-fg-quaternary transition duration-200 hover:text-fg-quaternary_hover focus:text-fg-quaternary_hover"
             isDisabled={false}
           >
             <HelpCircle className="size-4" />

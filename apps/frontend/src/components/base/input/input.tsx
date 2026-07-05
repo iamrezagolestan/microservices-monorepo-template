@@ -115,8 +115,8 @@ export function InputBase({
       ref={groupRef}
       className={({ isDisabled, isFocusWithin, isInvalid }) =>
         cx(
-          "group/input relative flex w-full flex-row place-content-center place-items-center rounded-lg bg-input-surface shadow-xs ring-1 ring-input-border transition-shadow duration-100 ease-linear ring-inset",
-          isFocusWithin && !isDisabled && "ring-2 ring-input-focus",
+          "group/input relative flex w-full flex-row place-content-center place-items-center rounded-lg bg-tertiary shadow-xs ring-1 ring-primary transition-shadow duration-100 ease-linear ring-inset",
+          isFocusWithin && !isDisabled && "ring-2 ring-brand-solid",
           isDisabled && "cursor-not-allowed",
           "group-disabled:cursor-not-allowed",
           isInvalid && "ring-error_subtle",
@@ -132,7 +132,7 @@ export function InputBase({
         <Icon
           aria-hidden="true"
           className={cx(
-            "pointer-events-none absolute text-input-icon",
+            "pointer-events-none absolute text-fg-quaternary",
             iconPosition === "leading"
               ? inputSizes[inputSize].leadingIcon
               : inputSizes[inputSize].trailingIcon,
@@ -150,7 +150,7 @@ export function InputBase({
         required={isRequired}
         type={type === "password" && isPasswordVisible ? "text" : type}
         className={cx(
-          "m-0 w-full bg-transparent text-input-value ring-0 outline-hidden placeholder:text-input-placeholder autofill:rounded-lg autofill:text-input-value disabled:cursor-not-allowed disabled:text-input-disabled",
+          "m-0 w-full bg-transparent text-primary ring-0 outline-hidden placeholder:text-placeholder autofill:rounded-lg autofill:text-primary disabled:cursor-not-allowed disabled:text-quaternary",
           inputSizes[inputSize].root,
           iconPadding(inputSize, hasLeadingIcon, hasTrailingIcon),
           context.inputClassName,
@@ -162,7 +162,7 @@ export function InputBase({
         <Tooltip title={tooltip} placement="top">
           <TooltipTrigger
             className={cx(
-              "absolute cursor-pointer text-input-icon transition duration-100 ease-linear group-invalid/input:hidden hover:text-fg-quaternary_hover focus:text-fg-quaternary_hover",
+              "absolute cursor-pointer text-fg-quaternary transition duration-100 ease-linear group-invalid/input:hidden hover:text-fg-quaternary_hover focus:text-fg-quaternary_hover",
               tooltipPosition === "leading"
                 ? inputSizes[inputSize].leadingIcon
                 : inputSizes[inputSize].trailingIcon,
@@ -193,7 +193,7 @@ export function InputBase({
           aria-label="Toggle password visibility"
           onClick={() => setIsPasswordVisible(!isPasswordVisible)}
           className={cx(
-            "absolute flex cursor-pointer items-center justify-center text-input-icon transition duration-100 ease-linear hover:text-fg-quaternary_hover focus:text-fg-quaternary_hover focus:outline-hidden",
+            "absolute flex cursor-pointer items-center justify-center text-fg-quaternary transition duration-100 ease-linear hover:text-fg-quaternary_hover focus:text-fg-quaternary_hover focus:outline-hidden",
             inputSizes[inputSize].trailingIcon,
           )}
         >

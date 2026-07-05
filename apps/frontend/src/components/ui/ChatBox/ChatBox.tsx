@@ -29,16 +29,8 @@ export type ChatBoxProps = {
 
 const defaultPlaceholder = "از chat gpt 3/5 بپرسید";
 
-function readPixelToken(name: string, fallback: number) {
-  const rawValue = getComputedStyle(document.documentElement).getPropertyValue(name);
-  const parsedValue = Number.parseFloat(rawValue);
-
-  if (Number.isFinite(parsedValue)) {
-    return parsedValue;
-  }
-
-  return fallback;
-}
+const chatTextareaMinHeight = 24;
+const chatTextareaMaxHeight = 131;
 
 function ActionButton({
   "aria-label": ariaLabel,
@@ -63,7 +55,7 @@ function ActionButton({
         noTextPadding
         onPress={onPress}
         size="sm"
-        className="size-9 p-2 *:data-icon:text-chat-icon hover:*:data-icon:text-chat-icon_hover"
+        className="size-9 p-2 *:data-icon:text-fg-quaternary hover:*:data-icon:text-fg-quaternary_hover"
       />
       <span
         role="tooltip"
@@ -89,7 +81,7 @@ function UploadButton({
       iconLeading={Icon}
       noTextPadding
       size="sm"
-      className="size-6 shrink-0 overflow-hidden rounded bg-chat-upload p-1 hover:bg-chat-upload data-icon-only:size-6 data-icon-only:p-1 *:data-icon:size-4 *:data-icon:text-chat-upload-icon hover:*:data-icon:text-chat-upload-icon"
+      className="size-6 shrink-0 overflow-hidden rounded bg-neutral-100 p-1 hover:bg-neutral-100 data-icon-only:size-6 data-icon-only:p-1 *:data-icon:size-4 *:data-icon:text-fg-quaternary hover:*:data-icon:text-fg-quaternary"
     />
   );
 }
@@ -114,7 +106,7 @@ function AttachmentPreview({ attachments }: { attachments: ChatAttachment[] }) {
   return (
     <div
       data-slot="attachment-preview"
-      className="relative -mb-[22px] h-[62px] w-full shrink-0 overflow-hidden rounded-xl bg-chat-uploader-surface"
+      className="relative -mb-[22px] h-[62px] w-full shrink-0 overflow-hidden rounded-xl bg-tertiary"
     >
       <div className="absolute top-[7px] right-4 flex items-center justify-end gap-2 p-0" dir="ltr">
         {attachments.map((attachment) => {
@@ -177,7 +169,7 @@ function ChatTextArea({
       value={value}
       onChange={onChange}
       placeholder={placeholder}
-      className="h-[var(--size-chat-textarea-min-height)] max-h-[var(--size-chat-textarea-max-height)] min-w-px flex-1 resize-none overflow-hidden border-0 bg-transparent p-0 text-right text-md font-normal leading-[var(--text-md--line-height)] text-chat-text shadow-none ring-0 [direction:ltr] [unicode-bidi:plaintext] placeholder:text-chat-placeholder focus:ring-0"
+      className="h-6 max-h-[131px] min-w-px flex-1 resize-none overflow-hidden border-0 bg-transparent p-0 text-right text-md font-normal leading-6 text-secondary shadow-none ring-0 [direction:ltr] [unicode-bidi:plaintext] placeholder:text-placeholder focus:ring-0"
     />
   );
 }
@@ -256,8 +248,8 @@ function useAutoResizeTextArea({
       return;
     }
 
-    const minHeight = readPixelToken("--size-chat-textarea-min-height", 24);
-    const maxHeight = readPixelToken("--size-chat-textarea-max-height", 131);
+    const minHeight = chatTextareaMinHeight;
+    const maxHeight = chatTextareaMaxHeight;
     textarea.style.height = `${minHeight}px`;
 
     const nextHeight = Math.min(textarea.scrollHeight, maxHeight);
@@ -332,7 +324,7 @@ export function ChatBox({
     <div
       data-state={containerState}
       className={cx(
-        "w-full overflow-visible rounded-xl bg-chat-surface border-chat-border backdrop-blur-[47.8px]",
+        "w-full overflow-visible rounded-xl border-brand-100 bg-primary_hover backdrop-blur-[47.8px] dark:border-black dark:bg-surface-primary",
         containerState === "default" && "border-r-[1.5px] border-solid p-5",
         containerState === "loading" && "h-16 bg-transparent",
         containerState === "attachments" && "pt-0",
@@ -345,10 +337,10 @@ export function ChatBox({
         dir="ltr"
         className={cx(
           "flex w-full items-center justify-between",
-          containerState === "loading" && "h-16 rounded-xl bg-chat-surface p-5",
+          containerState === "loading" && "h-16 rounded-xl bg-primary_hover p-5 dark:bg-surface-primary",
           containerState === "default" && "p-0",
           (containerState === "expanded" || containerState === "attachments") &&
-            "items-start gap-10 rounded-xl bg-chat-surface pb-2 pl-5 pr-1 pt-5",
+            "items-start gap-10 rounded-xl bg-primary_hover pb-2 pl-5 pr-1 pt-5 dark:bg-surface-primary",
         )}
       >
         <ChatBoxActions isLoading={isLoading} onAttach={handleAttachClick} sendDisabled={sendDisabled} />

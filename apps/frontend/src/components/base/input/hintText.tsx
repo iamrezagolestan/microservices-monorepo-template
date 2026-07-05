@@ -18,7 +18,7 @@ export function HintText({ isInvalid, className, size = "md", ...props }: HintTe
       {...props}
       slot={isInvalid ? "errorMessage" : "description"}
       className={cx(
-        "text-sm text-input-hint",
+        "text-sm text-quaternary",
         size === "sm" && "text-xs",
         "in-data-[input-size=sm]:text-xs",
         isInvalid && "text-error-primary",
