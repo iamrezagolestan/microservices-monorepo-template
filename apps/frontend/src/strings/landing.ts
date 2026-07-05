@@ -10,7 +10,6 @@ export const landing = {
   accountSettings: "Account settings & security",
   customerPanel: "Customer panel",
   developerPortal: "Developer portal",
-  adminConsole: "Admin console",
   auth: {
     title: "Sign in",
     starting: "Starting Kratos login flow…",

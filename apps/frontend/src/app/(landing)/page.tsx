@@ -37,11 +37,6 @@ export default function Landing() {
             {landing.developerPortal}
           </Link>
         </li>
-        <li>
-          <Link href="/admin" className="text-brand-600 hover:underline">
-            {landing.adminConsole}
-          </Link>
-        </li>
       </ul>
     </main>
   );

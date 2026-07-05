@@ -24,7 +24,7 @@ seed:
   enabled: true
   image: authzed/zed:v1.1.1
   # Each ops dashboard (ADR-0017) granted to group:operator members.
-  dashboards: [grafana, hubble, temporal, console, minio, argo]
+  dashboards: [grafana, hubble, temporal, admin, minio, argo]
   # Canonical schema text, injected by the platform ApplicationSet fileParameter
   # `seed.schema` from infra/auth/spicedb/schema.zed (the one schema source).
   # Empty when rendered without that fileParameter, which disables the seed Job.

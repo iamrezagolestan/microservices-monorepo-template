@@ -77,7 +77,7 @@ shared `ops.` label.
 | Grafana                    | `grafana.ops.<host>`      | drop `serve_from_sub_path`; served at root         |
 | Argo CD                    | `argo.ops.<host>`         | replaces port-forward access                       |
 | Temporal Web UI            | `temporal.ops.<host>`     | replaces port-forward access                       |
-| Lowdefy internal admin     | `console.ops.<host>`      | named `console` to disambiguate from the product `/admin` route group |
+| Lowdefy internal admin     | `admin.ops.<host>`        | the sole admin surface; the product frontend has no `/admin` route group |
 | MinIO console              | `minio.ops.<host>`        | **non-prod only** ([ADR-0016](0016-environment-parity.md))         |
 
 Names follow [ADR-0015](0015-naming-and-identifiers.md)'s charset (`^[a-z][a-z0-9-]*$`, hyphen within a segment, never
@@ -140,7 +140,7 @@ surface, at one of two enforcement points split by **who owns the code**:
   ```
 
   A request to `grafana.ops.<host>` checks `view` on `dashboard:grafana`; `hubble.ops.<host>` checks `dashboard:hubble`.
-  Granting `dashboard:console#viewer@user:alice` **without** a `dashboard:hubble` tuple gives Alice the admin console but
+  Granting `dashboard:admin#viewer@user:alice` **without** a `dashboard:hubble` tuple gives Alice the admin console but
   not Hubble — per-tool, per-user, revocable, inheritable through `group`/`org` relations.
 
 Coarse-then-fine: an `operator` group gates the **whole** ops tier (a non-operator gets nothing), and per-`dashboard`

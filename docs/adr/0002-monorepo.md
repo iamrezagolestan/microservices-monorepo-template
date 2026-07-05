@@ -161,7 +161,7 @@ Accepted trade-offs:
 
 ### TypeScript workspaces: Bun, one Next.js app
 
-The frontend is **one Next.js application** with route groups for `(landing)`, `(panel)`, `(admin)`, `(devportal)`.
+The frontend is **one Next.js application** with route groups for `(landing)`, `(panel)`, `(devportal)`.
 Reasons:
 
 - Cross-subdomain auth is hostile in modern browsers (Safari ITP especially). Sharing cookies/session across subdomains

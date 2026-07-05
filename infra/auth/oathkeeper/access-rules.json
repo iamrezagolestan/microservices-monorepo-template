@@ -8,10 +8,10 @@
     "errors": [{ "handler": "json" }]
   },
   {
-    "id": "ops-console",
-    "match": { "url": "<{http,https}>://console.ops.<**>/<**>", "methods": ["GET", "POST", "PUT", "PATCH", "DELETE"] },
+    "id": "ops-admin",
+    "match": { "url": "<{http,https}>://admin.ops.<**>/<**>", "methods": ["GET", "POST", "PUT", "PATCH", "DELETE"] },
     "authenticators": [{ "handler": "cookie_session" }],
-    "authorizer": { "handler": "remote_json", "config": { "remote": "http://authz-server.platform.svc.cluster.local/internal/authorize", "payload": "{\"subject\":\"{{ print .Subject }}\",\"tool\":\"console\",\"aal\":\"{{ print .Extra.authenticator_assurance_level }}\"}" } },
+    "authorizer": { "handler": "remote_json", "config": { "remote": "http://authz-server.platform.svc.cluster.local/internal/authorize", "payload": "{\"subject\":\"{{ print .Subject }}\",\"tool\":\"admin\",\"aal\":\"{{ print .Extra.authenticator_assurance_level }}\"}" } },
     "mutators": [{ "handler": "header", "config": { "headers": { "X-User-Id": "{{ print .Subject }}", "X-User-Email": "{{ print .Extra.identity.traits.email }}" } } }],
     "errors": [{ "handler": "redirect" }]
   },

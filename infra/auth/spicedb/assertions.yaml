@@ -4,14 +4,14 @@ assertTrue:
   - "org:acme#member@user:alice"
   - "org:acme#read@user:alice"
   - "order:o1#read@user:alice"
-  # Ops tier (ADR-0017): alice is an operator; she views the console (direct
+  # Ops tier (ADR-0017): alice is an operator; she views the admin console (direct
   # grant) and every group-granted dashboard (grafana/hubble/temporal/minio/argo)
   # via the operator group. The per-tool grant is the real gate — bob (below) holds
   # none. The "operator but not this tool" fine-gate path is unit-tested in
   # services/authz/internal/decision (no routed-but-ungranted tool exists to assert
   # here once every dashboard is granted).
   - "group:operator#member@user:alice"
-  - "dashboard:console#view@user:alice"
+  - "dashboard:admin#view@user:alice"
   - "dashboard:grafana#view@user:alice"
   - "dashboard:hubble#view@user:alice"
   - "dashboard:temporal#view@user:alice"
@@ -23,5 +23,5 @@ assertFalse:
   - "order:o2#write@user:alice"
   # bob is not an operator → reaches no ops dashboard.
   - "group:operator#member@user:bob"
-  - "dashboard:console#view@user:bob"
+  - "dashboard:admin#view@user:bob"
   - "dashboard:grafana#view@user:bob"

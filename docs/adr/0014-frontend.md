@@ -113,7 +113,7 @@ Icons are `@untitledui/icons` (Untitled UI's own icon set), passed to primitives
 
 ### Auth wiring
 
-- The Next.js proxy (`src/proxy.ts`, the Next 16 successor to `middleware.ts`) checks the Kratos session on every request under `(panel)`, `(admin)`, `(devportal)`. `(landing)` is public except for its `auth/` subtree (Kratos flows).
+- The Next.js proxy (`src/proxy.ts`, the Next 16 successor to `middleware.ts`) checks the Kratos session on every request under `(panel)`, `(devportal)`. `(landing)` is public except for its `auth/` subtree (Kratos flows).
 - The proxy reads the Kratos session cookie and forwards a session-id header to server components via `headers()`. Server components never call Kratos directly.
 - The frontend never mints, decodes, or validates JWTs. Service calls from server components attach the user's Kratos cookie; Oathkeeper validates it at the edge and injects identity headers ([ADR-0009](0009-api-gateway.md), [ADR-0010](0010-auth.md)).
 
@@ -234,7 +234,7 @@ No i18n library is adopted day one. All user-facing strings live as TS constants
 - Icons are `@untitledui/icons`. Other icon sets require an ADR amendment.
 - Forms use react-hook-form + zod via the `<Form>` primitive under `src/components/base/`. Hand-rolled form wiring is forbidden.
 - URL state uses `nuqs`. Client-only state outside a component tree uses Zustand under `apps/frontend/src/stores/`. Redux and MobX are forbidden.
-- The Next.js proxy (`src/proxy.ts`) enforces the Kratos session on `(panel)`, `(admin)`, `(devportal)`. The frontend never mints, decodes, or validates JWTs.
+- The Next.js proxy (`src/proxy.ts`) enforces the Kratos session on `(panel)`, `(devportal)`. The frontend never mints, decodes, or validates JWTs.
 - CSP is set in `src/proxy.ts` with a per-request nonce (`script-src 'nonce-<x>' 'strict-dynamic'`); inline scripts are forbidden and `connect-src` allowlists the telemetry ingest origin. Static security headers are duplicated at the Traefik edge ([ADR-0009](0009-api-gateway.md)).
 - CSRF rests on `SameSite=Lax` Kratos cookies, Kratos's built-in protection for auth flows, and Next.js Server Actions' `Origin` check (`serverActions.allowedOrigins`). Other cookie-authenticated mutations are Origin-checked at the edge.
 - Biome is the only lint+format tool, configured with the strict ruleset in `biome.json`. ESLint is not installed.

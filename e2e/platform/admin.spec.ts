@@ -1,6 +1,6 @@
 // Lowdefy admin console ops dashboard (ADR-0012, ADR-0017). Same staged gauge as
 // the other ops tools: gated at the edge (unauthenticated / AAL1 / AAL2 operator
-// holding dashboard:console#view), then the Lowdefy app paints behind a real AAL2
+// holding dashboard:admin#view), then the Lowdefy app paints behind a real AAL2
 // session.
 import { expect, test } from "@playwright/test";
 import {
@@ -11,21 +11,21 @@ import {
 import { OPERATOR_STATE, opsURL } from "../fixtures/env";
 import { portForward } from "../fixtures/kube";
 
-const CONSOLE = `${opsURL("console")}/`;
-const CONSOLE_OPERATORS = `${opsURL("console")}/operators`;
+const CONSOLE = `${opsURL("admin")}/`;
+const CONSOLE_OPERATORS = `${opsURL("admin")}/operators`;
 const TEST_OPERATOR_EMAIL = "new-op@e2e.localtest.me";
 
-test.describe("console ops dashboard", () => {
+test.describe("admin ops dashboard", () => {
   test("gated: unauthenticated is denied", async () => {
-    await expectUnauthenticatedDenied("console");
+    await expectUnauthenticatedDenied("admin");
   });
 
   test("gated: AAL1 product session is forbidden", async () => {
-    await expectAal1Forbidden("console");
+    await expectAal1Forbidden("admin");
   });
 
-  test("gated: AAL2 operator passes the dashboard:console#view grant", async () => {
-    await expectOperatorAllowed("console");
+  test("gated: AAL2 operator passes the dashboard:admin#view grant", async () => {
+    await expectOperatorAllowed("admin");
   });
 
   // The gauge: reusing the saved AAL2 session, the Lowdefy admin renders.
