@@ -17,13 +17,21 @@ export function KitchenThemeSwitch() {
     <Button
       aria-checked={isDark}
       aria-label="Toggle dark theme"
-      className="gap-2 cursor-pointer p-2 hover:bg-alpha-black hover:text-alpha-white"
+      className="gap-2 cursor-pointer p-2 hover:bg-alpha-black hover:text-alpha-white fixed left-1 bottom-[50%] w-30"
       onClick={() => setTheme(isDark ? "light" : "dark")}
       role="switch"
       variant="secondary"
     >
+      <div className="flex flex-row flex-nowrap items-center gap-5">
+      <div>
       {isDark ? <Moon aria-hidden="true" size={16} /> : <Sun aria-hidden="true" size={16} />}
+
+      </div>
+      <div>
       <span>{isDark ? "Dark" : "Light"}</span>
+
+      </div>
+      </div>
     </Button>
   );
 }
