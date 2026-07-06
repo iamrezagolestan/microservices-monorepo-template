@@ -36,12 +36,14 @@ const chatTextareaMaxHeight = 131;
 function ActionButton({
   "aria-label": ariaLabel,
   icon: Icon,
+  iconClassName,
   isDisabled,
   onPress,
   tooltip,
 }: {
   "aria-label": string;
   icon: ButtonIcon;
+  iconClassName?: string;
   isDisabled?: boolean;
   onPress?: () => void;
   tooltip: string;
@@ -55,7 +57,10 @@ function ActionButton({
         className="group relative inline-flex size-9 cursor-pointer items-center justify-center gap-1 rounded-lg p-2 text-blue-500 outline-focus-ring transition duration-100 ease-linear hover:text-blue-700 focus:ring-0 focus:shadow-none focus-visible:shadow-none disabled:cursor-not-allowed disabled:text-neutral-300 *:data-icon:pointer-events-none *:data-icon:size-5 *:data-icon:shrink-0 *:data-icon:text-fg-quaternary *:data-icon:transition-inherit-all hover:*:data-icon:text-fg-quaternary_hover disabled:*:data-icon:text-neutral-300"
       >
         <Icon
-          className="pointer-events-none size-5 shrink-0 text-fg-quaternary transition-inherit-all"
+          className={cx(
+            "pointer-events-none size-5 shrink-0 text-fg-quaternary transition-inherit-all",
+            iconClassName,
+          )}
           data-icon="leading"
         />
       </TooltipTrigger>
@@ -130,6 +135,7 @@ function ChatBoxActions({
       <ActionButton
         aria-label={isLoading ? "Stop" : "Send"}
         icon={SendIcon}
+        iconClassName={isLoading ? undefined : "rotate-180"}
         isDisabled={sendDisabled}
         tooltip={isLoading ? "Stop" : "Send"}
       />
@@ -145,11 +151,13 @@ function ChatBoxActions({
 }
 
 function ChatTextArea({
+  isExpanded,
   onChange,
   placeholder,
   textareaRef,
   value,
 }: {
+  isExpanded: boolean;
   onChange: ChangeEventHandler<HTMLTextAreaElement>;
   placeholder: string;
   textareaRef: Ref<HTMLTextAreaElement>;
@@ -165,7 +173,10 @@ function ChatTextArea({
       value={value}
       onChange={onChange}
       placeholder={placeholder}
-      className="h-6 max-h-[131px] min-w-px flex-1 resize-none overflow-hidden border-0 bg-transparent p-0 text-right text-md font-normal leading-6 text-secondary shadow-none ring-0 [direction:ltr] [unicode-bidi:plaintext] placeholder:text-placeholder focus:ring-0"
+      className={cx(
+        "h-[var(--size-chat-textarea-min-height)] max-h-[var(--size-chat-textarea-max-height)] min-w-px flex-1 resize-none overflow-hidden border-0 bg-transparent p-0 text-right text-md font-normal leading-6 text-secondary shadow-none ring-0 [direction:ltr] [unicode-bidi:plaintext] placeholder:text-placeholder focus:ring-0",
+        isExpanded && "scrollbar-chatbox pr-3 [scrollbar-gutter:stable]",
+      )}
     />
   );
 }
@@ -343,6 +354,7 @@ export function ChatBox({
 
         {!isLoading && (
           <ChatTextArea
+            isExpanded={isExpanded}
             onChange={handleTextAreaChange}
             placeholder={placeholder}
             textareaRef={textareaRef}

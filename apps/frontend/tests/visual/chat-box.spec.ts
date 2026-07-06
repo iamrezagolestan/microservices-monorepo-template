@@ -212,6 +212,9 @@ function registerScrollBehaviorTests() {
       return {
         clientHeight: element.clientHeight,
         direction: getComputedStyle(element).direction,
+        paddingRight: getComputedStyle(element).paddingRight,
+        scrollbarColor: getComputedStyle(element).scrollbarColor,
+        scrollbarGutter: getComputedStyle(element).scrollbarGutter,
         scrollHeight: element.scrollHeight,
         scrollTop: element.scrollTop,
         textAlign: getComputedStyle(element).textAlign,
@@ -219,6 +222,9 @@ function registerScrollBehaviorTests() {
     });
     expect(metrics.direction).toBe("ltr");
     expect(metrics.textAlign).toBe("right");
+    expect(metrics.paddingRight).toBe("12px");
+    expect(metrics.scrollbarColor).toContain("rgb(178, 178, 178)");
+    expect(metrics.scrollbarGutter).toBe("stable");
     expect(metrics.scrollHeight).toBeGreaterThan(metrics.clientHeight);
     expect(metrics.scrollTop).toBeGreaterThan(0);
   });

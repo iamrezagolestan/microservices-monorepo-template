@@ -58,6 +58,8 @@
     --spacing-xl: calc(var(--spacing) * 4);
     --spacing-2xl: calc(var(--spacing) * 5);
     --container-padding-mobile: calc(var(--spacing) * 4);
+    --size-chat-textarea-min-height: 24px;
+    --size-chat-textarea-max-height: 131px;
 
     /* MAX WIDTH */
     --max-width-container: 1280px;
