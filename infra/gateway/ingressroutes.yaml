@@ -3,9 +3,9 @@
 # on the product apex. These are the cross-cutting OPS-TIER routes.
 #
 # Trust-tier split (ADR-0017): every operator dashboard lives on its own origin
-# `{tool}.ops.<host>`, never on a product path. HostRegexp keeps the manifests
-# host-agnostic (env parity, ADR-0016) — `^{tool}\.ops\..+` matches
-# {tool}.ops.dev.localtest.me locally and {tool}.ops.<apex> in every deployed env.
+# `{concept}.ops.<host>`, never on a product path. HostRegexp keeps the manifests
+# host-agnostic (env parity, ADR-0016) — `^{concept}\.ops\..+` matches
+# {concept}.ops.dev.localtest.me locally and {concept}.ops.<apex> in every deployed env.
 # The `*.ops.<host>` wildcard cert (secret wildcard-ops-tls) covers all of them.
 #
 # Each route is behind the ops forward-auth (Oathkeeper validates an AAL2 operator
@@ -22,7 +22,7 @@ spec:
   entryPoints: [websecure]
   routes:
     - kind: Rule
-      match: HostRegexp(`^hubble\.ops\..+`)
+      match: HostRegexp(`^network\.ops\..+`)
       middlewares:
         - name: strip-identity-headers
         - name: oathkeeper-forward-auth
@@ -44,7 +44,7 @@ spec:
   entryPoints: [websecure]
   routes:
     - kind: Rule
-      match: HostRegexp(`^grafana\.ops\..+`)
+      match: HostRegexp(`^o11y\.ops\..+`)
       middlewares:
         - name: strip-identity-headers
         - name: oathkeeper-forward-auth
@@ -91,7 +91,7 @@ spec:
   entryPoints: [websecure]
   routes:
     - kind: Rule
-      match: HostRegexp(`^argo\.ops\..+`)
+      match: HostRegexp(`^deploy\.ops\..+`)
       middlewares:
         - name: strip-identity-headers
         - name: oathkeeper-forward-auth
@@ -113,7 +113,7 @@ spec:
   entryPoints: [websecure]
   routes:
     - kind: Rule
-      match: HostRegexp(`^temporal\.ops\..+`)
+      match: HostRegexp(`^workflows\.ops\..+`)
       middlewares:
         - name: strip-identity-headers
         - name: oathkeeper-forward-auth
@@ -134,7 +134,7 @@ spec:
   entryPoints: [websecure]
   routes:
     - kind: Rule
-      match: HostRegexp(`^minio\.ops\..+`)
+      match: HostRegexp(`^s3\.ops\..+`)
       middlewares:
         - name: strip-identity-headers
         - name: oathkeeper-forward-auth

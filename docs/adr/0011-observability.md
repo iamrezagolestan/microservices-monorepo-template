@@ -137,7 +137,7 @@ Observability runs in the **full-platform tier** ([ADR-0016](0016-environment-pa
 
 Service code is unchanged between local and prod. The same `obs.Init` call works against the full-tier collector and the production stack; with neither running, the OTLP exporter simply has no collector to reach (`OTEL_SDK_DISABLED=true` in the inner-loop service values).
 
-Reach the local stack through the edge (`grafana.ops.<host>`, behind the operator session — [ADR-0017](0017-url-and-domain-structure.md)) or, for raw access while iterating, `mise run dev:forward` port-forwards Grafana (`:3001`) and the Faro ingest (`:12347`) when the observability stack is up.
+Reach the local stack through the edge (`o11y.ops.<host>`, behind the operator session — [ADR-0017](0017-url-and-domain-structure.md)) or, for raw access while iterating, `mise run dev:forward` port-forwards Grafana (`:3001`) and the Faro ingest (`:12347`) when the observability stack is up.
 
 **Browser RUM (Faro) locally.** The frontend's Faro agent ([ADR-0014](0014-frontend.md)) POSTs beacons to the same-origin path `/api/observability/faro/collect`. In the cluster, Traefik forwards `/api/observability/faro/*` to the Collector's `faro` receiver; but `next dev` runs on the host with no edge in front of it, so a dev-only Next route handler stands in (`apps/frontend/src/app/api/observability/faro/collect/route.ts`). With `FARO_COLLECT_URL=http://localhost:12347/collect` set (and `dev:forward` forwarding the full-tier Collector's `faro` receiver) it forwards beacons to it; with `FARO_COLLECT_URL` unset it silently returns `204` so the dev console isn't spammed with 404s. The handler 404s in production, matching the fact that Traefik — not the frontend pod — owns this path in the cluster.
 

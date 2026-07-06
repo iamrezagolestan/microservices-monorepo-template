@@ -26,7 +26,7 @@ import (
 // Request is the remote_json payload (see infra/auth/oathkeeper/access-rules.json).
 type Request struct {
 	Subject  string `json:"subject"`  // Kratos identity id; "" for anonymous
-	Tool     string `json:"tool"`     // ops dashboard slug: hubble, grafana, …
+	Tool     string `json:"tool"`     // ops dashboard concept slug: o11y, network, …
 	AAL      string `json:"aal"`      // authenticator_assurance_level from whoami
 	Operator string `json:"operator"` // the `operator` identity trait ("true" when set)
 }

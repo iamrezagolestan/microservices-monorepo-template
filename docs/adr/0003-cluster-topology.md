@@ -97,8 +97,8 @@ Traefik (k3s default)  (TLS termination via cert-manager + Let's Encrypt, L7 rou
   ├── <host>/api/*      ─▶ Oathkeeper (identity) ─▶ backend service (per ADR-0009)
   ├── <host>/(landing|panel|devportal)/* ─▶ Next.js frontend pod (one app, route groups per ADR-0014)
   ├── admin.ops.<host>/ ─▶ Oathkeeper (operator + AAL2) ─▶ Lowdefy pod (internal admin, per ADR-0012)
-  ├── grafana.ops.<host>/ ─▶ Oathkeeper (operator + AAL2) ─▶ Grafana
-  └── hubble.ops.<host>/  ─▶ Oathkeeper (operator + AAL2) ─▶ Hubble UI (Cilium network / service-map dashboard)
+  ├── o11y.ops.<host>/ ─▶ Oathkeeper (operator + AAL2) ─▶ Grafana
+  └── network.ops.<host>/  ─▶ Oathkeeper (operator + AAL2) ─▶ Hubble UI (Cilium network / service-map dashboard)
 ```
 
 **Traefik is the only ingress; Oathkeeper is an auth filter behind it, not a second gateway.** Traefik does TLS,
@@ -129,7 +129,7 @@ at bootstrap, not retrofitted. Three postures are on from day one and are checke
    denies the link-local cloud metadata address `169.254.169.254/32` outright, so even a future broad egress grant
    cannot become an SSRF path to instance credentials.
 
-Hubble (bundled, UI exposed auth-gated at the `hubble.ops.<host>` subdomain) provides per-flow visibility and is the audit
+Hubble (bundled, UI exposed auth-gated at the `network.ops.<host>` subdomain) provides per-flow visibility and is the audit
 surface for these policies.
 
 ### Storage
@@ -257,7 +257,7 @@ mutual-auth / SPIFFE can add cert identity later with no sidecars, if wanted.
 L7 network policies, and per-flow observability (Hubble) without an injected proxy or a second component. A sidecar mesh
 would add 100+ proxy containers on the hot path at 100 services, against ADR-0000's per-service cost principle. **Hubble UI is deployed as the cluster's network / service-map dashboard** — live service-to-service flows,
 dropped connections, and L7 traffic — and is the audit surface for the NetworkPolicy-based internal trust boundary
-([ADR-0009](0009-api-gateway.md), [ADR-0010](0010-auth.md)); it is exposed auth-gated at the `hubble.ops.<host>` subdomain
+([ADR-0009](0009-api-gateway.md), [ADR-0010](0010-auth.md)); it is exposed auth-gated at the `network.ops.<host>` subdomain
 (its React Router is hardwired to basename `/`, so it must be served at a root origin, not under a path prefix). Cilium is
 installed
 from day one because CNI cannot be hot-swapped on a live cluster.
@@ -337,5 +337,5 @@ alongside the backup restore drill above.
   resource cost and component count. Cilium covers CNI + zero-trust + L7 policies + Hubble observability in a single
   component with no per-pod proxy overhead.
 - Cilium NetworkPolicy is the internal service-to-service trust boundary; the default is deny and each service declares
-  its allowed callers ([ADR-0009](0009-api-gateway.md), [ADR-0010](0010-auth.md)). Hubble UI (auth-gated at `hubble.ops.<host>`)
+  its allowed callers ([ADR-0009](0009-api-gateway.md), [ADR-0010](0010-auth.md)). Hubble UI (auth-gated at `network.ops.<host>`)
   is the dashboard and audit surface for cluster network flows.

@@ -48,12 +48,12 @@ func TestCoarseClaimGate(t *testing.T) {
 		body string
 		want int
 	}{
-		{"operator + aal2", `{"subject":"alice","tool":"grafana","aal":"aal2","operator":"true"}`, http.StatusOK},
-		{"operator + aal2, any tool", `{"subject":"alice","tool":"hubble","aal":"aal2","operator":"true"}`, http.StatusOK},
-		{"operator but aal1", `{"subject":"alice","tool":"grafana","aal":"aal1","operator":"true"}`, http.StatusForbidden},
-		{"aal2 but not operator", `{"subject":"bob","tool":"grafana","aal":"aal2","operator":"false"}`, http.StatusForbidden},
-		{"operator trait absent", `{"subject":"bob","tool":"grafana","aal":"aal2"}`, http.StatusForbidden},
-		{"anonymous", `{"subject":"","tool":"grafana","aal":"aal2","operator":"true"}`, http.StatusForbidden},
+		{"operator + aal2", `{"subject":"alice","tool":"o11y","aal":"aal2","operator":"true"}`, http.StatusOK},
+		{"operator + aal2, any tool", `{"subject":"alice","tool":"network","aal":"aal2","operator":"true"}`, http.StatusOK},
+		{"operator but aal1", `{"subject":"alice","tool":"o11y","aal":"aal1","operator":"true"}`, http.StatusForbidden},
+		{"aal2 but not operator", `{"subject":"bob","tool":"o11y","aal":"aal2","operator":"false"}`, http.StatusForbidden},
+		{"operator trait absent", `{"subject":"bob","tool":"o11y","aal":"aal2"}`, http.StatusForbidden},
+		{"anonymous", `{"subject":"","tool":"o11y","aal":"aal2","operator":"true"}`, http.StatusForbidden},
 		{"malformed json", `not json`, http.StatusBadRequest},
 	}
 	for _, tc := range cases {
@@ -77,19 +77,19 @@ func TestCoarseClaimGate(t *testing.T) {
 // The optional fine gate adds a per-tool SpiceDB check on top of the coarse gate.
 func TestFineGrainedGate(t *testing.T) {
 	t.Parallel()
-	// alice holds grafana but not hubble.
-	h := New(&fakeChecker{answers: map[string]bool{"view dashboard:grafana": true}}, true, nil)
+	// alice holds o11y but not network.
+	h := New(&fakeChecker{answers: map[string]bool{"view dashboard:o11y": true}}, true, nil)
 
-	granted := post(t, h, `{"subject":"alice","tool":"grafana","aal":"aal2","operator":"true"}`)
+	granted := post(t, h, `{"subject":"alice","tool":"o11y","aal":"aal2","operator":"true"}`)
 	if granted != http.StatusOK {
 		t.Fatalf("granted tool status = %d, want 200", granted)
 	}
-	ungranted := post(t, h, `{"subject":"alice","tool":"hubble","aal":"aal2","operator":"true"}`)
+	ungranted := post(t, h, `{"subject":"alice","tool":"network","aal":"aal2","operator":"true"}`)
 	if ungranted != http.StatusForbidden {
 		t.Fatalf("ungranted tool status = %d, want 403", ungranted)
 	}
 	// The coarse gate still applies first: a non-operator is denied before the fine check.
-	nonOperator := post(t, h, `{"subject":"bob","tool":"grafana","aal":"aal2","operator":"false"}`)
+	nonOperator := post(t, h, `{"subject":"bob","tool":"o11y","aal":"aal2","operator":"false"}`)
 	if nonOperator != http.StatusForbidden {
 		t.Fatalf("non-operator status = %d, want 403", nonOperator)
 	}

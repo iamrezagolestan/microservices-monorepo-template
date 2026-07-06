@@ -181,12 +181,12 @@ optional per-tool `dashboard:<tool>#view` fine layer is off by default.
 
 | Ops URL                                       | Tool                                         | Auth                                          | Defined in                         |
 |-----------------------------------------------|----------------------------------------------|-----------------------------------------------|------------------------------------|
-| `https://grafana.ops.dev.localtest.me:8443/`  | **Grafana** — metrics/logs/traces            | operator + AAL2                               | `infra/gateway/ingressroutes.yaml` |
-| `https://hubble.ops.dev.localtest.me:8443/`   | Cilium **Hubble UI** — network-flow map      | operator + AAL2                               | `infra/gateway/ingressroutes.yaml` |
-| `https://temporal.ops.dev.localtest.me:8443/` | **Temporal Web UI**                          | operator + AAL2                               | `infra/gateway/ingressroutes.yaml` |
-| `https://minio.ops.dev.localtest.me:8443/`    | **MinIO console** (non-prod)                 | operator + AAL2, then `minio` / `minio-password` | `infra/gateway/ingressroutes.yaml` |
+| `https://o11y.ops.dev.localtest.me:8443/`  | **Grafana** — metrics/logs/traces            | operator + AAL2                               | `infra/gateway/ingressroutes.yaml` |
+| `https://network.ops.dev.localtest.me:8443/`   | Cilium **Hubble UI** — network-flow map      | operator + AAL2                               | `infra/gateway/ingressroutes.yaml` |
+| `https://workflows.ops.dev.localtest.me:8443/` | **Temporal Web UI**                          | operator + AAL2                               | `infra/gateway/ingressroutes.yaml` |
+| `https://s3.ops.dev.localtest.me:8443/`    | **MinIO console** (non-prod)                 | operator + AAL2, then `minio` / `minio-password` | `infra/gateway/ingressroutes.yaml` |
 | `https://admin.ops.dev.localtest.me:8443/`    | **Lowdefy** admin console                    | operator + AAL2                               | `infra/gateway/ingressroutes.yaml` |
-| `https://argo.ops.dev.localtest.me:8443/`     | **Argo CD**                                  | operator + AAL2                               | `infra/gateway/ingressroutes.yaml` |
+| `https://deploy.ops.dev.localtest.me:8443/`     | **Argo CD**                                  | operator + AAL2                               | `infra/gateway/ingressroutes.yaml` |
 | `https://k8s.ops.dev.localtest.me:8443/`      | **Headlamp** — k8s debug UI (opt-in, r/o)    | operator + AAL2                               | opt-in ([ADR-0024](adr/0024-kubernetes-debug-ui.md)) |
 | `https://db.ops.dev.localtest.me:8443/`       | **pgweb** — read-only DB inspector (opt-in)  | operator + AAL2                               | opt-in ([ADR-0012](adr/0012-internal-admin.md))      |
 
@@ -203,7 +203,7 @@ credentials — the pre-seeded root user `minio` / `minio-password`.
 
 `cluster:full` brings up the whole platform (edge, services, observability,
 console); Argo CD itself is installed imperatively for the local full tier and is
-reachable at `argo.ops.<host>` like the other dashboards. The two **opt-in** ops
+reachable at `deploy.ops.<host>` like the other dashboards. The two **opt-in** ops
 tools — Headlamp (`k8s.ops`) and pgweb (`db.ops`) — are off by default
 ([docs/operational-surface.md](operational-surface.md)); enable them in the local
 values overlay when you want them, and they appear at their origins above.

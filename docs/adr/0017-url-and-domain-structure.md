@@ -73,24 +73,32 @@ shared `ops.` label.
 
 | Tool                       | Hostname                  | Notes                                              |
 |----------------------------|---------------------------|----------------------------------------------------|
-| Hubble UI                  | `hubble.ops.<host>`       | served at root (router can't run under a path)     |
-| Grafana                    | `grafana.ops.<host>`      | drop `serve_from_sub_path`; served at root         |
-| Argo CD                    | `argo.ops.<host>`         | replaces port-forward access                       |
-| Temporal Web UI            | `temporal.ops.<host>`     | replaces port-forward access                       |
+| Hubble UI                  | `network.ops.<host>`       | served at root (router can't run under a path)     |
+| Grafana                    | `o11y.ops.<host>`      | drop `serve_from_sub_path`; served at root         |
+| Argo CD                    | `deploy.ops.<host>`         | replaces port-forward access                       |
+| Temporal Web UI            | `workflows.ops.<host>`     | replaces port-forward access                       |
 | Lowdefy internal admin     | `admin.ops.<host>`        | the sole admin surface; the product frontend has no `/admin` route group |
 | Headlamp (k8s debug UI)    | `k8s.ops.<host>`          | Opt-in, read-only by default ([ADR-0024](0024-kubernetes-debug-ui.md))    |
 | pgweb (DB inspector)       | `db.ops.<host>`           | Opt-in, read-only, **non-prod** ([ADR-0012](0012-internal-admin.md))      |
-| MinIO console              | `minio.ops.<host>`        | **non-prod only** ([ADR-0016](0016-environment-parity.md))         |
+| MinIO console              | `s3.ops.<host>`        | **non-prod only** ([ADR-0016](0016-environment-parity.md))         |
 
 Names follow [ADR-0015](0015-naming-and-identifiers.md)'s charset (`^[a-z][a-z0-9-]*$`, hyphen within a segment, never
-underscore). The grammar is `{tool}.{tier}.{env-host}`; the product tier carries **no** tier label (it is the apex).
+underscore). The grammar is `{concept}.{tier}.{env-host}`; the product tier carries **no** tier label (it is the apex).
+
+**Origins are named after the concept, not the tool.** `o11y` (not `grafana`), `network` (not `hubble`), `workflows`
+(not `temporal`), `s3` (not `minio`), `deploy` (not `argo`), `db` (not `pgweb`), `k8s` (not `headlamp`); `admin` names
+the internal-admin concept whatever renders it. The URL is a stable seam — the same discipline as the `Checker` seam
+([ADR-0010](0010-auth.md)) or the Core/Scale storage swap ([ADR-0011](0011-observability.md)): it describes *what the
+operator is there to do*, so swapping the tool behind it (Grafana → another dashboard, pgweb → another inspector) does
+not churn the URL, the cert SANs, the DNS, or anyone's bookmarks. Short, well-known forms (`o11y`, `s3`, `k8s`, `db`)
+are preferred where one exists, matching the numeronym style already used elsewhere.
 
 ### Why the `ops.` label is load-bearing, not cosmetic
 
 Cookies are sent to a domain and its **descendants** only, never to siblings or a higher ancestor's other children.
 That single rule forces the nesting:
 
-- If ops tools were flat (`hubble.<host>`, `grafana.<host>`), the only domain that covers all of them is the common
+- If ops tools were flat (`network.<host>`, `o11y.<host>`), the only domain that covers all of them is the common
   parent `<host>` — which **is the product origin**. A cookie shared across flat ops tools would therefore also reach the
   product, re-merging the tiers.
 - Nesting under `ops.<host>` lets the ops session cookie be scoped `Domain=ops.<host>`: it covers every `*.ops.<host>`
@@ -152,7 +160,7 @@ surface, at one of two enforcement points split by **who owns the code**:
     }
     ```
 
-    A request to `grafana.ops.<host>` then also checks `view` on `dashboard:grafana`. For 3–8 operators this fine layer
+    A request to `o11y.ops.<host>` then also checks `view` on `dashboard:o11y`. For 3–8 operators this fine layer
     is typically deferrable, so the `dashboard` resource and its `remote_json` wiring are optional day-one, not required.
 
 The coarse claim gate is the load-bearing one; the fine per-tool layer refines within it when a project needs it. Product
@@ -171,7 +179,7 @@ a claim, for break-glass independence.
 
 - Product: Traefik `Host(\<host>\)` routes (the per-service `/api/<svc>` IngressRoutes and the frontend catch-all
   already match on `Host`, [ADR-0009](0009-api-gateway.md)).
-- Ops: one `Host(\{tool}.ops.<host>\)` IngressRoute per tool, each behind the ops forward-auth middleware. Host-
+- Ops: one `Host(\{concept}.ops.<host>\)` IngressRoute per tool, each behind the ops forward-auth middleware. Host-
   parameterised so local and deployed envs share the manifests ([ADR-0016](0016-environment-parity.md)).
 
 ## Consequences
@@ -216,7 +224,7 @@ a claim, for break-glass independence.
   dashboard is served from a product path, and no product surface is served from an `ops.` subdomain.
 - Service APIs stay same-origin under `<host>/api/<svc>/*`; they are not given their own origin unless a non-browser
   client requires it.
-- Ops-tier hostnames are `{tool}.ops.<host>`, lowercase, matching `^[a-z][a-z0-9-]*$`
+- Ops-tier hostnames are `{concept}.ops.<host>`, lowercase, matching `^[a-z][a-z0-9-]*$`
   ([ADR-0015](0015-naming-and-identifiers.md)).
 - The default is one session cookie scoped to the parent `<host>`, shared across tiers; tier isolation is enforced by
   per-tool authorization and an **AAL2 (operator MFA)** requirement on the ops tier, not by cookie scope. This is

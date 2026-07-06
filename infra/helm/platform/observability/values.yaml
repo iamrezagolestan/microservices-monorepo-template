@@ -65,7 +65,7 @@ opentelemetry-collector:
 grafana:
   fullnameOverride: grafana
   adminPassword: ""                # supplied via SOPS-decrypted Secret in prod
-  # Served at the ROOT of its own ops origin grafana.ops.<host> (ADR-0017), not
+  # Served at the ROOT of its own ops origin o11y.ops.<host> (ADR-0017), not
   # under a /grafana path — so serve_from_sub_path is off. Each env overrides
   # root_url with its external origin (the local overlay sets the :8443 edge).
   grafana.ini:
@@ -73,7 +73,7 @@ grafana:
       serve_from_sub_path: false
       root_url: "%(protocol)s://%(domain)s/"
     # The ops edge is the authentication gate (Oathkeeper: an AAL2 operator holding
-    # dashboard:grafana#view, ADR-0017). Grafana trusts it and serves anonymously
+    # dashboard:o11y#view, ADR-0017). Grafana trusts it and serves anonymously
     # instead of running a second, redundant login that would redirect to /login and
     # never render. Only AAL2 operators ever reach this origin.
     auth:

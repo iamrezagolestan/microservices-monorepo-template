@@ -118,7 +118,7 @@ grafana:
   adminPassword: "admin"
   grafana.ini:
     server:
-      root_url: "https://grafana.ops.dev.localtest.me:8443/"
+      root_url: "https://o11y.ops.dev.localtest.me:8443/"
 
 # --- Lowdefy admin console (ADR-0012) -------------------------------------
 # Repo-built image: pulled from the local registry (the CI stand-in) at the

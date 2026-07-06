@@ -168,12 +168,12 @@ cat <<EOF
 ✓ cluster:full up (ArgoCD-driven from master).
   Product (Traefik):  https://${DOMAIN}:8443/api/<service>/   (self-signed TLS)
   Ops tier (ADR-0017; coarse gate = operator claim + AAL2, no SpiceDB call):
-    Grafana:          https://grafana.ops.${DOMAIN}:8443/
-    Hubble UI:        https://hubble.ops.${DOMAIN}:8443/
-    Temporal UI:      https://temporal.ops.${DOMAIN}:8443/
-    MinIO console:    https://minio.ops.${DOMAIN}:8443/  (login: minio / minio-password)
+    Grafana:          https://o11y.ops.${DOMAIN}:8443/
+    Hubble UI:        https://network.ops.${DOMAIN}:8443/
+    Temporal UI:      https://workflows.ops.${DOMAIN}:8443/
+    MinIO console:    https://s3.ops.${DOMAIN}:8443/  (login: minio / minio-password)
     Lowdefy console:  https://admin.ops.${DOMAIN}:8443/
-    ArgoCD:           https://argo.ops.${DOMAIN}:8443/
+    ArgoCD:           https://deploy.ops.${DOMAIN}:8443/
     Opt-in (off by default — enable in the local overlay, ADR-0024 / ADR-0012):
     Headlamp (k8s):   https://k8s.ops.${DOMAIN}:8443/   (read-only debug UI)
     pgweb (DB):       https://db.ops.${DOMAIN}:8443/    (read-only DB inspector)
