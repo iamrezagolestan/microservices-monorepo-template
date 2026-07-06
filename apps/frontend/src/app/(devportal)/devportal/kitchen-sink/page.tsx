@@ -9,6 +9,7 @@ import { ButtonKitchenExamples } from "./ButtonKitchenExamples";
 import { ChatBoxKitchenExamples } from "./ChatBoxKitchenExamples";
 import { InputKitchenExamples } from "./InputKitchenExamples";
 import { KitchenThemeSwitch } from "./KitchenThemeSwitch";
+import { TypeBoxKitchenExamples } from "./TypeBoxKitchenExamples";
 
 export const metadata: Metadata = { title: "UI kitchen sink" };
 
@@ -43,6 +44,10 @@ export default function KitchenSink() {
 
       <Section title="Input">
         <InputKitchenExamples />
+      </Section>
+
+      <Section title="TypeBox">
+        <TypeBoxKitchenExamples />
       </Section>
 
       <Section title="ChatBox">
