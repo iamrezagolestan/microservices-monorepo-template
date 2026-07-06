@@ -54,11 +54,11 @@ function ActionButton({
         aria-label={ariaLabel}
         isDisabled={isDisabled}
         onPress={onPress}
-        className="group relative inline-flex size-9 cursor-pointer items-center justify-center gap-1 rounded-lg p-2 text-blue-500 outline-focus-ring transition duration-100 ease-linear hover:text-blue-700 focus:ring-0 focus:shadow-none focus-visible:shadow-none disabled:cursor-not-allowed disabled:text-neutral-300 *:data-icon:pointer-events-none *:data-icon:size-5 *:data-icon:shrink-0 *:data-icon:text-fg-quaternary *:data-icon:transition-inherit-all hover:*:data-icon:text-fg-quaternary_hover disabled:*:data-icon:text-neutral-300"
+        className="group relative inline-flex size-9 cursor-pointer items-center justify-center gap-1 rounded-lg p-2 outline-focus-ring transition duration-100 ease-linear hover:text-blue-700 focus:ring-0 focus:shadow-none focus-visible:shadow-none disabled:cursor-not-allowed disabled:text-neutral-300 *:data-icon:pointer-events-none *:data-icon:size-5 *:data-icon:shrink-0 *:data-icon:text-featured-icon-light-fg-gray *:data-icon:transition-inherit-all hover:*:data-icon:text-fg-quaternary_hover disabled:*:data-icon:text-neutral-300"
       >
         <Icon
           className={cx(
-            "pointer-events-none size-5 shrink-0 text-fg-quaternary transition-inherit-all",
+            "pointer-events-none size-5 shrink-0 transition-inherit-all",
             iconClassName,
           )}
           data-icon="leading"
