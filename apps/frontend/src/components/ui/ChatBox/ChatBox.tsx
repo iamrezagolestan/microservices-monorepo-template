@@ -107,9 +107,9 @@ function AttachmentPreview({ attachments }: { attachments: ChatAttachment[] }) {
   return (
     <div
       data-slot="attachment-preview"
-      className="relative -mb-[22px] h-[62px] w-full shrink-0 overflow-hidden rounded-xl bg-tertiary"
+      className="relative w-full overflow-hidden rounded-xl bg-tertiary"
     >
-      <div className="absolute top-[7px] right-4 flex items-center justify-end gap-2 p-0" dir="ltr">
+      <div className="flex items-center justify-end gap-2 p-0 bg-primary" dir="ltr">
         {attachments.map((attachment) => {
           const Icon = getAttachmentIcon(attachment.type);
           return <UploadButton aria-label={attachment.name} icon={Icon} key={attachment.id} />;
@@ -328,18 +328,18 @@ export function ChatBox({
   const containerState = useChatBoxContainerState({ hasAttachments, isExpanded, isLoading });
 
   return (
+    <div className="flex w-full flex-col gap-2">
+      <AttachmentPreview attachments={currentAttachments} />
     <div
       data-state={containerState}
       className={cx(
         "w-full overflow-visible rounded-xl border-brand-100 bg-primary_hover backdrop-blur-[47.8px] dark:border-black dark:bg-surface-primary",
         containerState === "default" && "border-r-[1.5px] border-solid p-5",
         containerState === "loading" && "h-16 bg-transparent",
-        containerState === "attachments" && "pt-0",
+        containerState === "attachments" && "p-5",
         className,
       )}
     >
-      <AttachmentPreview attachments={currentAttachments} />
-
       <div
         dir="ltr"
         className={cx(
@@ -362,6 +362,7 @@ export function ChatBox({
           />
         )}
       </div>
+    </div>
     </div>
   );
 }
