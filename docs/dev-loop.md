@@ -177,18 +177,20 @@ The local edge is published on the unprivileged port **`:8443`** (see the URLs
 below); deployed envs terminate on standard `443` and omit the port.
 
 The **Auth** column shows the always-on coarse gate (`operator` claim + AAL2); the
-optional per-tool `dashboard:<tool>#view` fine layer is off by default.
+optional per-tool `dashboard:<tool>#view` fine layer is off by default. Every route
+below is defined in `infra/gateway/ingressroutes.yaml` (the opt-in tools only once
+enabled).
 
-| Ops URL                                       | Tool                                         | Auth                                          | Defined in                         |
-|-----------------------------------------------|----------------------------------------------|-----------------------------------------------|------------------------------------|
-| `https://o11y.ops.dev.localtest.me:8443/`  | **Grafana** — metrics/logs/traces            | operator + AAL2                               | `infra/gateway/ingressroutes.yaml` |
-| `https://network.ops.dev.localtest.me:8443/`   | Cilium **Hubble UI** — network-flow map      | operator + AAL2                               | `infra/gateway/ingressroutes.yaml` |
-| `https://workflows.ops.dev.localtest.me:8443/` | **Temporal Web UI**                          | operator + AAL2                               | `infra/gateway/ingressroutes.yaml` |
-| `https://s3.ops.dev.localtest.me:8443/`    | **MinIO console** (non-prod)                 | operator + AAL2, then `minio` / `minio-password` | `infra/gateway/ingressroutes.yaml` |
-| `https://admin.ops.dev.localtest.me:8443/`    | **Lowdefy** admin console                    | operator + AAL2                               | `infra/gateway/ingressroutes.yaml` |
-| `https://deploy.ops.dev.localtest.me:8443/`     | **Argo CD**                                  | operator + AAL2                               | `infra/gateway/ingressroutes.yaml` |
-| `https://k8s.ops.dev.localtest.me:8443/`      | **Headlamp** — k8s debug UI (opt-in, r/o)    | operator + AAL2                               | opt-in ([ADR-0024](adr/0024-kubernetes-debug-ui.md)) |
-| `https://db.ops.dev.localtest.me:8443/`       | **pgweb** — read-only DB inspector (opt-in)  | operator + AAL2                               | opt-in ([ADR-0012](adr/0012-internal-admin.md))      |
+| Ops URL                                        | Tool                                                                                   | Auth                                             |
+|------------------------------------------------|----------------------------------------------------------------------------------------|--------------------------------------------------|
+| `https://o11y.ops.dev.localtest.me:8443/`      | **Grafana** — metrics/logs/traces                                                      | operator + AAL2                                  |
+| `https://network.ops.dev.localtest.me:8443/`   | Cilium **Hubble UI** — network-flow map                                                | operator + AAL2                                  |
+| `https://workflows.ops.dev.localtest.me:8443/` | **Temporal Web UI**                                                                    | operator + AAL2                                  |
+| `https://s3.ops.dev.localtest.me:8443/`        | **MinIO console** (non-prod)                                                           | operator + AAL2, then `minio` / `minio-password` |
+| `https://admin.ops.dev.localtest.me:8443/`     | **Lowdefy** admin console                                                              | operator + AAL2                                  |
+| `https://deploy.ops.dev.localtest.me:8443/`    | **Argo CD**                                                                            | operator + AAL2                                  |
+| `https://k8s.ops.dev.localtest.me:8443/`       | **Headlamp** — k8s debug UI (opt-in, r/o, [ADR-0024](adr/0024-kubernetes-debug-ui.md)) | operator + AAL2                                  |
+| `https://db.ops.dev.localtest.me:8443/`        | **pgweb** — read-only DB inspector (opt-in, [ADR-0012](adr/0012-internal-admin.md))    | operator + AAL2                                  |
 
 Grafana trusts the Oathkeeper edge and serves anonymously (its login form is
 disabled, `auth.anonymous` Admin) — an operator who clears the edge lands straight
