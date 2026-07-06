@@ -178,8 +178,8 @@ below); deployed envs terminate on standard `443` and omit the port.
 | `https://hubble.ops.dev.localtest.me:8443/`   | Cilium **Hubble UI** — network-flow map   | Oathkeeper (`dashboard:hubble#view`)                                             | `infra/gateway/ingressroutes.yaml` |
 | `https://temporal.ops.dev.localtest.me:8443/` | **Temporal Web UI**                       | Oathkeeper (`dashboard:temporal#view`)                                           | `infra/gateway/ingressroutes.yaml` |
 | `https://minio.ops.dev.localtest.me:8443/`    | **MinIO console** (non-prod)              | Oathkeeper (`dashboard:minio#view`), then MinIO login `minio` / `minio-password` | `infra/gateway/ingressroutes.yaml` |
-| `https://admin.ops.<host>/`                   | **Lowdefy** admin console (deployed envs) | Oathkeeper (`dashboard:admin#view`)                                              | `infra/gateway/ingressroutes.yaml` |
-| `https://argo.ops.<host>/`                    | **Argo CD**                               | Oathkeeper (`dashboard:argo#view`)                                               | `infra/gateway/ingressroutes.yaml` |
+| `https://admin.ops.dev.localtest.me:8443/`    | **Lowdefy** admin console                 | Oathkeeper (`dashboard:admin#view`)                                              | `infra/gateway/ingressroutes.yaml` |
+| `https://argo.ops.dev.localtest.me:8443/`     | **Argo CD**                               | Oathkeeper (`dashboard:argo#view`)                                               | `infra/gateway/ingressroutes.yaml` |
 
 Grafana trusts the Oathkeeper edge and serves anonymously (its login form is
 disabled, `auth.anonymous` Admin) — an operator who clears the edge lands straight

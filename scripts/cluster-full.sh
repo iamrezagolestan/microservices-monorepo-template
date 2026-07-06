@@ -172,7 +172,7 @@ cat <<EOF
     Hubble UI:        https://hubble.ops.${DOMAIN}:8443/
     Temporal UI:      https://temporal.ops.${DOMAIN}:8443/
     MinIO console:    https://minio.ops.${DOMAIN}:8443/  (login: minio / minio-password)
-    Lowdefy console:  https://console.ops.${DOMAIN}:8443/
+    Lowdefy console:  https://admin.ops.${DOMAIN}:8443/
     ArgoCD:           https://argo.ops.${DOMAIN}:8443/
   Frontend:           run it natively on :3000 (the frontend-dev EndpointSlice
                       routes /auth + landing to the host).
