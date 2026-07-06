@@ -80,7 +80,7 @@ const styles = {
   colors: {
     primary: {
       root: [
-        "bg-brand-solid text-alpha-white shadow-xs-skeuomorphic ring-1 ring-transparent ring-inset hover:bg-brand-solid_hover data-loading:bg-brand-solid",
+        "bg-alpha-black text-alpha-white shadow-xs-skeuomorphic ring-1 ring-transparent ring-inset hover:bg-brand-solid_hover data-loading:bg-alpha-black data-loading:text-alpha-white",
         "before:absolute before:inset-px before:border before:border-alpha-white-12 before:mask-b-from-0%",
         "disabled:bg-neutral-300 disabled:ring-white disabled:before:hidden disabled:opacity-200",
         "*:data-icon:text-alpha-white/80 hover:*:data-icon:text-alpha-white/80 disabled:*:data-icon:text-white/60",

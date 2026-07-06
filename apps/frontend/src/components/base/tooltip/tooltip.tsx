@@ -64,7 +64,7 @@ export function Tooltip({
       <AriaTooltip
         {...tooltipProps}
         className={({ isEntering, isExiting }) =>
-          cx(isEntering && "ease-out animate-in", isExiting && "ease-in animate-out")
+          cx(isEntering && "ease-out animate-in", isExiting && "ease-in animate-out",)
         }
         crossOffset={crossOffset ?? calculatedCrossOffset}
         offset={offset}
@@ -73,7 +73,7 @@ export function Tooltip({
         {({ isEntering, isExiting }) => (
           <div
             className={cx(
-              "z-50 flex max-w-xs origin-(--trigger-anchor-point) flex-col items-start gap-1 rounded-lg bg-alpha-black px-3 shadow-lg will-change-transform",
+              "z-50 flex origin-(--trigger-anchor-point) flex-col items-start gap-1 rounded-lg bg-alpha-black px-3 shadow-lg will-change-transform",
               description ? "py-3" : "py-2",
               isEntering &&
                 "ease-out animate-in fade-in zoom-in-95 in-placement-left:slide-in-from-right-0.5 in-placement-right:slide-in-from-left-0.5 in-placement-top:slide-in-from-bottom-0.5 in-placement-bottom:slide-in-from-top-0.5",
