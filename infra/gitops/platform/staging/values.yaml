@@ -23,6 +23,3 @@ tempo:
         s3:
           endpoint: minio.platform.svc.cluster.local:9000
           insecure: true
-mimir:
-  storage:
-    endpoint: minio.platform.svc.cluster.local:9000

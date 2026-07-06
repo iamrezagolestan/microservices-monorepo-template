@@ -1,7 +1,7 @@
 # ADR-0002: Monorepo Structure & Build
 
 - **Status:** Accepted
-- **Date:** 2026-05-19
+- **Date:** 2026-07-06
 - **Deciders:** Platform team
 - **Related:** [ADR-0000](0000-platform-foundations.md), [ADR-0001](0001-language-and-runtime.md)
 
@@ -48,7 +48,7 @@ services/<name>/              # one backend service (package, not a module)
 
 apps/
 ├── frontend/                 # one Next.js app, route groups inside
-│   └── src/app/(landing|panel|admin|devportal)/
+│   └── src/app/(landing|panel|devportal)/
 └── admin/                    # Lowdefy YAML config for internal admin (ADR-0012)
     ├── lowdefy.yaml
     ├── _generated/<service>/ # codegen from OpenAPI, drift-checked
@@ -121,7 +121,7 @@ Every executable the repo depends on is pinned to a specific version in one of e
 - **Developer / CI tools** (Go, Bun, `dbmate`, `sqlc`, `sqruff`, `ogen`, `vacuum`, `helm`, `kubectl`,
   `terraform`, `ansible`, `zed`, `age`, `sops`, `mise` itself, etc.) live in the root `.mise.toml` (and
   service-local `.mise.toml` files when a service genuinely needs a different version).
-- **Runtime services** (Postgres, Temporal, Kratos, Oathkeeper, Hydra, SpiceDB, MinIO, Loki, Mimir, Tempo,
+- **Runtime services** (Postgres, Temporal, Kratos, Oathkeeper, Hydra, SpiceDB, MinIO, Loki, Prometheus, Tempo,
   Grafana, OTel Collector, ArgoCD, CNPG operator, etc.) live as Helm chart `appVersion` plus an explicit `image.tag` in
   `infra/helm/.../values.yaml`. Local development uses the same Helm values via k3d (
   see [ADR-0003](0003-cluster-topology.md));

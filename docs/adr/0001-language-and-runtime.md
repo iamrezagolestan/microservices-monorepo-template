@@ -1,7 +1,7 @@
 # ADR-0001: Language & Runtime
 
 - **Status:** Accepted
-- **Date:** 2026-05-19
+- **Date:** 2026-07-06
 - **Deciders:** Platform team
 - **Related:** [ADR-0000](0000-platform-foundations.md)
 

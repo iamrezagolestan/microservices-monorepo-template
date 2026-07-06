@@ -15,7 +15,7 @@ Two tiers behind one Traefik edge, isolated at the browser by **separate origins
 
 | Tier        | Origin            | Surfaces                                                         |
 |-------------|-------------------|-----------------------------------------------------------------|
-| **Product** | `<host>` (apex)   | Next.js app (`/`, `/auth/*`, `panel`/`admin`/`devportal`), `/api/<svc>/*`, telemetry ingest |
+| **Product** | `<host>` (apex)   | Next.js app (`/`, `/auth/*`, `panel`/`devportal`), `/api/<svc>/*`, telemetry ingest |
 | **Ops**     | `*.ops.<host>`    | one origin per operator dashboard (hubble/grafana/argo/temporal/console/minio) |
 
 - East-west traffic is default-deny via Cilium NetworkPolicy ([ADR-0003](adr/0003-cluster-topology.md)).

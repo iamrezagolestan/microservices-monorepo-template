@@ -1,7 +1,7 @@
 # ADR-0013: Release, Tagging & Versioning
 
 - **Status:** Accepted
-- **Date:** 2026-05-19
+- **Date:** 2026-07-06
 - **Deciders:** Platform team
 - **Related:** [ADR-0002](0002-monorepo.md), [ADR-0004](0004-gitops.md), [ADR-0008](0008-api-contracts.md)
 

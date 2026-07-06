@@ -91,7 +91,7 @@ oathkeeper:
             config:
               to: https://dev.localtest.me:8443/auth/login
 
-# --- Observability: point LGTM at in-cluster MinIO, single replica ---------
+# --- Observability: point Loki/Tempo at in-cluster MinIO, single replica ---
 # Only the endpoint + http (insecure) differ from prod; the S3 credentials come
 # from the observability-bucket Secret via extraEnvFrom (wired in the chart values
 # for every env), so no inline keys here — same mechanism as dev/staging/prod.
@@ -110,12 +110,6 @@ tempo:
         s3:
           endpoint: "minio.platform.svc.cluster.local:9000"
           insecure: true
-
-# Monolithic Mimir (templates/mimir.yaml) — point at MinIO over http.
-mimir:
-  storage:
-    endpoint: "minio.platform.svc.cluster.local:9000"
-    insecure: true
 
 # Grafana: a known local admin password (prod supplies one via Secret).
 # Served at the root of its ops origin (ADR-0017); root_url carries the local

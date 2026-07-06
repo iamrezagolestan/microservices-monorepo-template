@@ -20,5 +20,3 @@ tempo:
   replicas: 2
 grafana:
   replicas: 2
-mimir:
-  replicas: 2

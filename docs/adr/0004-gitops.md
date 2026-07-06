@@ -1,7 +1,7 @@
 # ADR-0004: GitOps & Deploy
 
 - **Status:** Accepted
-- **Date:** 2026-05-19
+- **Date:** 2026-07-06
 - **Deciders:** Platform team
 - **Related:** [ADR-0002](0002-monorepo.md), [ADR-0003](0003-cluster-topology.md), [ADR-0005](0005-secrets.md), [ADR-0013](0013-release-and-versioning.md)
 

@@ -1,7 +1,7 @@
 # ADR-0014: Frontend Stack & Conventions
 
 - **Status:** Accepted
-- **Date:** 2026-05-20
+- **Date:** 2026-07-06
 - **Deciders:** Platform team
 - **Related:** [ADR-0001](0001-language-and-runtime.md), [ADR-0002](0002-monorepo.md), [ADR-0008](0008-api-contracts.md), [ADR-0009](0009-api-gateway.md), [ADR-0010](0010-auth.md), [ADR-0011](0011-observability.md)
 
@@ -15,7 +15,7 @@ This ADR is the single entry point for a newcomer working on the frontend.
 
 | Concern                   | Decision                                                                                      | ADR                                                            |
 |---------------------------|-----------------------------------------------------------------------------------------------|----------------------------------------------------------------|
-| Framework                 | Next.js, single app, route groups `(landing\|panel\|admin\|devportal)`                        | [0001](0001-language-and-runtime.md), [0002](0002-monorepo.md) |
+| Framework                 | Next.js, single app, route groups `(landing\|panel\|devportal)`                        | [0001](0001-language-and-runtime.md), [0002](0002-monorepo.md) |
 | Language + runtime        | TypeScript, Bun as the only JS runtime (no Node anywhere)                                     | [0001](0001-language-and-runtime.md)                           |
 | Workspaces                | Bun workspaces, no Turborepo                                                                  | [0002](0002-monorepo.md)                                       |
 | API clients               | Generated via `openapi-typescript` + `openapi-fetch` from per-service `openapi.yaml`          | [0008](0008-api-contracts.md)                                  |
@@ -72,7 +72,7 @@ We follow Untitled UI's Next.js integration exactly, so a component copied from 
 
 ### Code layout: one app, no first-party packages
 
-There is exactly one consumer of the frontend code — the `apps/frontend/` app. Route groups (`landing|panel|admin|devportal`) are folders within that one app, one bundle, one `node_modules`; they are **not** independent build targets. A workspace package only earns its keep when there is a **second independent consumer** (a second app, a published design system) or when the code is a **generated / independently-versioned artifact**. Splitting single-consumer code into `libs/ts/*` packages buys nothing and costs real ceremony: per-package `dependencies`, `peerDependencies` to keep a single React instance, `transpilePackages`, and path-alias wiring — and under Bun's isolated linker that ceremony is load-bearing, so a missing entry is a build break rather than a lint nit.
+There is exactly one consumer of the frontend code — the `apps/frontend/` app. Route groups (`landing|panel|devportal`) are folders within that one app, one bundle, one `node_modules`; they are **not** independent build targets. A workspace package only earns its keep when there is a **second independent consumer** (a second app, a published design system) or when the code is a **generated / independently-versioned artifact**. Splitting single-consumer code into `libs/ts/*` packages buys nothing and costs real ceremony: per-package `dependencies`, `peerDependencies` to keep a single React instance, `transpilePackages`, and path-alias wiring — and under Bun's isolated linker that ceremony is load-bearing, so a missing entry is a build break rather than a lint nit.
 
 **Principle:** extract a TS package only on a second consumer or for generated artifacts. Until then, first-party frontend code lives inside the app.
 
@@ -138,14 +138,14 @@ CSRF protection applies to cookie-authenticated state changes (the Kratos sessio
 
 Biome is the single lint+format tool for the frontend.
 
-- Configured in `biome.json` at the repo root with the `recommended` and `correctness` rule sets at error level, plus the strict additions: `noExplicitAny`, `noNonNullAssertion`, `useExhaustiveDependencies`, `useImportType`, `noUnusedImports`, `noUnusedVariables`, `useAwait`, `noFloatingPromises`, `noConsole` (server uses `pino`; client uses the OTel-aware logger from `src/lib/observability/`).
+- Configured in `biome.jsonc` at the repo root with the `recommended` and `correctness` rule sets at error level, plus the strict additions: `noExplicitAny`, `noNonNullAssertion`, `useExhaustiveDependencies`, `useImportType`, `noUnusedImports`, `noUnusedVariables`, `useAwait`, `noFloatingPromises`, `noConsole` (server uses `pino`; client uses the OTel-aware logger from `src/lib/observability/`).
 - `biome ci` runs in `lint.yml`; `biome format --write` is a lefthook pre-commit hook.
 - **ESLint is not installed.** Next-specific concerns are caught by `next build` + Lighthouse-CI + typed `next/image` / `next/font` APIs.
 
 ### Testing
 
 - **`bun test`** for unit and component tests — Bun's built-in Jest-compatible runner. No Vitest, no Jest: Bun is the only JS runtime ([ADR-0001](0001-language-and-runtime.md)), and shipping a third-party runner duplicates what's already in the toolchain. Component tests use Testing Library with `happy-dom` registered via `bunfig.toml` `preload`.
-- **End-to-end and visual-regression tests are owned by [ADR-0018](0018-testing-strategy.md):** Playwright drives them from the repo-root `e2e/` workspace (frontend route-group suites under `e2e/frontend/(landing|panel|admin|devportal)/`, visual baselines under `e2e/visual/`), running against `cluster:full`. They are not part of this app's `bun test` runner.
+- **End-to-end and visual-regression tests are owned by [ADR-0018](0018-testing-strategy.md):** Playwright drives them from the repo-root `e2e/` workspace (frontend route-group suites under `e2e/frontend/(landing|panel|devportal)/`, visual baselines under `e2e/visual/`), running against `cluster:full`. They are not part of this app's `bun test` runner.
 - **MSW** for mocking SDK calls in unit/component tests. MSW is forbidden in e2e: e2e runs against real services ([ADR-0018](0018-testing-strategy.md)).
 - Coverage thresholds per route group in `bunfig.toml`; CI fails below threshold.
 
@@ -208,7 +208,7 @@ No i18n library is adopted day one. All user-facing strings live as TS constants
 - `src/components/{base,application,foundations}/` with vendored Untitled UI source, `src/styles/{theme,typography,globals}.css`, and `src/utils/{cx,is-react-component}.ts`.
 - `src/lib/server-fetch/` with the server-only fetcher and TanStack Query glue.
 - `tools/codegen/zod-gen/` and the `mise run gen:zod` task; inclusion in `mise run gen` and `ci-drift.yml`.
-- `biome.json` at repo root with the strict ruleset above.
+- `biome.jsonc` at repo root with the strict ruleset above.
 - `apps/frontend/perf-budget.json` and `apps/frontend/lighthouserc.json`.
 - `apps/frontend/Dockerfile` (Bun-only, standalone output).
 - `src/lib/observability/{client,server}.ts` wiring OTel-JS, Faro, and `pino`, initialised from `apps/frontend/src/app/observability-init.tsx`.
@@ -237,7 +237,7 @@ No i18n library is adopted day one. All user-facing strings live as TS constants
 - The Next.js proxy (`src/proxy.ts`) enforces the Kratos session on `(panel)`, `(devportal)`. The frontend never mints, decodes, or validates JWTs.
 - CSP is set in `src/proxy.ts` with a per-request nonce (`script-src 'nonce-<x>' 'strict-dynamic'`); inline scripts are forbidden and `connect-src` allowlists the telemetry ingest origin. Static security headers are duplicated at the Traefik edge ([ADR-0009](0009-api-gateway.md)).
 - CSRF rests on `SameSite=Lax` Kratos cookies, Kratos's built-in protection for auth flows, and Next.js Server Actions' `Origin` check (`serverActions.allowedOrigins`). Other cookie-authenticated mutations are Origin-checked at the edge.
-- Biome is the only lint+format tool, configured with the strict ruleset in `biome.json`. ESLint is not installed.
+- Biome is the only lint+format tool, configured with the strict ruleset in `biome.jsonc`. ESLint is not installed.
 - `bun test` covers unit/component tests with `happy-dom` preloaded via `bunfig.toml`; Vitest and Jest are not used. End-to-end and visual-regression tests are owned by [ADR-0018](0018-testing-strategy.md) (Playwright, repo-root `e2e/`); MSW is forbidden there.
 - Browser observability is OpenTelemetry-JS + Grafana Faro, exporting through a Traefik-fronted ingest route to the cluster's OTel Collector gateway ([ADR-0011](0011-observability.md)).
 - Server-side logs are structured JSON via `pino` to stdout. `console.log` is Biome-forbidden.

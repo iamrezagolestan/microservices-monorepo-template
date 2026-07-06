@@ -1,9 +1,9 @@
 # ADR-0012: Internal Admin Tool
 
 - **Status:** Accepted
-- **Date:** 2026-05-19
+- **Date:** 2026-07-06
 - **Deciders:** Platform team
-- **Related:** [ADR-0002](0002-monorepo.md), [ADR-0007](0007-data.md), [ADR-0008](0008-api-contracts.md), [ADR-0009](0009-api-gateway.md), [ADR-0010](0010-auth.md)
+- **Related:** [ADR-0002](0002-monorepo.md), [ADR-0006](0006-temporal.md), [ADR-0007](0007-data.md), [ADR-0008](0008-api-contracts.md), [ADR-0009](0009-api-gateway.md), [ADR-0010](0010-auth.md), [ADR-0017](0017-url-and-domain-structure.md)
 
 ## Context
 
@@ -51,6 +51,25 @@ We need an internal admin surface that meets these constraints:
 
 ## Decisions
 
+### The write-path invariant: mutations through the API, never raw SQL
+
+This is the load-bearing rule; the tool choice is secondary to it. **Every admin mutation goes through the application
+layer (the service's Go API), never through raw SQL.** The API is where domain invariants are enforced, where the
+**dual-write to SpiceDB** happens ([ADR-0010](0010-auth.md)), and where a workflow can be triggered
+([ADR-0006](0006-temporal.md)). A raw-SQL write bypasses all three: it desynchronises the authorization store from the
+application database (a row exists that SpiceDB has no tuple for, or vice versa) and skips every invariant the service
+guarantees. The admin tool matters less than what it writes *through* — so the tool is pointed at the API, not at
+Postgres.
+
+This cuts two ways:
+
+- **Lowdefy is correct only pointed at the API.** It does server-side request payloads against the service REST
+  endpoints; that is the write path. Direct Postgres connections exist only as a **read-only** escape hatch.
+- **pgAdmin / `psql` are read-only, break-glass only.** They can *only* speak raw SQL, so they can never be the write
+  path — they are the exact backdoor this invariant forbids, and they cannot trigger workflows. They are sanctioned as a
+  break-glass **DB inspector** (SELECTs during an incident), never a mutation surface, and are enforced read-only at the
+  database-role level, not by convention.
+
 ### Tool: Lowdefy
 
 [Lowdefy](https://lowdefy.com) (Apache 2.0, self-hosted) is the internal admin tool.
@@ -88,13 +107,16 @@ Lowdefy runs in-cluster:
 
 Auth is enforced at the edge:
 
-- Traefik routes `/internal/admin/*` through Oathkeeper to the Lowdefy service ([ADR-0009](0009-api-gateway.md)).
-- The route requires a valid Kratos session per [ADR-0010](0010-auth.md). Unauthenticated requests
-  never reach Lowdefy.
+- The Lowdefy console is an ops-tier surface at `admin.ops.<host>` ([ADR-0017](0017-url-and-domain-structure.md)), its
+  own origin behind the ops-tier Oathkeeper forward-auth — not a product path.
+- The coarse ops gate is a **claim, not a `Checker` call**: the forward-auth requires `X-Roles` to contain `operator`
+  plus an **AAL2** session ([ADR-0017](0017-url-and-domain-structure.md), [ADR-0010](0010-auth.md)). Unauthenticated or
+  non-operator requests never reach Lowdefy. This coarse gate makes no SpiceDB call, so the admin console does not share
+  fate with the product authorization plane.
 - Oathkeeper forwards the authenticated identity as an `X-User-Email` (or equivalent) header. Lowdefy
   reads it through a request operator and exposes it to pages as `_request.headers.x-user-email`.
-- Authorization (which users see which pages) is enforced by SpiceDB checks issued from Lowdefy
-  pages via the same REST surface services use. The admin tool does not own its own RBAC.
+- Fine-grained authorization (which operators may run which mutations) is enforced by SpiceDB `Checker` calls made by the
+  **service APIs** the pages call, not by Lowdefy. The admin tool owns no RBAC of its own.
 
 ### Repository layout
 
@@ -204,9 +226,11 @@ Connection credentials are sourced from External Secrets ([ADR-0005](0005-secret
   when the admin surface justifies a generator, not day one.
 - Postgres read-only role provisioning template in `infra/helm/platform/postgres/`, referenced by per-service
   Helm values.
-- Traefik route for `/internal/admin/*` in `infra/gateway/` plus the Oathkeeper rule in
-  `infra/auth/oathkeeper/`, including the Kratos session check and identity header forwarding.
-- SpiceDB schema for admin authorization (which users see which services / actions).
+- Traefik `Host(admin.ops.<host>)` IngressRoute in `infra/gateway/` plus the ops-tier Oathkeeper forward-auth
+  (`operator` claim + AAL2), including identity-header forwarding ([ADR-0017](0017-url-and-domain-structure.md)).
+- pgAdmin as a flag-gated **Opt-in** ops component (`docs/operational-surface.md`), read-only DB inspector at
+  `pgadmin.ops.<host>` in non-prod, wired to the per-service read-only Postgres roles — a break-glass viewer, never a
+  write path.
 
 ## Rules
 
@@ -215,12 +239,16 @@ Connection credentials are sourced from External Secrets ([ADR-0005](0005-secret
 - Admin pages live as YAML in `apps/admin/`. Day one they are hand- or LLM-written under `custom/`.
   `_generated/` is reserved for the deferred `tools/admin-gen/` output (committed and drift-checked
   when that generator exists); it is not present until then.
-- Admin actions go through service REST APIs by default. Direct Postgres connections are
-  read-only, used only for views the REST API cannot serve, and enforced read-only at the database
-  role level — not by convention.
+- **Every admin mutation goes through the service Go API, never raw SQL** — the API enforces domain invariants, performs
+  the SpiceDB dual-write ([ADR-0010](0010-auth.md)), and can trigger workflows ([ADR-0006](0006-temporal.md)). A raw-SQL
+  write desyncs SpiceDB and bypasses every invariant, and is forbidden.
+- Direct Postgres connections (Lowdefy's `Knex`, and pgAdmin/`psql`) are **read-only**, used only for inspection the
+  REST API cannot serve, and enforced read-only at the database-role level — not by convention. pgAdmin is a flag-gated
+  Opt-in break-glass inspector, never a mutation surface.
 - Lowdefy's built-in auth/sessions are not used. MongoDB is not deployed for Lowdefy.
-- Authentication for `/internal/admin/*` is enforced at the edge by Oathkeeper's Kratos session check per
-  [ADR-0010](0010-auth.md). Authorization is enforced via SpiceDB calls from Lowdefy pages.
+- The admin console is served at `admin.ops.<host>` behind the ops-tier forward-auth: coarse gate is the `operator`
+  claim + AAL2 (no SpiceDB call), fine-grained authorization is the SpiceDB `Checker` inside the service APIs the pages
+  call ([ADR-0017](0017-url-and-domain-structure.md), [ADR-0010](0010-auth.md)).
 - Once the `tools/admin-gen/` generator exists, the set of admin pages generated for a service is
   determined by `admin:crud` and `admin:action` tags on its OpenAPI operations; a service without
   these tags gets no generated admin pages. Until then, a service's admin pages are whatever is

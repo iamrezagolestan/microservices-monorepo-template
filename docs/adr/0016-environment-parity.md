@@ -1,7 +1,7 @@
 # ADR-0016: Environment Parity & Local Tiers
 
 - **Status:** Accepted
-- **Date:** 2026-06-23
+- **Date:** 2026-07-06
 - **Deciders:** Platform team
 - **Related:** [ADR-0000](0000-platform-foundations.md), [ADR-0003](0003-cluster-topology.md), [ADR-0004](0004-gitops.md), [ADR-0005](0005-secrets.md), [ADR-0007](0007-data.md), [ADR-0011](0011-observability.md)
 

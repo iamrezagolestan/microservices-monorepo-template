@@ -1,7 +1,7 @@
 # ADR-0005: Secrets Management
 
 - **Status:** Accepted
-- **Date:** 2026-05-19
+- **Date:** 2026-07-06
 - **Deciders:** Platform team
 - **Related:** [ADR-0002](0002-monorepo.md), [ADR-0004](0004-gitops.md), [ADR-0015](0015-naming-and-identifiers.md)
 

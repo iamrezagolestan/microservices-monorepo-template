@@ -90,7 +90,7 @@ by hand. Playwright's runner is Node — the **one** sanctioned Node tool in the
 Generated code is never linted or formatted: Go SDKs (ogen) and sqlc store code
 are skipped via `exclusions.generated` in `.golangci.yml` (both `golangci-lint
 run` and `golangci-lint fmt`), the TS SDKs and admin `_generated/` via
-`biome.json`, and rumdl via `.rumdl.toml`.
+`biome.jsonc`, and rumdl via `.rumdl.toml`.
 Markdown is governed by **rumdl** (`.rumdl.toml`), the single source of truth for
 both linting and formatting. `mise run format:md` (`rumdl fmt`) auto-fixes most
 rules and runs on staged `.md` files via the lefthook pre-commit hook. For inline
@@ -174,7 +174,7 @@ below); deployed envs terminate on standard `443` and omit the port.
 
 | Ops URL                                       | Tool                                      | Auth                                                                             | Defined in                         |
 |-----------------------------------------------|-------------------------------------------|----------------------------------------------------------------------------------|------------------------------------|
-| `https://grafana.ops.dev.localtest.me:8443/`  | **Grafana** — LGTM dashboards             | Oathkeeper (`dashboard:grafana#view`)                                            | `infra/gateway/ingressroutes.yaml` |
+| `https://grafana.ops.dev.localtest.me:8443/`  | **Grafana** — metrics/logs/traces         | Oathkeeper (`dashboard:grafana#view`)                                            | `infra/gateway/ingressroutes.yaml` |
 | `https://hubble.ops.dev.localtest.me:8443/`   | Cilium **Hubble UI** — network-flow map   | Oathkeeper (`dashboard:hubble#view`)                                             | `infra/gateway/ingressroutes.yaml` |
 | `https://temporal.ops.dev.localtest.me:8443/` | **Temporal Web UI**                       | Oathkeeper (`dashboard:temporal#view`)                                           | `infra/gateway/ingressroutes.yaml` |
 | `https://minio.ops.dev.localtest.me:8443/`    | **MinIO console** (non-prod)              | Oathkeeper (`dashboard:minio#view`), then MinIO login `minio` / `minio-password` | `infra/gateway/ingressroutes.yaml` |

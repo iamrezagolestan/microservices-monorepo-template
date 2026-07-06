@@ -1,7 +1,7 @@
 # ADR-0017: URL & Domain Structure (Trust Tiers)
 
-- **Status:** Proposed
-- **Date:** 2026-06-25
+- **Status:** Accepted
+- **Date:** 2026-07-06
 - **Deciders:** Platform team
 - **Related:** [ADR-0003](0003-cluster-topology.md), [ADR-0009](0009-api-gateway.md), [ADR-0010](0010-auth.md), [ADR-0011](0011-observability.md), [ADR-0012](0012-internal-admin.md), [ADR-0014](0014-frontend.md), [ADR-0015](0015-naming-and-identifiers.md)
 
@@ -10,7 +10,7 @@
 Every environment exposes two very different kinds of HTTP surface behind the same Traefik edge
 ([ADR-0003](0003-cluster-topology.md), [ADR-0009](0009-api-gateway.md)):
 
-1. **Product** — the user-facing Next.js app (landing, auth UI, the `panel`/`admin`/`devportal` route groups,
+1. **Product** — the user-facing Next.js app (landing, auth UI, the `panel`/`devportal` route groups,
    [ADR-0014](0014-frontend.md)), the service APIs (`/api/<svc>`, [ADR-0008](0008-api-contracts.md)), and browser
    telemetry ingest.
 2. **Operations tooling** — third-party operator dashboards we deploy but do not author: Hubble
@@ -18,8 +18,8 @@ Every environment exposes two very different kinds of HTTP surface behind the sa
    console ([ADR-0012](0012-internal-admin.md)), Argo CD ([ADR-0004](0004-gitops.md)), the Temporal Web UI
    ([ADR-0006](0006-temporal.md)), and the MinIO console (non-prod).
 
-Until now these were addressed ad hoc: most product and ops surfaces shared **one origin** (`<env-host>`) and were
-separated only by URL path (`/grafana`, `/internal/admin`, `/api/*`). That has two problems the team hit in practice:
+Serving both tiers as URL paths on one shared origin (`<env-host>/grafana`, `/internal/admin`, `/api/*`) has two
+disqualifying problems:
 
 - **No browser-level isolation between tiers.** Path segments on one origin share cookies, `localStorage`, and the DOM.
   A flaw in code we do not control (a Hubble/Grafana XSS, a dangling-subdomain takeover) executes in the **same origin**
@@ -61,7 +61,7 @@ split into exactly two tiers:
 
 | Tier        | Origin                 | What lives there                                                                 |
 |-------------|------------------------|----------------------------------------------------------------------------------|
-| **Product** | `<host>` (apex)        | Next.js app — landing, `/auth/*`, `panel`/`admin`/`devportal`; `/api/<svc>/*`; `/api/observability/faro` |
+| **Product** | `<host>` (apex)        | Next.js app — landing, `/auth/*`, `panel`/`devportal`; `/api/<svc>/*`; `/api/observability/faro` |
 | **Ops**     | `*.ops.<host>`         | one origin per operator tool (table below)                                       |
 
 The Next.js app is the **whole product origin**: it serves the public landing page and the authenticated route groups,
@@ -128,27 +128,35 @@ surface, at one of two enforcement points split by **who owns the code**:
   only authenticates. Page-level access to `/admin` is a `Checker.Allowed` call in the RSC layer, not a bare session
   check.
 - **Ops dashboards are third-party → the edge decides.** Hubble, Grafana, Argo CD, Temporal, the MinIO console, and the
-  Lowdefy console cannot run a permission check themselves, so authorization moves to the ops-tier Oathkeeper. Its
-  authorizer is **not** `allow`: each ops route uses the `remote_json` authorizer to call the same SpiceDB `Checker`,
-  modelling each tool as a resource:
+  Lowdefy console cannot run a permission check themselves, so authorization moves to the ops-tier Oathkeeper, in two
+  layers:
 
-  ```zed
-  definition dashboard {
-    relation viewer: user | group#member
-    permission view = viewer
-  }
-  ```
+  - **Coarse gate (mandatory) — a claim, not a `Checker` call.** The whole ops tier is gated on the operator's identity:
+    the ops-tier forward-auth requires `X-Roles` to contain `operator` (the `operator` trait on the Kratos identity,
+    injected as a header per [ADR-0010](0010-auth.md)) **and** an **AAL2 session** (operator MFA). This decision reads
+    only the authenticated session and its claims — it makes **no SpiceDB call**. That is deliberate: the ops dashboards
+    are how an operator debugs an outage, so their coarse gate must not share fate with the product authorization plane.
+    A SpiceDB or authz-endpoint outage must not lock every operator out of Grafana/Hubble/Argo. Losing SpiceDB degrades
+    the ops tier to "any operator reaches any tool," not "nobody reaches anything."
 
-  A request to `grafana.ops.<host>` checks `view` on `dashboard:grafana`; `hubble.ops.<host>` checks `dashboard:hubble`.
-  Granting `dashboard:admin#viewer@user:alice` **without** a `dashboard:hubble` tuple gives Alice the admin console but
-  not Hubble — per-tool, per-user, revocable, inheritable through `group`/`org` relations.
+  - **Fine gate (optional) — per-tool `remote_json` → SpiceDB `Checker`.** When per-tool grants are wanted (`alice: Grafana
+    but not Hubble`), each ops route adds the `remote_json` authorizer calling the SpiceDB `Checker`, modelling each tool
+    as a resource:
 
-Coarse-then-fine: an `operator` group gates the **whole** ops tier (a non-operator gets nothing), and per-`dashboard`
-grants refine within it. The ops tier additionally requires an **AAL2 session** (operator MFA,
-[ADR-0010](0010-auth.md)) — the operator's second factor is enforced at the ops-tier forward-auth, independent of the
-product tier (where B2C MFA stays optional). The current `"authorizer": { "handler": "allow" }` on every dashboard rule
-is the gap this closes. The edge decision still flows through the SpiceDB `Checker`, so [ADR-0010](0010-auth.md)'s "every
-permission decision goes through `Checker`" holds.
+    ```zed
+    definition dashboard {
+      relation viewer: user | group#member
+      permission view = viewer
+    }
+    ```
+
+    A request to `grafana.ops.<host>` then also checks `view` on `dashboard:grafana`. For 3–8 operators this fine layer
+    is typically deferrable, so the `dashboard` resource and its `remote_json` wiring are optional day-one, not required.
+
+The coarse claim gate is the load-bearing one; the fine per-tool layer refines within it when a project needs it. Product
+surfaces are unaffected: they authorize in-app/in-service through the SpiceDB `Checker` ([ADR-0010](0010-auth.md)), so
+"every product permission decision goes through `Checker`" still holds — only the ops tier's coarse gate is intentionally
+a claim, for break-glass independence.
 
 ### Certificates & DNS
 
@@ -187,20 +195,18 @@ permission decision goes through `Checker`" holds.
   origin is first-party; per-tool authz + operator AAL2 + product CSP are the compensating controls, and the OIDC
   upgrade closes it if needed.
 - **Subdomain-takeover hygiene** matters more: dangling `*.ops.<host>` DNS must not be left claimable.
-- **Migration churn:** existing `/grafana`, `/internal/admin`, and the recently-added `hubble.<host>` URLs all move;
-  docs, bookmarks, and the redirect handler change.
 
 ### Follow-ups
 
-- Implement the product/ops split in `infra/gateway` (host-parameterised ops IngressRoutes), the per-tool chart values
-  (Grafana/Argo/Temporal base-path off; Hubble already root), and the cert-manager Certificate (two wildcards).
-- Switch every ops dashboard authorizer from `allow` to `remote_json` → SpiceDB `Checker`; add the `operator` group and
-  `dashboard` resource to `infra/auth/spicedb/schema.zed`; enforce **AAL2** on the ops-tier forward-auth.
-- Keep the default parent-scoped cookie. *Optional hardening:* stand up the ops-tier OIDC proxy (Hydra) for token
-  isolation — required only if a non-first-party origin is ever hosted under `<host>`.
-- Move `hubble.<host>` → `hubble.ops.<host>` (supersedes the [ADR-0003](0003-cluster-topology.md) hubble-subdomain note
-  and the work recorded in this session).
-- Update `docs/dev-loop.md`, ADR-0003/0009/0011/0012 endpoint references, and the `scripts/cluster-full.sh` banner.
+- The product/ops split lives in `infra/gateway` (host-parameterised ops IngressRoutes), the per-tool chart values
+  (Grafana/Argo/Temporal base-path off; Hubble root), and the cert-manager Certificate (two wildcards).
+- The ops-tier forward-auth enforces the coarse **`operator` claim + AAL2** gate (no SpiceDB call). The `operator` trait
+  is declared on the Kratos identity schema and injected as `X-Roles` ([ADR-0010](0010-auth.md)). The optional fine
+  per-tool layer adds `remote_json` → SpiceDB `Checker` with a `dashboard` resource in `infra/auth/spicedb/schema.zed`.
+- The default session cookie is parent-scoped. *Optional hardening:* an ops-tier OIDC proxy (Hydra) for token isolation,
+  required only if a non-first-party origin is ever hosted under `<host>`.
+- Break-glass recovery for a full auth-plane outage is `docs/ops/break-glass.md` (`kubectl port-forward` with an
+  independently-obtained kubeconfig), cross-linked from the `scripts/cluster-full.sh` banner.
 
 ## Rules
 
@@ -216,6 +222,8 @@ permission decision goes through `Checker`" holds.
 - Splitting the cookie (product host-only on the apex + an `ops.<host>` cookie minted via OIDC) is the optional token-
   isolation upgrade, and is **mandatory** if any non-first-party origin is hosted under `<host>`.
 - Each environment provisions both `*.<host>` and `*.ops.<host>` certificates.
-- Third-party operator dashboards are authorized **per-tool at the edge** by Oathkeeper's `remote_json` authorizer
-  against the SpiceDB `Checker` (`dashboard:<tool>#view`), never `allow`. Product surfaces authorize in-app/in-service
-  through `libs/go/authz` ([ADR-0010](0010-auth.md)); a bare authenticated session never grants tool access.
+- The ops tier's coarse gate is a **claim, not a `Checker` call**: the ops-tier forward-auth requires `X-Roles` to
+  contain `operator` plus an **AAL2** session, and makes no SpiceDB call — so the debugging surface does not share fate
+  with the product authorization plane. Optional per-tool refinement adds Oathkeeper's `remote_json` authorizer against
+  the SpiceDB `Checker` (`dashboard:<tool>#view`). Product surfaces authorize in-app/in-service through `libs/go/authz`
+  ([ADR-0010](0010-auth.md)); a bare authenticated session never grants ops-tool access.

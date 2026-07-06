@@ -1,7 +1,7 @@
 # ADR-0008: API Contracts & Codegen
 
 - **Status:** Accepted
-- **Date:** 2026-05-19
+- **Date:** 2026-07-06
 - **Deciders:** Platform team
 - **Related:** [ADR-0001](0001-language-and-runtime.md), [ADR-0009](0009-api-gateway.md)
 
