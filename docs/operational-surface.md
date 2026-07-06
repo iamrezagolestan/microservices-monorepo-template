@@ -30,6 +30,7 @@ writing an ADR that shows the floor already covers its concern.
 | Kratos | Identity / authentication | [0010](adr/0010-auth.md) |
 | Oathkeeper | Edge authorization (forward-auth) | [0009](adr/0009-api-gateway.md), [0010](adr/0010-auth.md) |
 | sops-operator | Secret decryption | [0005](adr/0005-secrets.md) |
+| Kyverno | Admission policy (image signatures, digest pins) | [0021](adr/0021-supply-chain-security.md) |
 | SpiceDB | Authorization (ReBAC) | [0010](adr/0010-auth.md) |
 | Temporal | Durable execution | [0006](adr/0006-temporal.md) |
 | Loki | Log storage | [0011](adr/0011-observability.md) |
@@ -60,8 +61,8 @@ same pattern as `hydra_thirdparty`.
 |---|---|---|
 | Hydra | OAuth2 provider for third-party API clients | [0010](adr/0010-auth.md) |
 | Lowdefy admin | Internal ops CRUD over the Go API | [0012](adr/0012-internal-admin.md) |
-| Headlamp | Read-mostly Kubernetes debug UI | [0017](adr/0017-url-and-domain-structure.md) |
-| pgAdmin | Read-only DB inspector (break-glass) | [0012](adr/0012-internal-admin.md) |
+| Headlamp | Read-mostly Kubernetes debug UI | [0024](adr/0024-kubernetes-debug-ui.md) |
+| pgweb | Read-only DB inspector (break-glass, Go single-binary) | [0012](adr/0012-internal-admin.md) |
 | Pyroscope + eBPF profiler | Continuous profiling | `profiling` flag, [0011](adr/0011-observability.md) |
 
 ## Budget rule

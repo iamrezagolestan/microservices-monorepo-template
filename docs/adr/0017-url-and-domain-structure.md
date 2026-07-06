@@ -78,6 +78,8 @@ shared `ops.` label.
 | Argo CD                    | `argo.ops.<host>`         | replaces port-forward access                       |
 | Temporal Web UI            | `temporal.ops.<host>`     | replaces port-forward access                       |
 | Lowdefy internal admin     | `admin.ops.<host>`        | the sole admin surface; the product frontend has no `/admin` route group |
+| Headlamp (k8s debug UI)    | `k8s.ops.<host>`          | Opt-in, read-only by default ([ADR-0024](0024-kubernetes-debug-ui.md))    |
+| pgweb (DB inspector)       | `db.ops.<host>`           | Opt-in, read-only, **non-prod** ([ADR-0012](0012-internal-admin.md))      |
 | MinIO console              | `minio.ops.<host>`        | **non-prod only** ([ADR-0016](0016-environment-parity.md))         |
 
 Names follow [ADR-0015](0015-naming-and-identifiers.md)'s charset (`^[a-z][a-z0-9-]*$`, hyphen within a segment, never

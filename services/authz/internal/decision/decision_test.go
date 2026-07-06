@@ -9,11 +9,17 @@ import (
 	"testing"
 )
 
-// fakeChecker returns canned answers keyed by "permission resource".
-type fakeChecker map[string]bool
+// fakeChecker returns canned answers keyed by "permission resource". It also
+// records whether it was called, so tests can assert the coarse gate never
+// touches SpiceDB.
+type fakeChecker struct {
+	answers map[string]bool
+	called  bool
+}
 
-func (f fakeChecker) Allowed(_ context.Context, _, permission, resource string) (bool, error) {
-	return f[permission+" "+resource], nil
+func (f *fakeChecker) Allowed(_ context.Context, _, permission, resource string) (bool, error) {
+	f.called = true
+	return f.answers[permission+" "+resource], nil
 }
 
 func post(t *testing.T, h *Handler, body string) int {
@@ -30,24 +36,24 @@ func post(t *testing.T, h *Handler, body string) int {
 	return rec.Code
 }
 
-func TestAuthorize(t *testing.T) {
+// The coarse gate is a claim check: operator trait + AAL2, and — critically — no
+// SpiceDB call, so a product-authz outage cannot lock operators out (ADR-0017).
+func TestCoarseClaimGate(t *testing.T) {
 	t.Parallel()
-	// alice: operator + grafana grant, AAL2. bob: not an operator.
-	checker := fakeChecker{
-		"member group:operator":  true,
-		"view dashboard:grafana": true,
-	}
-	h := New(checker, nil)
+	checker := &fakeChecker{}
+	h := New(checker, false, nil) // coarse-only (fine layer off)
 
 	cases := []struct {
 		name string
 		body string
 		want int
 	}{
-		{"operator with grant", `{"subject":"alice","tool":"grafana","aal":"aal2"}`, http.StatusOK},
-		{"operator without this grant", `{"subject":"alice","tool":"hubble","aal":"aal2"}`, http.StatusForbidden},
-		{"operator but only aal1", `{"subject":"alice","tool":"grafana","aal":"aal1"}`, http.StatusForbidden},
-		{"anonymous", `{"subject":"","tool":"grafana","aal":"aal2"}`, http.StatusForbidden},
+		{"operator + aal2", `{"subject":"alice","tool":"grafana","aal":"aal2","operator":"true"}`, http.StatusOK},
+		{"operator + aal2, any tool", `{"subject":"alice","tool":"hubble","aal":"aal2","operator":"true"}`, http.StatusOK},
+		{"operator but aal1", `{"subject":"alice","tool":"grafana","aal":"aal1","operator":"true"}`, http.StatusForbidden},
+		{"aal2 but not operator", `{"subject":"bob","tool":"grafana","aal":"aal2","operator":"false"}`, http.StatusForbidden},
+		{"operator trait absent", `{"subject":"bob","tool":"grafana","aal":"aal2"}`, http.StatusForbidden},
+		{"anonymous", `{"subject":"","tool":"grafana","aal":"aal2","operator":"true"}`, http.StatusForbidden},
 		{"malformed json", `not json`, http.StatusBadRequest},
 	}
 	for _, tc := range cases {
@@ -62,20 +68,36 @@ func TestAuthorize(t *testing.T) {
 			},
 		)
 	}
+
+	if checker.called {
+		t.Fatal("coarse gate called SpiceDB; it must not (break-glass independence, ADR-0017)")
+	}
 }
 
-func TestNonOperatorDenied(t *testing.T) {
+// The optional fine gate adds a per-tool SpiceDB check on top of the coarse gate.
+func TestFineGrainedGate(t *testing.T) {
 	t.Parallel()
-	h := New(fakeChecker{"view dashboard:grafana": true}, nil) // grant but not operator
-	got := post(t, h, `{"subject":"bob","tool":"grafana","aal":"aal2"}`)
-	if got != http.StatusForbidden {
-		t.Fatalf("non-operator status = %d, want 403", got)
+	// alice holds grafana but not hubble.
+	h := New(&fakeChecker{answers: map[string]bool{"view dashboard:grafana": true}}, true, nil)
+
+	granted := post(t, h, `{"subject":"alice","tool":"grafana","aal":"aal2","operator":"true"}`)
+	if granted != http.StatusOK {
+		t.Fatalf("granted tool status = %d, want 200", granted)
+	}
+	ungranted := post(t, h, `{"subject":"alice","tool":"hubble","aal":"aal2","operator":"true"}`)
+	if ungranted != http.StatusForbidden {
+		t.Fatalf("ungranted tool status = %d, want 403", ungranted)
+	}
+	// The coarse gate still applies first: a non-operator is denied before the fine check.
+	nonOperator := post(t, h, `{"subject":"bob","tool":"grafana","aal":"aal2","operator":"false"}`)
+	if nonOperator != http.StatusForbidden {
+		t.Fatalf("non-operator status = %d, want 403", nonOperator)
 	}
 }
 
 func TestMethodNotAllowed(t *testing.T) {
 	t.Parallel()
-	h := New(fakeChecker{}, nil)
+	h := New(&fakeChecker{}, false, nil)
 	req := httptest.NewRequestWithContext(
 		context.Background(),
 		http.MethodGet,

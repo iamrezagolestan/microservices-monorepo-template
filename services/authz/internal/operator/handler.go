@@ -1,6 +1,7 @@
 // Package operator exposes POST /admin/operators for the Lowdefy admin console
-// (ADR-0012). One call creates a Kratos identity and grants group:operator#member
-// in SpiceDB so the new user can reach all ops-tier dashboards immediately.
+// (ADR-0012). One call creates a Kratos identity carrying the `operator` trait —
+// the coarse ops-tier claim gate (ADR-0017) — and also grants group:operator#member
+// in SpiceDB to seed the optional fine per-tool layer.
 package operator
 
 import (
@@ -87,7 +88,8 @@ type kratosIdentityBody struct {
 }
 
 type kratosTraits struct {
-	Email string `json:"email"`
+	Email    string `json:"email"`
+	Operator bool   `json:"operator"`
 }
 
 type kratosCredentials struct {
@@ -112,7 +114,7 @@ type kratosAddress struct {
 func (h *Handler) createKratosIdentity(ctx context.Context, email, password string) (string, error) {
 	payload := kratosIdentityBody{
 		SchemaID: "user_v1",
-		Traits:   kratosTraits{Email: email},
+		Traits:   kratosTraits{Email: email, Operator: true},
 		Credentials: kratosCredentials{
 			Password: kratosPasswordCredential{
 				Config: kratosPasswordConfig{Password: password},

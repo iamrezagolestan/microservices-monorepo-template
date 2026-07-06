@@ -167,16 +167,22 @@ cat <<EOF
 
 ✓ cluster:full up (ArgoCD-driven from master).
   Product (Traefik):  https://${DOMAIN}:8443/api/<service>/   (self-signed TLS)
-  Ops tier (ADR-0017, one origin per tool, AAL2 operator session required):
+  Ops tier (ADR-0017; coarse gate = operator claim + AAL2, no SpiceDB call):
     Grafana:          https://grafana.ops.${DOMAIN}:8443/
     Hubble UI:        https://hubble.ops.${DOMAIN}:8443/
     Temporal UI:      https://temporal.ops.${DOMAIN}:8443/
     MinIO console:    https://minio.ops.${DOMAIN}:8443/  (login: minio / minio-password)
     Lowdefy console:  https://admin.ops.${DOMAIN}:8443/
     ArgoCD:           https://argo.ops.${DOMAIN}:8443/
+    Opt-in (off by default — enable in the local overlay, ADR-0024 / ADR-0012):
+    Headlamp (k8s):   https://k8s.ops.${DOMAIN}:8443/   (read-only debug UI)
+    pgweb (DB):       https://db.ops.${DOMAIN}:8443/    (read-only DB inspector)
   Frontend:           run it natively on :3000 (the frontend-dev EndpointSlice
                       routes /auth + landing to the host).
   Diagnose:           argocd --core --kube-context k3d-${CLUSTER} app get <app>
                       UI: kubectl -n argocd port-forward svc/argocd-server 8080:443
+  Break-glass:        auth plane down? reach any tool via kubectl port-forward with
+                      your kubeconfig — the sanctioned bypass (docs/ops/break-glass.md),
+                      e.g. kubectl -n platform port-forward svc/grafana 3000:80
   Teardown:           mise run cluster:stop  (keep cache) / cluster:delete (delete)
 EOF

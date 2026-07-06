@@ -65,10 +65,12 @@ This cuts two ways:
 
 - **Lowdefy is correct only pointed at the API.** It does server-side request payloads against the service REST
   endpoints; that is the write path. Direct Postgres connections exist only as a **read-only** escape hatch.
-- **pgAdmin / `psql` are read-only, break-glass only.** They can *only* speak raw SQL, so they can never be the write
+- **pgweb / `psql` are read-only, break-glass only.** They can *only* speak raw SQL, so they can never be the write
   path — they are the exact backdoor this invariant forbids, and they cannot trigger workflows. They are sanctioned as a
   break-glass **DB inspector** (SELECTs during an incident), never a mutation surface, and are enforced read-only at the
-  database-role level, not by convention.
+  database-role level, not by convention. The web inspector is **pgweb** (a single Go binary, stateless, `--readonly`
+  mode) rather than pgAdmin — pgAdmin is a stateful Python app against this repo's single-binary toolchain philosophy
+  ([ADR-0001](0001-language-and-runtime.md)); pgweb fits the same "one stateless container" shape as Lowdefy.
 
 ### Tool: Lowdefy
 
@@ -228,9 +230,9 @@ Connection credentials are sourced from External Secrets ([ADR-0005](0005-secret
   Helm values.
 - Traefik `Host(admin.ops.<host>)` IngressRoute in `infra/gateway/` plus the ops-tier Oathkeeper forward-auth
   (`operator` claim + AAL2), including identity-header forwarding ([ADR-0017](0017-url-and-domain-structure.md)).
-- pgAdmin as a flag-gated **Opt-in** ops component (`docs/operational-surface.md`), read-only DB inspector at
-  `pgadmin.ops.<host>` in non-prod, wired to the per-service read-only Postgres roles — a break-glass viewer, never a
-  write path.
+- pgweb as a flag-gated **Opt-in** ops component (`docs/operational-surface.md`), read-only DB inspector at
+  `db.ops.<host>` in non-prod, run with `--readonly` and wired to the per-service read-only Postgres roles — a
+  break-glass viewer, never a write path.
 
 ## Rules
 
@@ -242,9 +244,9 @@ Connection credentials are sourced from External Secrets ([ADR-0005](0005-secret
 - **Every admin mutation goes through the service Go API, never raw SQL** — the API enforces domain invariants, performs
   the SpiceDB dual-write ([ADR-0010](0010-auth.md)), and can trigger workflows ([ADR-0006](0006-temporal.md)). A raw-SQL
   write desyncs SpiceDB and bypasses every invariant, and is forbidden.
-- Direct Postgres connections (Lowdefy's `Knex`, and pgAdmin/`psql`) are **read-only**, used only for inspection the
-  REST API cannot serve, and enforced read-only at the database-role level — not by convention. pgAdmin is a flag-gated
-  Opt-in break-glass inspector, never a mutation surface.
+- Direct Postgres connections (Lowdefy's `Knex`, and pgweb/`psql`) are **read-only**, used only for inspection the
+  REST API cannot serve, and enforced read-only at the database-role level — not by convention. pgweb (Go single-binary,
+  `--readonly`) is a flag-gated Opt-in break-glass inspector, never a mutation surface.
 - Lowdefy's built-in auth/sessions are not used. MongoDB is not deployed for Lowdefy.
 - The admin console is served at `admin.ops.<host>` behind the ops-tier forward-auth: coarse gate is the `operator`
   claim + AAL2 (no SpiceDB call), fine-grained authorization is the SpiceDB `Checker` inside the service APIs the pages

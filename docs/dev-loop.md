@@ -159,27 +159,36 @@ matches longest-prefix, so the specific routes below win over the `/` catch-all.
 | URL                                                            | What it gives you                     | Auth           | Defined in                                       |
 |----------------------------------------------------------------|---------------------------------------|----------------|--------------------------------------------------|
 | `/`                                                            | Landing page (host-run `next dev`)    | public         | `infra/local/edge-auth.yaml`                     |
-| `/panel`, `/admin`, `/devportal`                               | Frontend authenticated areas          | Kratos session | `apps/frontend/src/proxy.ts`                     |
+| `/panel`, `/devportal`                                         | Frontend authenticated areas          | Kratos session | `apps/frontend/src/proxy.ts`                     |
 | `/auth/login`, `/auth/registration`, …                         | Kratos UI pages (host-run `next dev`) | public         | `infra/local/edge-auth.yaml`                     |
 | `/auth/self-service`, `/auth/.well-known`, `/auth/sessions`    | Kratos public API                     | public         | `infra/local/edge-auth.yaml`                     |
 | `/api/catalog/`, `/api/orders/`, `/api/orgs/`, `/api/payment/` | Service APIs through the edge         | Oathkeeper     | `infra/helm/service/templates/ingressroute.yaml` |
 | `/api/observability/faro`                                      | Faro/RUM browser-telemetry ingest     | public         | `infra/gateway/frontend-observability.yaml`      |
 
 The **ops tier** (ADR-0017) is a separate origin per operator dashboard under
-`*.ops.<host>` — never a product path. Each requires an authorized (AAL2 operator)
-session; a bare login does not grant tool access.
+`*.ops.<host>` — never a product path. The **coarse gate** is a claim, not a
+SpiceDB call: the ops forward-auth requires the `operator` trait **and** an AAL2
+session, and makes no `Checker` call, so the debugging surface never shares fate
+with the product authz plane ([docs/ops/break-glass.md](ops/break-glass.md)). A
+bare login does not grant tool access. Per-tool `dashboard:<tool>#view` grants are
+the **optional fine layer** (`OPS_FINE_GRAINED`), off by default.
 
 The local edge is published on the unprivileged port **`:8443`** (see the URLs
 below); deployed envs terminate on standard `443` and omit the port.
 
-| Ops URL                                       | Tool                                      | Auth                                                                             | Defined in                         |
-|-----------------------------------------------|-------------------------------------------|----------------------------------------------------------------------------------|------------------------------------|
-| `https://grafana.ops.dev.localtest.me:8443/`  | **Grafana** — metrics/logs/traces         | Oathkeeper (`dashboard:grafana#view`)                                            | `infra/gateway/ingressroutes.yaml` |
-| `https://hubble.ops.dev.localtest.me:8443/`   | Cilium **Hubble UI** — network-flow map   | Oathkeeper (`dashboard:hubble#view`)                                             | `infra/gateway/ingressroutes.yaml` |
-| `https://temporal.ops.dev.localtest.me:8443/` | **Temporal Web UI**                       | Oathkeeper (`dashboard:temporal#view`)                                           | `infra/gateway/ingressroutes.yaml` |
-| `https://minio.ops.dev.localtest.me:8443/`    | **MinIO console** (non-prod)              | Oathkeeper (`dashboard:minio#view`), then MinIO login `minio` / `minio-password` | `infra/gateway/ingressroutes.yaml` |
-| `https://admin.ops.dev.localtest.me:8443/`    | **Lowdefy** admin console                 | Oathkeeper (`dashboard:admin#view`)                                              | `infra/gateway/ingressroutes.yaml` |
-| `https://argo.ops.dev.localtest.me:8443/`     | **Argo CD**                               | Oathkeeper (`dashboard:argo#view`)                                               | `infra/gateway/ingressroutes.yaml` |
+The **Auth** column shows the always-on coarse gate (`operator` claim + AAL2); the
+optional per-tool `dashboard:<tool>#view` fine layer is off by default.
+
+| Ops URL                                       | Tool                                         | Auth                                          | Defined in                         |
+|-----------------------------------------------|----------------------------------------------|-----------------------------------------------|------------------------------------|
+| `https://grafana.ops.dev.localtest.me:8443/`  | **Grafana** — metrics/logs/traces            | operator + AAL2                               | `infra/gateway/ingressroutes.yaml` |
+| `https://hubble.ops.dev.localtest.me:8443/`   | Cilium **Hubble UI** — network-flow map      | operator + AAL2                               | `infra/gateway/ingressroutes.yaml` |
+| `https://temporal.ops.dev.localtest.me:8443/` | **Temporal Web UI**                          | operator + AAL2                               | `infra/gateway/ingressroutes.yaml` |
+| `https://minio.ops.dev.localtest.me:8443/`    | **MinIO console** (non-prod)                 | operator + AAL2, then `minio` / `minio-password` | `infra/gateway/ingressroutes.yaml` |
+| `https://admin.ops.dev.localtest.me:8443/`    | **Lowdefy** admin console                    | operator + AAL2                               | `infra/gateway/ingressroutes.yaml` |
+| `https://argo.ops.dev.localtest.me:8443/`     | **Argo CD**                                  | operator + AAL2                               | `infra/gateway/ingressroutes.yaml` |
+| `https://k8s.ops.dev.localtest.me:8443/`      | **Headlamp** — k8s debug UI (opt-in, r/o)    | operator + AAL2                               | opt-in ([ADR-0024](adr/0024-kubernetes-debug-ui.md)) |
+| `https://db.ops.dev.localtest.me:8443/`       | **pgweb** — read-only DB inspector (opt-in)  | operator + AAL2                               | opt-in ([ADR-0012](adr/0012-internal-admin.md))      |
 
 Grafana trusts the Oathkeeper edge and serves anonymously (its login form is
 disabled, `auth.anonymous` Admin) — an operator who clears the edge lands straight
@@ -194,7 +203,10 @@ credentials — the pre-seeded root user `minio` / `minio-password`.
 
 `cluster:full` brings up the whole platform (edge, services, observability,
 console); Argo CD itself is installed imperatively for the local full tier and is
-reachable at `argo.ops.<host>` like the other dashboards.
+reachable at `argo.ops.<host>` like the other dashboards. The two **opt-in** ops
+tools — Headlamp (`k8s.ops`) and pgweb (`db.ops`) — are off by default
+([docs/operational-surface.md](operational-surface.md)); enable them in the local
+values overlay when you want them, and they appear at their origins above.
 
 ### Login flow
 
