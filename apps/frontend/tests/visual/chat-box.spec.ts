@@ -99,7 +99,7 @@ function registerEditingBehaviorTests() {
 }
 
 function registerActionBehaviorTests() {
-  test("shows tooltips above the container", async ({ page }) => {
+  test("shows tooltips close to their trigger", async ({ page }) => {
     const chatBox = page.getByTestId("chatbox-desktop-empty");
     const sendButton = chatBox.getByRole("button", { name: "Send" });
     await chatBox.locator("textarea").fill(editText);
@@ -107,12 +107,14 @@ function registerActionBehaviorTests() {
     await sendButton.hover();
     const tooltip = page.getByRole("tooltip");
     await expect(tooltip).toContainText("Send");
-    const chatBoxBounds = await chatBox.boundingBox();
+    const sendButtonBounds = await sendButton.boundingBox();
     const tooltipBounds = await tooltip.boundingBox();
-    expect(chatBoxBounds).not.toBeNull();
+    expect(sendButtonBounds).not.toBeNull();
     expect(tooltipBounds).not.toBeNull();
     const tooltipBottom = (tooltipBounds?.y ?? 0) + (tooltipBounds?.height ?? 0);
-    expect(tooltipBottom).toBeLessThanOrEqual(chatBoxBounds?.y ?? 0);
+    const tooltipGap = (sendButtonBounds?.y ?? 0) - tooltipBottom;
+    expect(tooltipGap).toBeGreaterThan(0);
+    expect(tooltipGap).toBeLessThanOrEqual(8);
     expect(tooltipBounds?.y).toBeGreaterThanOrEqual(0);
   });
 

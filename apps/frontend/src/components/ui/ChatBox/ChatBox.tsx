@@ -3,9 +3,10 @@
 import { Attachment01, File01, Folder, Paperclip, Send03, Stars01, Stop } from "@untitledui/icons";
 import type { ChangeEvent, ChangeEventHandler, FC, Ref, RefObject } from "react";
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { cx, sortCx } from "@/utils/cx";
+import { cx } from "@/utils/cx";
 import { Button } from "../../base/button/button";
 import { TextAreaBase } from "../../base/textArea/textArea";
+import { Tooltip, TooltipTrigger } from "../../base/tooltip/tooltip";
 
 type ButtonIcon = FC<{ className?: string; "data-icon"?: string }>;
 
@@ -46,24 +47,19 @@ function ActionButton({
   tooltip: string;
 }) {
   return (
-    <div className="group/chat-action relative z-10">
-      <Button
+    <Tooltip title={tooltip} placement="top" isDisabled={isDisabled}>
+      <TooltipTrigger
         aria-label={ariaLabel}
-        color="tertiary"
-        iconLeading={Icon}
         isDisabled={isDisabled}
-        noTextPadding
         onPress={onPress}
-        size="sm"
-        className="size-9 p-2 *:data-icon:text-fg-quaternary hover:*:data-icon:text-fg-quaternary_hover"
-      />
-      <span
-        role="tooltip"
-        className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-6 hidden -translate-x-1/2 rounded-lg bg-primary-solid px-3 py-2 text-xs font-semibold text-white shadow-lg group-hover/chat-action:block"
+        className="group relative inline-flex size-9 cursor-pointer items-center justify-center gap-1 rounded-lg p-2 text-blue-500 outline-focus-ring transition duration-100 ease-linear hover:text-blue-700 focus:ring-0 focus:shadow-none focus-visible:shadow-none disabled:cursor-not-allowed disabled:text-neutral-300 *:data-icon:pointer-events-none *:data-icon:size-5 *:data-icon:shrink-0 *:data-icon:text-fg-quaternary *:data-icon:transition-inherit-all hover:*:data-icon:text-fg-quaternary_hover disabled:*:data-icon:text-neutral-300"
       >
-        {tooltip}
-      </span>
-    </div>
+        <Icon
+          className="pointer-events-none size-5 shrink-0 text-fg-quaternary transition-inherit-all"
+          data-icon="leading"
+        />
+      </TooltipTrigger>
+    </Tooltip>
   );
 }
 
