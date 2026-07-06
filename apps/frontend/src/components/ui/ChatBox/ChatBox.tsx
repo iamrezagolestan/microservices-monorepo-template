@@ -107,7 +107,7 @@ function AttachmentPreview({ attachments }: { attachments: ChatAttachment[] }) {
   return (
     <div
       data-slot="attachment-preview"
-      className="relative w-full overflow-hidden rounded-xl bg-tertiary"
+      className="relative w-full overflow-hidden rounded-xl bg-tertiary p-1"
     >
       <div className="flex items-center justify-end gap-2 p-0 bg-primary" dir="ltr">
         {attachments.map((attachment) => {
@@ -131,7 +131,7 @@ function ChatBoxActions({
   const SendIcon = isLoading ? Stop : Send03;
 
   return (
-    <div className="flex shrink-0 items-center justify-end gap-4" dir="ltr">
+    <div className="flex mb-auto shrink-0 items-center justify-end gap-4" dir="ltr">
       <ActionButton
         aria-label={isLoading ? "Stop" : "Send"}
         icon={SendIcon}
@@ -328,26 +328,25 @@ export function ChatBox({
   const containerState = useChatBoxContainerState({ hasAttachments, isExpanded, isLoading });
 
   return (
-    <div className="flex w-full flex-col gap-2">
+    <div className="flex w-full flex-col bg-primary rounded-xl">
       <AttachmentPreview attachments={currentAttachments} />
     <div
       data-state={containerState}
       className={cx(
-        "w-full overflow-visible rounded-xl border-brand-100 bg-primary_hover backdrop-blur-[47.8px] dark:border-black dark:bg-surface-primary",
-        containerState === "default" && "border-r-[1.5px] border-solid p-5",
+        "w-full overflow-visible p-5 rounded-xl border-brand-100 bg-primary_hover backdrop-blur-[47.8px] dark:border-black dark:bg-surface-primary",
+        containerState === "default" && "border-r-[1.5px] border-solid",
         containerState === "loading" && "h-16 bg-transparent",
-        containerState === "attachments" && "p-5",
         className,
       )}
     >
       <div
         dir="ltr"
         className={cx(
-          "flex w-full items-center justify-between",
+          "flex w-full items-center justify-between gap-1.5",
           containerState === "loading" && "h-16 rounded-xl bg-primary_hover p-5 dark:bg-surface-primary",
           containerState === "default" && "p-0",
           (containerState === "expanded" || containerState === "attachments") &&
-            "items-start gap-10 rounded-xl bg-primary_hover pb-2 pl-5 pr-1 pt-5 dark:bg-surface-primary",
+            "p-0",
         )}
       >
         <ChatBoxActions isLoading={isLoading} onAttach={handleAttachClick} sendDisabled={sendDisabled} />
