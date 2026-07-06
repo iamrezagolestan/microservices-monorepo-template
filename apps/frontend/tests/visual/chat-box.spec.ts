@@ -40,7 +40,11 @@ function registerScreenshotTests() {
     for (const state of desktopStates) {
       test(`capture ${theme} desktop ${state} chat box`, async ({ page }) => {
         await setTheme(page, theme);
-        await captureChatBox(page, ["chatbox", "desktop", state].join("-"), `${theme}-desktop-${state}.png`);
+        await captureChatBox(
+          page,
+          ["chatbox", "desktop", state].join("-"),
+          `${theme}-desktop-${state}.png`,
+        );
       });
     }
   }
@@ -48,7 +52,11 @@ function registerScreenshotTests() {
   for (const state of mobileStates) {
     test(`capture light mobile ${state} chat box`, async ({ page }) => {
       await setTheme(page, "light");
-      await captureChatBox(page, ["chatbox", "mobile", state].join("-"), `light-mobile-${state}.png`);
+      await captureChatBox(
+        page,
+        ["chatbox", "mobile", state].join("-"),
+        `light-mobile-${state}.png`,
+      );
     });
   }
 }
@@ -77,7 +85,9 @@ function registerLayoutBehaviorTests() {
 }
 
 function registerEditingBehaviorTests() {
-  test("allows text editing and toggles send disabled state from trimmed content", async ({ page }) => {
+  test("allows text editing and toggles send disabled state from trimmed content", async ({
+    page,
+  }) => {
     const chatBox = page.getByTestId("chatbox-desktop-empty");
     const textarea = chatBox.locator("textarea");
     const sendButton = chatBox.getByRole("button", { name: "Send" });
@@ -147,12 +157,14 @@ function registerActionBehaviorTests() {
     expect((folderBox?.y ?? 0) - (previewBox?.y ?? 0)).toBe(7);
     expect((pdfBox?.x ?? 0) - ((folderBox?.x ?? 0) + (folderBox?.width ?? 0))).toBe(8);
     expect((fileBox?.x ?? 0) - ((pdfBox?.x ?? 0) + (pdfBox?.width ?? 0))).toBe(8);
-    expect((previewBox?.x ?? 0) + (previewBox?.width ?? 0) - ((fileBox?.x ?? 0) + (fileBox?.width ?? 0))).toBe(
-      16,
-    );
+    expect(
+      (previewBox?.x ?? 0) + (previewBox?.width ?? 0) - ((fileBox?.x ?? 0) + (fileBox?.width ?? 0)),
+    ).toBe(16);
   });
 
-  test("adds attachment preview when the attach action changes component state", async ({ page }) => {
+  test("adds attachment preview when the attach action changes component state", async ({
+    page,
+  }) => {
     const chatBox = page.getByTestId("chatbox-desktop-empty");
     await expect(chatBox.getByRole("button", { name: "File attachment" })).toHaveCount(0);
     await chatBox.getByRole("button", { name: "Attach file" }).click();
@@ -162,7 +174,9 @@ function registerActionBehaviorTests() {
 }
 
 function registerScrollBehaviorTests() {
-  test("auto-grows textarea progressively until the token max height and then scrolls", async ({ page }) => {
+  test("auto-grows textarea progressively until the token max height and then scrolls", async ({
+    page,
+  }) => {
     const textarea = page.getByTestId("chatbox-desktop-empty").locator("textarea");
     await expect(textarea).toBeVisible();
     await textarea.fill(editText);
@@ -195,7 +209,9 @@ function registerScrollBehaviorTests() {
       return {
         clientHeight: element.clientHeight,
         minHeight: Number.parseFloat(
-          getComputedStyle(document.documentElement).getPropertyValue("--size-chat-textarea-min-height"),
+          getComputedStyle(document.documentElement).getPropertyValue(
+            "--size-chat-textarea-min-height",
+          ),
         ),
         overflowY: computedStyle.overflowY,
       };
@@ -204,7 +220,9 @@ function registerScrollBehaviorTests() {
     expect(compactMetrics.overflowY).toBe("hidden");
   });
 
-  test("long chat textarea keeps right-side native scrollbar with RTL text alignment", async ({ page }) => {
+  test("long chat textarea keeps right-side native scrollbar with RTL text alignment", async ({
+    page,
+  }) => {
     const textarea = page.getByTestId("chatbox-desktop-long").locator("textarea");
     await expect(textarea).toBeVisible();
     const metrics = await textarea.evaluate((element) => {

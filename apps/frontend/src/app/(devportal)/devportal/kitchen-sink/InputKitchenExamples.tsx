@@ -6,7 +6,7 @@ import { Input } from "@/components/ui";
 
 const email = "olivia@untitledui.com";
 const label = "ایمیل";
-const inputHint = "این یک متن راهنما برای کمک به کاربر است."
+const inputHint = "این یک متن راهنما برای کمک به کاربر است.";
 const figmaInputTextClassName = "text-right";
 
 function InputPreview({ children, testId }: { children: ReactNode; testId: string }) {

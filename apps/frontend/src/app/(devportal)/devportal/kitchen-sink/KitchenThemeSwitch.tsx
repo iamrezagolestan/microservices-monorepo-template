@@ -23,7 +23,9 @@ export function KitchenThemeSwitch() {
       variant="secondary"
     >
       <div className="flex flex-row flex-nowrap items-center gap-5">
-        <div>{isDark ? <Moon01 aria-hidden="true" size={16} /> : <Sun aria-hidden="true" size={16} />}</div>
+        <div>
+          {isDark ? <Moon01 aria-hidden="true" size={16} /> : <Sun aria-hidden="true" size={16} />}
+        </div>
         <div>
           <span>{isDark ? "Dark" : "Light"}</span>
         </div>
