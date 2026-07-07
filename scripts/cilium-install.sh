@@ -24,21 +24,13 @@ SERVER_IP="$(k get node -o jsonpath='{.items[0].status.addresses[?(@.type=="Inte
 echo "→ installing Cilium (apiserver ${SERVER_IP}:6443)"
 helm dependency update infra/helm/platform/cilium >/dev/null
 
-# Local-only override: WireGuard encryption OFF (this installer runs for the local
-# tier only; prod's Cilium is Argo-managed from the chart and keeps encryption on).
-# The chart enables WireGuard transparent encryption (ADR-0003) for east-west PII
-# posture. Stacked on the local VXLAN tunnel over k3d's 1500 docker bridge, the
-# combined encapsulation overhead has no reliable MTU fit: full-size encapsulated
-# packets (a TLS handshake to the API ClusterIP) are dropped while small ones pass,
-# so controllers/pods time out under load — the local dev loop was smooth until this
-# was enabled. Encryption is a prod requirement, not a local dev-loop one, so local
-# drops it and runs the plain (working) VXLAN datapath with its auto-detected MTU.
+# Local runs the chart as-is, including WireGuard transparent encryption (ADR-0003)
+# for east-west PII posture — same datapath as prod, so no local/prod parity gap.
 h upgrade --install cilium infra/helm/platform/cilium -n kube-system \
   --set cilium.kubeProxyReplacement=false \
   --set cilium.k8sServiceHost="${SERVER_IP}" \
   --set cilium.k8sServicePort=6443 \
   --set cilium.operator.replicas=1 \
-  --set cilium.encryption.enabled=false \
   --timeout 5m
 
 echo "→ waiting for the node to go Ready (Cilium up)…"

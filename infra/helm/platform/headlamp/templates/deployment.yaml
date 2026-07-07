@@ -42,7 +42,13 @@ spec:
           imagePullPolicy: {{ .Values.headlamp.image.pullPolicy }}
           # -in-cluster uses the pod ServiceAccount; served at the origin root, so
           # no base-url prefix (its router can't run under a path — like Hubble).
-          args: ["-in-cluster"]
+          # -unsafe-use-service-account-token authenticates to the API as the pod's
+          # own `view`-bound ServiceAccount instead of prompting each user for a
+          # bearer token — the ops edge already authenticates operators via the
+          # oathkeeper coarse gate (ADR-0017), so a second Headlamp login is
+          # redundant. Read-only either way; the flag is the intended mode for
+          # Headlamp behind an external auth proxy.
+          args: ["-in-cluster", "-unsafe-use-service-account-token"]
           ports: [{ name: http, containerPort: 4466 }]
           readinessProbe: { httpGet: { path: /, port: http } }
 ---

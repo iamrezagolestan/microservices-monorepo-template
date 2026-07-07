@@ -11,6 +11,17 @@ spec:
   template:
     metadata: { labels: { app.kubernetes.io/name: pgweb } }
     spec:
+      # pgweb exits (not retries) if the DB is unreachable at startup, so on a cold
+      # bring-up it crash-loops for minutes while CNPG bootstraps. Wait for the DSN
+      # to accept connections first — pg_isready ships in the pgweb image, so this
+      # reuses it (no extra pull). Mirrors the services' dbmw startup-retry.
+      initContainers:
+        - name: wait-for-db
+          image: "{{ .Values.pgweb.image.repository }}:{{ .Values.pgweb.image.tag }}"
+          imagePullPolicy: {{ .Values.pgweb.image.pullPolicy }}
+          command: ["sh", "-c", "until pg_isready -d \"$PGWEB_DATABASE_URL\"; do echo waiting for postgres; sleep 2; done"]
+          env:
+            - { name: PGWEB_DATABASE_URL, value: {{ .Values.pgweb.databaseUrl | quote }} }
       containers:
         - name: pgweb
           image: "{{ .Values.pgweb.image.repository }}:{{ .Values.pgweb.image.tag }}"
