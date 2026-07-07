@@ -8,7 +8,7 @@ pgweb:
 
   image:
     repository: sosedoff/pgweb
-    tag: "0.16.2"
+    tag: "0.17.0"
     pullPolicy: IfNotPresent
 
   replicas: 1
