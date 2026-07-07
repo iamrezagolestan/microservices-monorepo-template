@@ -14,6 +14,10 @@ kind: ApplicationSet
 metadata:
   name: platform
   namespace: argocd
+  # No `env` label on the set itself — it spans dev/staging/prod; the env lands
+  # on each generated Application (and its AppProject) instead.
+  labels:
+    app.kubernetes.io/part-of: platform
   annotations:
     argocd.argoproj.io/sync-wave: "0"
 spec:
@@ -35,10 +39,16 @@ spec:
   template:
     metadata:
       name: "{{ .env }}-platform-{{ .path.basename }}"
+      labels:
+        env: "{{ .env }}"
+        app.kubernetes.io/part-of: platform
+        app.kubernetes.io/component: "{{ .path.basename }}"
       annotations:
         argocd.argoproj.io/sync-wave: "10"
     spec:
-      project: default
+      # One AppProject per environment (appproject.yaml), not project:default —
+      # the real grouping/tenancy boundary for these apps.
+      project: "{{ .env }}"
       source:
         repoURL: https://github.com/tabmadi/microservices-monorepo-template.git
         targetRevision: master

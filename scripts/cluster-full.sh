@@ -102,13 +102,14 @@ build_push admin apps/admin/Dockerfile apps/admin
 
 # 4. Local root App-of-Apps → Argo discovers the local appsets + apps from git.
 echo "→ applying local root application"
-k apply -f infra/gitops/bootstrap-local/root-application-local.yaml
+k apply -f infra/gitops/local-bootstrap/root-application.yaml
 
 # 5. Wait for Argo to converge with `argocd app wait` — it blocks in the
 #    foreground, streams per-resource sync/health as it changes, and exits
 #    non-zero with the offending resource the moment a sync operation fails
 #    (no silent wait to the timeout). Two phases because apps are generated
-#    asynchronously: first the root app (its 2 child apps + 2 appsets), then
+#    asynchronously: first the root app (its AppProject + 2 child apps + 2
+#    appsets), then
 #    every app the appsets produced. Appset generation lags appset sync, so the
 #    set is re-listed until stable.
 echo "→ waiting for ArgoCD to converge (this is a full platform; first run is slow)…"
@@ -136,7 +137,7 @@ wait_apps() {
   ac app wait "$@" --sync --health --operation --timeout "$timeout"
 }
 
-wait_apps 600 root-local
+wait_apps 600 local-root
 while :; do
   apps="$(ac app list -o name)"
   # shellcheck disable=SC2086  # names are newline-separated, intentional split

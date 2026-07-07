@@ -5,8 +5,12 @@ kind: Application
 metadata:
   name: root
   namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: bootstrap
   finalizers: [resources-finalizer.argocd.argoproj.io]
 spec:
+  # The hand-applied bootstrap seed stays in `default`: it creates the per-env
+  # AppProjects (appproject.yaml), so it cannot live in one of them.
   project: default
   source:
     repoURL: https://github.com/tabmadi/microservices-monorepo-template.git

@@ -17,7 +17,7 @@ The table below compares the **full-platform tier** with production — the inne
 | Secrets        | SOPS + committed local age key                             | SOPS + per-cluster age key          | yes (mechanism); plaintext no |
 | Observability  | `infra/helm/platform/observability`                        | same chart, HA                      | yes (scale differs)           |
 | Ingress        | Traefik (k3s-bundled)                                      | Traefik                             | yes                           |
-| GitOps         | ArgoCD app-of-apps from committed `master` (`infra/gitops/bootstrap-local/`) | ArgoCD            | full tier yes; inner loop no  |
+| GitOps         | ArgoCD app-of-apps from committed `master` (`infra/gitops/local-bootstrap/`) | ArgoCD            | full tier yes; inner loop no  |
 | TLS issuer     | cert-manager + self-signed ClusterIssuer                   | cert-manager + Let's Encrypt DNS-01 | mechanism yes; issuer no      |
 | LB driver      | klipper-lb                                                 | provider cloud-controller-manager   | no                            |
 | Sizing         | single replica                                             | sized for traffic                   | no                            |
@@ -26,4 +26,4 @@ The table below compares the **full-platform tier** with production — the inne
 
 **What is NOT swapped out, ever (any tier):** the Kubernetes API, the chart structure, the service images, the env contract (`DATABASE_URL`, `TEMPORAL_HOST_PORT`, OTLP endpoint, SpiceDB), and the Postgres major version.
 
-**GitOps locally:** the full tier *is* ArgoCD — `cluster:full` syncs committed `master` through the same app-of-apps prod uses (`infra/gitops/bootstrap-local/`), so sync waves and app discovery are exercised by default. To test uncommitted GitOps wiring, push a branch and point the local root-app at it — see [gitops-local.md](gitops-local.md).
+**GitOps locally:** the full tier *is* ArgoCD — `cluster:full` syncs committed `master` through the same app-of-apps prod uses (`infra/gitops/local-bootstrap/`), so sync waves and app discovery are exercised by default. To test uncommitted GitOps wiring, push a branch and point the local root-app at it — see [gitops-local.md](gitops-local.md).

@@ -5,16 +5,25 @@
 # imperative ordering that scripts/cluster-full.sh did with two-pass helm +
 # kubectl waits.
 #
+# Naming: env-prefix throughout (ADR-0004). This set is named `local-platform`
+# and every Application it generates is `local-platform-<chart>` — the env is a
+# prefix, never a suffix, and the same template drives the prod set's
+# `<env>-platform-<chart>`. Grouping is by the `local` AppProject + labels
+# (see appproject.yaml), not by parsing the name string.
+#
 # sync-wave "0" on the ApplicationSet itself (see appset-platform.yaml for why
-# this is a real gate, not a no-op) holds back gateway-local (wave "5") and
-# services-local (wave "25") until every platform component here is Synced+Healthy.
-# secrets-local shares wave "0" (it delivers Secrets these charts consume, so it
-# must run concurrently, not after — see app-secrets-local.yaml).
+# this is a real gate, not a no-op) holds back local-gateway (wave "5") and
+# local-services (wave "25") until every platform component here is Synced+Healthy.
+# local-secrets shares wave "0" (it delivers Secrets these charts consume, so it
+# must run concurrently, not after — see app-secrets.yaml).
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
-  name: platform-local
+  name: local-platform
   namespace: argocd
+  labels:
+    env: local
+    app.kubernetes.io/part-of: platform
   annotations:
     argocd.argoproj.io/sync-wave: "0"
 spec:
@@ -40,10 +49,16 @@ spec:
   template:
     metadata:
       name: "{{ .env }}-platform-{{ .path.basename }}"
+      labels:
+        env: "{{ .env }}"
+        app.kubernetes.io/part-of: platform
+        app.kubernetes.io/component: "{{ .path.basename }}"
       annotations:
         argocd.argoproj.io/sync-wave: "10"
     spec:
-      project: default
+      # Real tenancy/grouping boundary (ADR-0004): one AppProject per environment,
+      # not project:default. See appproject.yaml.
+      project: "{{ .env }}"
       source:
         repoURL: https://github.com/tabmadi/microservices-monorepo-template.git
         targetRevision: master

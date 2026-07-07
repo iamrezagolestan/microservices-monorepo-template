@@ -119,7 +119,7 @@ Oathkeeper), and the Lowdefy console.
 `cluster:full` creates the cluster, installs the two components ArgoCD cannot
 bootstrap (the CNI and ArgoCD itself), plants the SOPS age key, **builds + pushes the
 repo images (the 5 services and the Lowdefy console) to a local registry**, then
-applies a local root-app (`infra/gitops/bootstrap-local/`) that syncs committed
+applies a local root-app (`infra/gitops/local-bootstrap/`) that syncs committed
 **`master`** from the remote. Ordering, readiness, and secret materialisation are
 ArgoCD's job (sync waves), not a shell script's. Because it syncs committed `master`,
 uncommitted infra needs a push — see [cluster/gitops-local.md](cluster/gitops-local.md);

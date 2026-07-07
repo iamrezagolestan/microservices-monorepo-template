@@ -1,7 +1,7 @@
 # Local overrides for `cluster:full`, consumed the same way the ArgoCD
 # ApplicationSet consumes dev/staging/prod values (ADR-0016): local diverges from
 # prod only through this overlay, layered over each platform chart's own values.
-# Locally the local platform ApplicationSet (infra/gitops/bootstrap-local) syncs
+# Locally the local platform ApplicationSet (infra/gitops/local-bootstrap) syncs
 # these from master; ordering/readiness is Argo's job (sync-waves).
 
 # --- Cilium (CNI): k3d keeps kube-proxy, so disable kubeProxyReplacement; one

@@ -1,21 +1,25 @@
 # Local Services ApplicationSet (ADR-0004, ADR-0016). Identical to
 # bootstrap/appset-services.yaml except the list generator carries a single
 # { env: local } element and the git-files generator reads the local service
-# values (infra/gitops/services/local/values/*.yaml). One Application per service.
+# values (infra/gitops/services/local/values/*.yaml). One Application per service,
+# named `local-service-<svc>` (env-prefix; grouped by the `local` AppProject).
 # The frontend is intentionally absent locally: it runs as a host process and is
 # wired through the frontend-dev EndpointSlice (the imperative tail of cluster:full).
 #
-# sync-wave "25" holds this back until platform-local + secrets-local (both wave
-# "0") and gateway-local (wave "5") are all Synced+Healthy — the same
+# sync-wave "25" holds this back until local-platform + local-secrets (both wave
+# "0") and local-gateway (wave "5") are all Synced+Healthy — the same
 # CNI-stability/middleware/DB-credential dependencies as prod, plus the
-# per-service Secrets that secrets-local's sops-operator materialises. Without
+# per-service Secrets that local-secrets's sops-operator materialises. Without
 # this, service pods raced Cilium/CoreDNS warm-up and the local registry on
 # every `cluster:full` after a `cluster:stop`, landing in CrashLoopBackOff.
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
-  name: services-local
+  name: local-services
   namespace: argocd
+  labels:
+    env: local
+    app.kubernetes.io/part-of: services
   annotations:
     argocd.argoproj.io/sync-wave: "25"
 spec:
@@ -34,9 +38,13 @@ spec:
                 - { path: "infra/gitops/services/{{ .env }}/values/*.yaml" }
   template:
     metadata:
-      name: "{{ .env }}-svc-{{ .path.filenameNormalized }}"
+      name: "{{ .env }}-service-{{ .path.filenameNormalized }}"
+      labels:
+        env: "{{ .env }}"
+        app.kubernetes.io/part-of: services
+        app.kubernetes.io/component: "{{ .path.filenameNormalized }}"
     spec:
-      project: default
+      project: "{{ .env }}"
       source:
         repoURL: https://github.com/tabmadi/microservices-monorepo-template.git
         targetRevision: master
