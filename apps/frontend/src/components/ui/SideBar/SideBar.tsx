@@ -3,17 +3,15 @@
 import {
   AlertCircle,
   AnnotationPlus,
-  ChevronLeft,
   ChevronRight,
   ClockRewind,
   LogOut04,
-  Menu01,
   SearchSm,
   XClose,
   Zap,
 } from "@untitledui/icons";
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import logo from "@/assets/logo.svg";
 import { cx } from "@/utils/cx";
 
@@ -48,31 +46,14 @@ const defaultHistoryItems = [
   "طبیعت خیلی زیبا و خشنه و انتخاب طبیعی هم توش هست.",
 ];
 
-type Direction = "ltr" | "rtl";
-
-function useDocumentDirection() {
-  const [direction, setDirection] = useState<Direction>("rtl");
-
-  useEffect(() => {
-    const root = document.documentElement;
-    const syncDirection = () => {
-      const rootDirection = root.dir || getComputedStyle(root).direction;
-      setDirection(rootDirection === "ltr" ? "ltr" : "rtl");
-    };
-    const observer = new MutationObserver(syncDirection);
-
-    syncDirection();
-    observer.observe(root, { attributeFilter: ["dir"], attributes: true });
-
-    return () => observer.disconnect();
-  }, []);
-
-  return direction;
-}
-
 function Logo({ isExpanded }: { isExpanded: boolean }) {
   return (
-    <div className={cx("flex h-6 items-center gap-2 overflow-hidden w-full", isExpanded ? "justify-start" : "justify-center")}>
+    <div
+      className={cx(
+        "flex h-6 items-center gap-2 overflow-hidden w-full",
+        isExpanded ? "justify-start" : "justify-center",
+      )}
+    >
       <Image alt="logo" className="size-6 shrink-0" height={24} priority src={logo} width={24} />
       {isExpanded && (
         <p className="shrink-0 text-end text-xl font-bold text-primary">یونی پرامپت</p>
@@ -93,8 +74,8 @@ function TokenBadge({
   tokenCount: string;
 }) {
   const className = cx(
-    "flex h-10 items-center justify-center rounded-lg bg-primary_hover p-2",
-    isExpanded ? "w-[138px] gap-2" : "w-10",
+    "flex h-10 items-center justify-between rounded-lg bg-primary_hover p-2",
+    isExpanded ? "w-[138px] gap-2" : "w-10 justify-center",
   );
 
   if (onClick) {
@@ -118,14 +99,14 @@ function TokenBadge({
   return (
     <div className={className}>
       {isExpanded && (
-        <div className="flex items-center gap-1">
-          <Zap className="size-4 text-fg-primary" />
+        <div className="flex items-center gap-2">
+          <AlertCircle
+            className={cx("text-fg-quaternary", isExpanded ? "size-6" : "size-5")}
+          />
           <span className="text-md font-semibold leading-6 text-primary">{tokenCount}</span>
         </div>
       )}
-      <AlertCircle
-        className={cx("shrink-0 text-fg-quaternary", isExpanded ? "size-6" : "size-5")}
-      />
+      <Zap className="size-4 text-fg-primary" />
     </div>
   );
 }
@@ -212,7 +193,6 @@ function ThemeToggle({ isExpanded }: { isExpanded: boolean }) {
 
 function SideBarContent({
   activeHistoryIndex,
-  direction,
   historyItems,
   isExpanded,
   isHistoryOpen,
@@ -222,7 +202,6 @@ function SideBarContent({
   tokenCount,
 }: {
   activeHistoryIndex: number;
-  direction: Direction;
   historyItems: string[];
   isExpanded: boolean;
   isHistoryOpen: boolean;
@@ -237,7 +216,6 @@ function SideBarContent({
         "relative flex h-screen min-h-0 flex-col items-center overflow-hidden bg-secondary_alt py-24",
         isExpanded ? "px-5" : "px-6",
       )}
-      dir={direction}
     >
       <div
         className={cx(
@@ -268,11 +246,7 @@ function SideBarContent({
                     onClick={onCollapse}
                     type="button"
                   >
-                    {direction === "rtl" ? (
-                      <ChevronRight className="size-4" />
-                    ) : (
-                      <ChevronLeft className="size-4" />
-                    )}
+                    <ChevronRight className="size-4" />
                   </button>
                 ) : (
                   <TokenBadge
@@ -384,19 +358,14 @@ export function SideBar({
   const [isHistoryOpen, setIsHistoryOpen] = useState(defaultHistoryOpen);
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const [activeHistoryIndex, setActiveHistoryIndex] = useState(0);
-  const direction = useDocumentDirection();
-  const isRtl = direction === "rtl";
 
   return (
     <div
       className={cx(
-        "relative flex h-screen min-h-0 w-full bg-bg-primary md:w-auto",
-        isRtl ? "md:justify-end" : "md:justify-start",
+        "relative flex h-screen min-h-0 w-full bg-bg-primary md:w-auto md:justify-start",
         className,
       )}
-      dir={direction}
     >
-
       {isOpen && (
         <div className="fixed inset-0 z-40 md:hidden">
           <button
@@ -407,8 +376,7 @@ export function SideBar({
           />
           <aside
             className={cx(
-              "relative z-10 h-screen w-64 border-e border-secondary shadow-xl",
-              isRtl ? "ms-auto" : "me-auto",
+              "relative z-10 h-screen w-64 border-e border-secondary shadow-xl me-auto",
             )}
           >
             <button
@@ -421,7 +389,6 @@ export function SideBar({
             </button>
             <SideBarContent
               activeHistoryIndex={activeHistoryIndex}
-              direction={direction}
               historyItems={historyItems}
               isExpanded={true}
               isHistoryOpen={isHistoryOpen}
@@ -442,7 +409,6 @@ export function SideBar({
       >
         <SideBarContent
           activeHistoryIndex={activeHistoryIndex}
-          direction={direction}
           historyItems={historyItems}
           isExpanded={isExpanded}
           isHistoryOpen={isHistoryOpen}
