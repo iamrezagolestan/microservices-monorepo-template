@@ -145,9 +145,9 @@ spec:
   tls:
     secretName: wildcard-ops-tls
 ---
-# Headlamp — k8s debug UI (ADR-0024, ADR-0017). Opt-in: the backend Service only
-# exists when infra/helm/platform/headlamp is enabled (local overlay); until then
-# the route resolves to no endpoints.
+# Headlamp — k8s debug UI (ADR-0024, ADR-0017). Core: the backend Service exists
+# in every env; if a project sets headlamp.enabled=false the route resolves to no
+# endpoints.
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
 metadata:
@@ -168,8 +168,8 @@ spec:
   tls:
     secretName: wildcard-ops-tls
 ---
-# pgweb — read-only DB inspector (ADR-0012, ADR-0017). Opt-in: the backend Service
-# only exists when infra/helm/platform/pgweb is enabled (local overlay).
+# pgweb — read-only DB inspector (ADR-0012, ADR-0017). Core: the backend Service
+# exists in every env; setting pgweb.enabled=false leaves the route with no endpoints.
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
 metadata:

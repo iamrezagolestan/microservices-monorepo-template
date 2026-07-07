@@ -38,6 +38,9 @@ writing an ADR that shows the floor already covers its concern.
 | Prometheus | Metrics storage | [0011](adr/0011-observability.md) |
 | OTel Collector | Telemetry collection (DaemonSet) | [0011](adr/0011-observability.md) |
 | MinIO | Object storage (non-prod; a real bucket in prod) | [0016](adr/0016-environment-parity.md) |
+| Lowdefy admin | Internal ops CRUD over the Go API | [0012](adr/0012-internal-admin.md) |
+| Headlamp | Read-mostly Kubernetes debug UI | [0024](adr/0024-kubernetes-debug-ui.md) |
+| pgweb | Read-only break-glass DB inspector | [0012](adr/0012-internal-admin.md) |
 
 ### Scale — documented swap-in when a real signal demands it
 
@@ -60,9 +63,6 @@ same pattern as `hydra_thirdparty`.
 | Component | Concern | Flag / ADR |
 |---|---|---|
 | Hydra | OAuth2 provider for third-party API clients | [0010](adr/0010-auth.md) |
-| Lowdefy admin | Internal ops CRUD over the Go API | [0012](adr/0012-internal-admin.md) |
-| Headlamp | Read-mostly Kubernetes debug UI | [0024](adr/0024-kubernetes-debug-ui.md) |
-| pgweb | Read-only DB inspector (break-glass, Go single-binary) | [0012](adr/0012-internal-admin.md) |
 | Pyroscope + eBPF profiler | Continuous profiling | `profiling` flag, [0011](adr/0011-observability.md) |
 
 ## Budget rule

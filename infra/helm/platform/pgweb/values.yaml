@@ -1,10 +1,10 @@
 # Values namespaced under `pgweb:` so this chart shares the platform
 # ApplicationSet's single per-env values overlay without key collisions.
 pgweb:
-  # Opt-in (ADR-0012): the git directory generator makes an Application for this
-  # chart in every env, but it renders zero resources until a project sets this.
-  # The local overlay enables it; dev/staging/prod leave it off.
-  enabled: false
+  # Core (ADR-0012): deployed in every environment. The gate stays here so a
+  # project can drop pgweb by setting `enabled: false` in an env overlay, like
+  # any Core component removed per its ADR.
+  enabled: true
 
   image:
     repository: sosedoff/pgweb

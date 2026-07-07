@@ -132,13 +132,10 @@ lowdefy:
     tag: local
     pullPolicy: Always
 
-# --- Opt-in ops tools (off by default; enabled here for the local full tier) ---
-# Headlamp k8s debug UI (ADR-0024) at k8s.ops; read-only via the built-in `view`
-# ClusterRole. pgweb DB inspector (ADR-0012) at db.ops, connected read-only to the
-# in-cluster CNPG dev role (same dev:dev creds Kratos uses locally).
-headlamp:
-  enabled: true
-
+# --- Core ops tools: local wiring -----------------------------------------
+# Headlamp (ADR-0024) at k8s.ops and pgweb (ADR-0012) at db.ops are Core, on in
+# every env from their chart defaults. Only pgweb's local DSN is overlay-specific:
+# it points read-only at the in-cluster CNPG dev role (same dev:dev creds Kratos
+# uses locally). Headlamp needs no local override.
 pgweb:
-  enabled: true
   databaseUrl: "postgres://dev:dev@postgres-rw.platform.svc.cluster.local:5432/orders?sslmode=disable"

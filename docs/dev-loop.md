@@ -189,8 +189,8 @@ resolve to a backend only once their chart is enabled).
 | `https://s3.ops.dev.localtest.me:8443/`        | **MinIO console** (non-prod)                                                           | operator + AAL2, then `minio` / `minio-password` |
 | `https://admin.ops.dev.localtest.me:8443/`     | **Lowdefy** admin console                                                              | operator + AAL2                                  |
 | `https://deploy.ops.dev.localtest.me:8443/`    | **Argo CD**                                                                            | operator + AAL2                                  |
-| `https://k8s.ops.dev.localtest.me:8443/`       | **Headlamp** — k8s debug UI (opt-in, r/o, [ADR-0024](adr/0024-kubernetes-debug-ui.md)) | operator + AAL2                                  |
-| `https://db.ops.dev.localtest.me:8443/`        | **pgweb** — read-only DB inspector (opt-in, [ADR-0012](adr/0012-internal-admin.md))    | operator + AAL2                                  |
+| `https://k8s.ops.dev.localtest.me:8443/`       | **Headlamp** — k8s debug UI (r/o, [ADR-0024](adr/0024-kubernetes-debug-ui.md))         | operator + AAL2                                  |
+| `https://db.ops.dev.localtest.me:8443/`        | **pgweb** — read-only DB inspector ([ADR-0012](adr/0012-internal-admin.md))            | operator + AAL2                                  |
 
 Grafana trusts the Oathkeeper edge and serves anonymously (its login form is
 disabled, `auth.anonymous` Admin) — an operator who clears the edge lands straight
@@ -205,10 +205,10 @@ credentials — the pre-seeded root user `minio` / `minio-password`.
 
 `cluster:full` brings up the whole platform (edge, services, observability,
 console); Argo CD itself is installed imperatively for the local full tier and is
-reachable at `deploy.ops.<host>` like the other dashboards. The two **opt-in** ops
-tools — Headlamp (`k8s.ops`) and pgweb (`db.ops`) — are off by default
-([docs/operational-surface.md](operational-surface.md)); enable them in the local
-values overlay when you want them, and they appear at their origins above.
+reachable at `deploy.ops.<host>` like the other dashboards. Headlamp (`k8s.ops`)
+and pgweb (`db.ops`) are Core ops tools, on in every environment
+([docs/operational-surface.md](operational-surface.md)); a project that does not
+want one drops it with `enabled: false` in its env values overlay.
 
 ### Login flow
 

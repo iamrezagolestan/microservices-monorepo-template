@@ -230,8 +230,8 @@ Connection credentials are sourced from External Secrets ([ADR-0005](0005-secret
   Helm values.
 - Traefik `Host(admin.ops.<host>)` IngressRoute in `infra/gateway/` plus the ops-tier Oathkeeper forward-auth
   (`operator` claim + AAL2), including identity-header forwarding ([ADR-0017](0017-url-and-domain-structure.md)).
-- pgweb as a flag-gated **Opt-in** ops component (`docs/operational-surface.md`), read-only DB inspector at
-  `db.ops.<host>` in non-prod, run with `--readonly` and wired to the per-service read-only Postgres roles — a
+- pgweb as a **Core** ops component (`docs/operational-surface.md`), read-only DB inspector at
+  `db.ops.<host>`, run with `--readonly` and wired to the per-service read-only Postgres roles — a
   break-glass viewer, never a write path.
 
 ## Rules
@@ -246,7 +246,7 @@ Connection credentials are sourced from External Secrets ([ADR-0005](0005-secret
   write desyncs SpiceDB and bypasses every invariant, and is forbidden.
 - Direct Postgres connections (Lowdefy's `Knex`, and pgweb/`psql`) are **read-only**, used only for inspection the
   REST API cannot serve, and enforced read-only at the database-role level — not by convention. pgweb (Go single-binary,
-  `--readonly`) is a flag-gated Opt-in break-glass inspector, never a mutation surface.
+  `--readonly`) is a Core break-glass inspector, never a mutation surface.
 - Lowdefy's built-in auth/sessions are not used. MongoDB is not deployed for Lowdefy.
 - The admin console is served at `admin.ops.<host>` behind the ops-tier forward-auth: coarse gate is the `operator`
   claim + AAL2 (no SpiceDB call), fine-grained authorization is the SpiceDB `Checker` inside the service APIs the pages
