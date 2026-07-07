@@ -18,14 +18,39 @@ if ! k3d cluster list | awk '{print $1}' | grep -qx "$CLUSTER"; then
   exit 0
 fi
 
+CTX="k3d-${CLUSTER}"
+k() { kubectl --context "$CTX" "$@"; }
+
 echo "→ healing '$CLUSTER': stop + start to re-inject host.k3d.internal + CoreDNS records"
 k3d cluster stop "$CLUSTER"
 k3d cluster start "$CLUSTER"
 
 # Confirm the alias is actually back — the whole point of the dance.
 if docker exec "k3d-${CLUSTER}-server-0" grep -q host.k3d.internal /etc/hosts; then
-  echo "✓ host.k3d.internal restored; pods will reschedule as Cilium recovers"
+  echo "✓ host.k3d.internal restored"
 else
   echo "✗ host.k3d.internal still missing after restart — investigate k3d/CoreDNS" >&2
+  exit 1
+fi
+
+# A k3d stop/start can leave Cilium's per-node datapath half-restored: pods then
+# cannot egress to the node/API (10.43.0.1), which cascades to CoreDNS (its
+# `kubernetes` plugin never goes ready) and every controller. A plain restart of
+# the CNI + DNS rebuilds it. Do that, then PROVE recovery via CoreDNS readiness —
+# CoreDNS is only Ready once a pod can actually reach the API, so it is the honest
+# datapath probe. Fail loudly if it does not come back (no silent half-heal).
+echo "→ rebuilding Cilium + CoreDNS datapath"
+k -n kube-system rollout restart ds/cilium >/dev/null 2>&1 || true
+k -n kube-system rollout status ds/cilium --timeout=180s || true
+k -n kube-system rollout restart deploy/coredns >/dev/null 2>&1 || true
+
+echo "→ verifying pod→API datapath (CoreDNS readiness)…"
+if k -n kube-system rollout status deploy/coredns --timeout=180s; then
+  echo "✓ heal complete: CoreDNS ready — pods can reach the API again"
+else
+  echo "✗ CoreDNS still not ready after heal — the Cilium pod-egress datapath is" >&2
+  echo "  wedged deeper than a restart clears (pods cannot reach 10.43.0.1). This" >&2
+  echo "  cluster's CNI state is corrupt; recreate it: mise run cluster:delete && \\" >&2
+  echo "  CLUSTER_PRELOAD=1 mise run cluster:full" >&2
   exit 1
 fi

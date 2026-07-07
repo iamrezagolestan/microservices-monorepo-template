@@ -131,3 +131,14 @@ lowdefy:
     repository: k3d-registry.localhost:5000/admin
     tag: local
     pullPolicy: Always
+
+# --- Opt-in ops tools (off by default; enabled here for the local full tier) ---
+# Headlamp k8s debug UI (ADR-0024) at k8s.ops; read-only via the built-in `view`
+# ClusterRole. pgweb DB inspector (ADR-0012) at db.ops, connected read-only to the
+# in-cluster CNPG dev role (same dev:dev creds Kratos uses locally).
+headlamp:
+  enabled: true
+
+pgweb:
+  enabled: true
+  databaseUrl: "postgres://dev:dev@postgres-rw.platform.svc.cluster.local:5432/orders?sslmode=disable"

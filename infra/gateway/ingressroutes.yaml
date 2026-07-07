@@ -144,3 +144,48 @@ spec:
           port: 9001
   tls:
     secretName: wildcard-ops-tls
+---
+# Headlamp — k8s debug UI (ADR-0024, ADR-0017). Opt-in: the backend Service only
+# exists when infra/helm/platform/headlamp is enabled (local overlay); until then
+# the route resolves to no endpoints.
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: ops-k8s
+  namespace: platform
+spec:
+  entryPoints: [websecure]
+  routes:
+    - kind: Rule
+      match: HostRegexp(`^k8s\.ops\..+`)
+      middlewares:
+        - name: strip-identity-headers
+        - name: oathkeeper-forward-auth
+        - name: security-headers
+      services:
+        - name: headlamp
+          port: 80
+  tls:
+    secretName: wildcard-ops-tls
+---
+# pgweb — read-only DB inspector (ADR-0012, ADR-0017). Opt-in: the backend Service
+# only exists when infra/helm/platform/pgweb is enabled (local overlay).
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: ops-db
+  namespace: platform
+spec:
+  entryPoints: [websecure]
+  routes:
+    - kind: Rule
+      match: HostRegexp(`^db\.ops\..+`)
+      middlewares:
+        - name: strip-identity-headers
+        - name: oathkeeper-forward-auth
+        - name: security-headers
+      services:
+        - name: pgweb
+          port: 80
+  tls:
+    secretName: wildcard-ops-tls

@@ -1,0 +1,21 @@
+# Values namespaced under `headlamp:` so this chart shares the platform
+# ApplicationSet's single per-env values overlay without key collisions.
+headlamp:
+  # Opt-in (ADR-0024): the git directory generator makes an Application for this
+  # chart in every env, but it renders zero resources until a project sets this.
+  # The local overlay enables it; dev/staging/prod leave it off.
+  enabled: false
+
+  image:
+    repository: ghcr.io/headlamp-k8s/headlamp
+    tag: v0.26.0
+    pullPolicy: IfNotPresent
+
+  replicas: 1
+  service:
+    port: 80
+
+  # Bound to the built-in `view` ClusterRole: list/get/watch across the cluster,
+  # no writes. Read-only is the documented intent (ADR-0024); swap this for a
+  # narrower custom role if a project needs to tighten it further.
+  clusterRole: view

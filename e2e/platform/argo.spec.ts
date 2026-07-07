@@ -1,5 +1,5 @@
 // Argo CD operator dashboard (ADR-0004) — the GitOps control plane, gated at
-// argo.ops.<host> (dashboard:argo#view) and rendering behind a real AAL2 operator
+// deploy.ops.<host> (dashboard:deploy#view) and rendering behind a real AAL2 operator
 // session. argocd-server runs with server.insecure (TLS terminates at Traefik);
 // its own UI keeps a login behind the Kratos gate, so the gauge asserts the SPA
 // shell paints, not a post-login view.
@@ -11,19 +11,19 @@ import {
 } from "../fixtures/dashboard";
 import { OPERATOR_STATE, opsURL } from "../fixtures/env";
 
-const ARGO = `${opsURL("argo")}/`;
+const ARGO = `${opsURL("deploy")}/`;
 
-test.describe("argo ops dashboard", () => {
+test.describe("deploy ops dashboard", () => {
   test("gated: unauthenticated is denied", async () => {
-    await expectUnauthenticatedDenied("argo");
+    await expectUnauthenticatedDenied("deploy");
   });
 
   test("gated: AAL1 product session is forbidden", async () => {
-    await expectAal1Forbidden("argo");
+    await expectAal1Forbidden("deploy");
   });
 
-  test("gated: AAL2 operator passes the dashboard:argo#view grant", async () => {
-    await expectOperatorAllowed("argo");
+  test("gated: AAL2 operator passes the dashboard:deploy#view grant", async () => {
+    await expectOperatorAllowed("deploy");
   });
 
   test.describe("renders behind AAL2", () => {

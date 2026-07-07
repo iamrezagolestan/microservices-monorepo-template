@@ -54,5 +54,21 @@
     "authorizer": { "handler": "remote_json", "config": { "remote": "http://authz-server.platform.svc.cluster.local/internal/authorize", "payload": "{\"subject\":\"{{ print .Subject }}\",\"tool\":\"s3\",\"aal\":\"{{ print .Extra.authenticator_assurance_level }}\",\"operator\":\"{{ print .Extra.identity.traits.operator }}\"}" } },
     "mutators": [{ "handler": "noop" }],
     "errors": [{ "handler": "redirect" }]
+  },
+  {
+    "id": "ops-k8s",
+    "match": { "url": "<{http,https}>://k8s.ops.<**>/<**>", "methods": ["GET", "POST", "PUT", "PATCH", "DELETE"] },
+    "authenticators": [{ "handler": "cookie_session" }],
+    "authorizer": { "handler": "remote_json", "config": { "remote": "http://authz-server.platform.svc.cluster.local/internal/authorize", "payload": "{\"subject\":\"{{ print .Subject }}\",\"tool\":\"k8s\",\"aal\":\"{{ print .Extra.authenticator_assurance_level }}\",\"operator\":\"{{ print .Extra.identity.traits.operator }}\"}" } },
+    "mutators": [{ "handler": "noop" }],
+    "errors": [{ "handler": "redirect" }]
+  },
+  {
+    "id": "ops-db",
+    "match": { "url": "<{http,https}>://db.ops.<**>/<**>", "methods": ["GET", "POST", "PUT", "PATCH", "DELETE"] },
+    "authenticators": [{ "handler": "cookie_session" }],
+    "authorizer": { "handler": "remote_json", "config": { "remote": "http://authz-server.platform.svc.cluster.local/internal/authorize", "payload": "{\"subject\":\"{{ print .Subject }}\",\"tool\":\"db\",\"aal\":\"{{ print .Extra.authenticator_assurance_level }}\",\"operator\":\"{{ print .Extra.identity.traits.operator }}\"}" } },
+    "mutators": [{ "handler": "noop" }],
+    "errors": [{ "handler": "redirect" }]
   }
 ]

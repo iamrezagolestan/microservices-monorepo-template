@@ -109,6 +109,15 @@ run = "bash scripts/cluster-heal.sh"
 # restart the stuck pods. Not part of any bring-up — clean networks never need it.
 run = "bash scripts/cluster-unwedge-images.sh"
 
+[tasks."cluster:preload"]
+# OPT-IN, proxied networks only: PROACTIVELY host-pull + k3d-import the
+# bootstrap-critical images (Cilium, ArgoCD) before cluster:full's imperative
+# `helm --wait` head can wedge on them — the gap cluster:unwedge (reactive, pods
+# only) cannot cover. Image list is derived from the charts, not hardcoded.
+# `PRELOAD_ALL=1` also warms the Argo-synced platform apps. cluster:full runs this
+# automatically only when CLUSTER_PRELOAD=1.
+run = "bash scripts/cluster-preload-images.sh"
+
 [tasks."dev:forward"]
 # Port-forward the inner-loop deps so a natively-run service can reach them.
 # Long-running — use a separate terminal. See docs/dev-loop.md.

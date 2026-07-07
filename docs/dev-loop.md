@@ -178,8 +178,8 @@ below); deployed envs terminate on standard `443` and omit the port.
 
 The **Auth** column shows the always-on coarse gate (`operator` claim + AAL2); the
 optional per-tool `dashboard:<tool>#view` fine layer is off by default. Every route
-below is defined in `infra/gateway/ingressroutes.yaml` (the opt-in tools only once
-enabled).
+below is defined in `infra/gateway/ingressroutes.yaml` (the opt-in tools' routes
+resolve to a backend only once their chart is enabled).
 
 | Ops URL                                        | Tool                                                                                   | Auth                                             |
 |------------------------------------------------|----------------------------------------------------------------------------------------|--------------------------------------------------|

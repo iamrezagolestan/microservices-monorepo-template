@@ -1,0 +1,10 @@
+apiVersion: v2
+name: headlamp
+description: |
+  Headlamp Kubernetes debug UI (ADR-0024), one more ops-tier origin at
+  k8s.ops.<host>. Opt-in: renders nothing unless headlamp.enabled is set (the
+  local overlay turns it on). Read-only by default via the built-in `view`
+  ClusterRole — a debugging surface, not a control surface.
+type: application
+version: 0.1.0
+appVersion: "0.26.0"

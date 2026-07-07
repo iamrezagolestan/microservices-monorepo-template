@@ -1,0 +1,34 @@
+{{- if .Values.pgweb.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pgweb
+  namespace: platform
+  labels: { app.kubernetes.io/name: pgweb }
+spec:
+  replicas: {{ .Values.pgweb.replicas }}
+  selector: { matchLabels: { app.kubernetes.io/name: pgweb } }
+  template:
+    metadata: { labels: { app.kubernetes.io/name: pgweb } }
+    spec:
+      containers:
+        - name: pgweb
+          image: "{{ .Values.pgweb.image.repository }}:{{ .Values.pgweb.image.tag }}"
+          imagePullPolicy: {{ .Values.pgweb.image.pullPolicy }}
+          # --readonly is pgweb's own session guard (ADR-0012 break-glass intent);
+          # --bind/--listen must be repeated when args are overridden. The DSN is
+          # read from PGWEB_DATABASE_URL below.
+          args: ["--bind=0.0.0.0", "--listen=8081", "--readonly"]
+          env:
+            - { name: PGWEB_DATABASE_URL, value: {{ .Values.pgweb.databaseUrl | quote }} }
+          ports: [{ name: http, containerPort: 8081 }]
+          readinessProbe: { tcpSocket: { port: http } }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: pgweb, namespace: platform }
+spec:
+  type: ClusterIP
+  selector: { app.kubernetes.io/name: pgweb }
+  ports: [{ name: http, port: {{ .Values.pgweb.service.port }}, targetPort: http }]
+{{- end }}

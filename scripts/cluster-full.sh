@@ -29,6 +29,14 @@ ac() { KUBECONFIG="$AC_KUBECONFIG" argocd --core "$@"; }
 
 # 1. Cluster + CNI (a CNI must exist before Argo's pods can schedule).
 bash scripts/cluster-ensure.sh
+# On a proxied network the node's containerd can wedge pulling the large Cilium /
+# ArgoCD images through privoxy, stalling the `helm --wait` steps below (which run
+# before Argo, so cluster:unwedge can't rescue them). CLUSTER_PRELOAD=1 warms those
+# images on the host first. Off by default — clean networks never need it.
+if [ "${CLUSTER_PRELOAD:-0}" = "1" ]; then
+  echo "→ CLUSTER_PRELOAD=1: preloading bootstrap-critical images"
+  bash scripts/cluster-preload-images.sh
+fi
 bash scripts/cilium-install.sh
 
 # 2. ArgoCD (it cannot sync itself into existence). Excluded from the local
