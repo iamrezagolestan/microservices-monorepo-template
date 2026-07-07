@@ -6,12 +6,15 @@ import {
   ChevronRight,
   ClockRewind,
   LogOut04,
+  Menu01,
   SearchSm,
   XClose,
   Zap,
 } from "@untitledui/icons";
 import Image from "next/image";
-import { useState } from "react";
+import { useTheme } from "next-themes";
+import { useEffect, useState } from "react";
+import logoDark from "@/assets/logo-dark.svg";
 import logo from "@/assets/logo.svg";
 import { cx } from "@/utils/cx";
 
@@ -47,6 +50,13 @@ const defaultHistoryItems = [
 ];
 
 function Logo({ isExpanded }: { isExpanded: boolean }) {
+  const { theme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => setMounted(true), []);
+
+  const logoAsset = mounted && theme === "dark" ? logoDark : logo;
+
   return (
     <div
       className={cx(
@@ -54,7 +64,7 @@ function Logo({ isExpanded }: { isExpanded: boolean }) {
         isExpanded ? "justify-start" : "justify-center",
       )}
     >
-      <Image alt="logo" className="size-6 shrink-0" height={24} priority src={logo} width={24} />
+      <Image alt="logo" className="size-6 shrink-0" height={24} priority src={logoAsset} width={24} />
       {isExpanded && (
         <p className="shrink-0 text-end text-xl font-bold text-primary">یونی پرامپت</p>
       )}
@@ -177,15 +187,33 @@ function HistoryList({
 }
 
 function ThemeToggle({ isExpanded }: { isExpanded: boolean }) {
+  const { setTheme, theme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => setMounted(true), []);
+
+  const isDark = mounted && theme === "dark";
+
   return (
     <div className="flex flex-row-reverse items-center justify-start gap-2 rtl:flex-row">
       {isExpanded && <span className="text-sm font-medium leading-5 text-primary">حالت تیره</span>}
       <button
+        aria-checked={isDark}
         aria-label="Toggle dark mode"
-        className="flex h-5 w-9 cursor-pointer items-center justify-end rounded-full bg-alpha-black p-0.5 outline-focus-ring focus:ring-2 focus:ring-focus-ring"
+        className={cx(
+          "flex h-5 w-9 cursor-pointer items-center rounded-full p-0.5 outline-focus-ring focus:ring-2 focus:ring-focus-ring",
+          isDark ? "justify-end bg-alpha-black" : "justify-start bg-neutral-100",
+        )}
+        onClick={() => setTheme(isDark ? "light" : "dark")}
+        role="switch"
         type="button"
       >
-        <span className="size-4 rounded-full bg-primary shadow-sm" />
+        <span
+          className={cx(
+            "size-4 rounded-full shadow-sm",
+            isDark ? "bg-primary" : "bg-neutral-300",
+          )}
+        />
       </button>
     </div>
   );
@@ -366,6 +394,19 @@ export function SideBar({
         className,
       )}
     >
+      <div className="flex h-16 w-full items-center justify-between border-b border-secondary bg-secondary_alt px-4 md:hidden">
+        <p className="text-sm font-semibold text-primary">یونی پرامپت</p>
+        <button
+          aria-expanded={isOpen}
+          aria-label="Open sidebar"
+          className="flex size-10 cursor-pointer items-center justify-center rounded-lg text-fg-quaternary outline-focus-ring transition duration-100 ease-linear hover:bg-primary_hover hover:text-fg-quaternary_hover focus:ring-2 focus:ring-focus-ring"
+          onClick={() => setIsOpen(true)}
+          type="button"
+        >
+          <Menu01 className="size-5" />
+        </button>
+      </div>
+
       {isOpen && (
         <div className="fixed inset-0 z-40 md:hidden">
           <button

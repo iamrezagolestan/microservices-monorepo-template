@@ -51,6 +51,18 @@ test.describe("SideBar", () => {
     await expect(sideBar.getByText("جستجو")).toBeVisible();
   });
 
+  test("toggles dark theme from the sidebar switch", async ({ page }) => {
+    const sideBar = page.getByTestId("kitchen-sidebar");
+    const themeSwitch = sideBar.getByRole("switch", { name: "Toggle dark mode" });
+    await expect(themeSwitch).toHaveAttribute("aria-checked", "false");
+    await themeSwitch.click();
+    await expect(page.locator("html")).toHaveClass(/dark-mode/);
+    await expect(themeSwitch).toHaveAttribute("aria-checked", "true");
+    await themeSwitch.click();
+    await expect(page.locator("html")).toHaveClass(/light-mode/);
+    await expect(themeSwitch).toHaveAttribute("aria-checked", "false");
+  });
+
   test("opens and closes mobile sidebar", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await gotoKitchenSink(page);

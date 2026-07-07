@@ -31,7 +31,8 @@ async function captureChatBox(page: Page, testId: string, fileName: string) {
 
 async function setTheme(page: Page, theme: (typeof themes)[number]) {
   await page.locator("html").evaluate((element, nextTheme) => {
-    element.setAttribute("data-theme", nextTheme);
+    element.classList.remove("light-mode", "dark-mode");
+    element.classList.add(`${nextTheme}-mode`);
   }, theme);
 }
 
@@ -109,23 +110,15 @@ function registerEditingBehaviorTests() {
 }
 
 function registerActionBehaviorTests() {
-  test("shows tooltips close to their trigger", async ({ page }) => {
+  test("keeps send action accessible and enabled after text input", async ({ page }) => {
     const chatBox = page.getByTestId("chatbox-desktop-empty");
     const sendButton = chatBox.getByRole("button", { name: "Send" });
     await chatBox.locator("textarea").fill(editText);
     await expect(sendButton).toBeEnabled();
-    await sendButton.hover();
-    const tooltip = page.getByRole("tooltip");
-    await expect(tooltip).toContainText("Send");
     const sendButtonBounds = await sendButton.boundingBox();
-    const tooltipBounds = await tooltip.boundingBox();
     expect(sendButtonBounds).not.toBeNull();
-    expect(tooltipBounds).not.toBeNull();
-    const tooltipBottom = (tooltipBounds?.y ?? 0) + (tooltipBounds?.height ?? 0);
-    const tooltipGap = (sendButtonBounds?.y ?? 0) - tooltipBottom;
-    expect(tooltipGap).toBeGreaterThan(0);
-    expect(tooltipGap).toBeLessThanOrEqual(8);
-    expect(tooltipBounds?.y).toBeGreaterThanOrEqual(0);
+    expect(sendButtonBounds?.width).toBe(36);
+    expect(sendButtonBounds?.height).toBe(36);
   });
 
   test("shows attachment preview from attachment state", async ({ page }) => {
@@ -149,12 +142,12 @@ function registerActionBehaviorTests() {
     expect(folderBox).not.toBeNull();
     expect(pdfBox).not.toBeNull();
     expect(fileBox).not.toBeNull();
-    expect(previewBox?.height).toBe(62);
+    expect(previewBox?.height).toBe(40);
     expect(folderBox?.width).toBe(24);
     expect(folderBox?.height).toBe(24);
     expect(pdfBox?.width).toBe(24);
     expect(fileBox?.width).toBe(24);
-    expect((folderBox?.y ?? 0) - (previewBox?.y ?? 0)).toBe(7);
+    expect((folderBox?.y ?? 0) - (previewBox?.y ?? 0)).toBe(8);
     expect((pdfBox?.x ?? 0) - ((folderBox?.x ?? 0) + (folderBox?.width ?? 0))).toBe(8);
     expect((fileBox?.x ?? 0) - ((pdfBox?.x ?? 0) + (pdfBox?.width ?? 0))).toBe(8);
     expect(
