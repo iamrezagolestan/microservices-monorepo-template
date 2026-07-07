@@ -58,7 +58,7 @@ export function TypeBox({
 
   const textClassName = "min-w-px text-right text-md font-normal leading-6 text-primary";
   const iconButtonClassName =
-    "flex size-5 cursor-pointer items-center justify-center p-0 text-fg-quaternary outline-focus-ring transition duration-100 ease-linear hover:text-fg-quaternary_hover focus:ring-2 focus:ring-focus-ring focus:ring-inset disabled:cursor-not-allowed disabled:text-disabled";
+    "flex size-5 cursor-pointer items-center justify-center p-0 text-fg-quaternary outline-focus-ring transition duration-100 ease-linear hover:text-fg-quaternary_hover disabled:cursor-not-allowed disabled:text-disabled";
 
   return (
     <div className={cx("flex w-full flex-col items-start gap-4", className)}>
@@ -84,7 +84,12 @@ export function TypeBox({
 
       {isEditing ? (
         <div className="flex self-end gap-3">
-          <Button className="max-w-[118px] w-[118px]" color="secondary" size="md" onPress={handleCancel}>
+          <Button
+            className="max-w-[118px] w-[118px]"
+            color="secondary"
+            size="md"
+            onPress={handleCancel}
+          >
             لغو
           </Button>
           <Button className="max-w-[118px] w-[118px]" size="md" onPress={handleSave}>

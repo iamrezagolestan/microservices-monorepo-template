@@ -10,6 +10,7 @@ import { ChatBoxKitchenExamples } from "./ChatBoxKitchenExamples";
 import { InputKitchenExamples } from "./InputKitchenExamples";
 import { KitchenThemeSwitch } from "./KitchenThemeSwitch";
 import { TypeBoxKitchenExamples } from "./TypeBoxKitchenExamples";
+import { SideBar } from "@/components/ui";
 
 export const metadata: Metadata = { title: "UI kitchen sink" };
 
@@ -24,35 +25,43 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 
 export default function KitchenSink() {
   return (
-    <main className="mx-auto max-w-6xl p-6">
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">UI kitchen sink</h1>
-          <p className="mt-1 text-sm text-tertiary">
-            Every primitive in <code>src/components/ui</code>, rendered once. Visual sanity check
-            for the Untitled UI bump cadence; not a replacement for component tests.
-          </p>
+    <div className="flex min-h-screen bg-primary">
+      <div className="sticky top-0 h-screen shrink-0" data-testid="kitchen-sidebar">
+        <SideBar />
+      </div>
+
+      <main className="min-w-0 flex-1 overflow-y-auto">
+        <div className="mx-auto max-w-6xl p-6">
+          <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h1 className="text-2xl font-semibold">UI kitchen sink</h1>
+              <p className="mt-1 text-sm text-tertiary">
+                Every primitive in <code>src/components/ui</code>, rendered once. Visual sanity
+                check for the Untitled UI bump cadence; not a replacement for component tests.
+              </p>
+            </div>
+            <KitchenThemeSwitch />
+          </header>
+
+          <Section title="Button">
+            <div className="w-full max-w-5xl">
+              <ButtonKitchenExamples />
+            </div>
+          </Section>
+
+          <Section title="Input">
+            <InputKitchenExamples />
+          </Section>
+
+          <Section title="TypeBox">
+            <TypeBoxKitchenExamples />
+          </Section>
+
+          <Section title="ChatBox">
+            <ChatBoxKitchenExamples />
+          </Section>
         </div>
-        <KitchenThemeSwitch />
-      </header>
-
-      <Section title="Button">
-        <div className="w-full max-w-5xl">
-          <ButtonKitchenExamples />
-        </div>
-      </Section>
-
-      <Section title="Input">
-        <InputKitchenExamples />
-      </Section>
-
-      <Section title="TypeBox">
-        <TypeBoxKitchenExamples />
-      </Section>
-
-      <Section title="ChatBox">
-        <ChatBoxKitchenExamples />
-      </Section>
-    </main>
+      </main>
+    </div>
   );
 }
