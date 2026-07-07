@@ -9,6 +9,17 @@ metadata:
   name: deny-cloud-metadata
 spec:
   endpointSelector: {}
+  # CRITICAL: this policy selects every pod cluster-wide ({} selector) and carries an
+  # egressDeny rule. In Cilium, an endpoint selected by ANY egress rule — including a
+  # deny — flips to egress DEFAULT-DENY. Without the line below, this single policy
+  # therefore makes every pod in every namespace (argocd, kube-system, platform)
+  # deny-by-default on egress, so pods with no allow policy of their own (the ArgoCD
+  # controller, metrics-server, Traefik…) can no longer even reach the API server and
+  # the whole cluster wedges. enableDefaultDeny.egress=false keeps this a pure deny of
+  # the metadata IP without imposing default-deny; real default-deny is scoped to the
+  # platform namespace by 00-baseline.yaml, by design.
+  enableDefaultDeny:
+    egress: false
   egressDeny:
     - toCIDR:
         - 169.254.169.254/32

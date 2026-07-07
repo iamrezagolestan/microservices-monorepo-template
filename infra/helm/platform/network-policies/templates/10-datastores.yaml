@@ -26,6 +26,8 @@ spec:
         - matchLabels: { k8s:io.kubernetes.pod.namespace: platform, app.kubernetes.io/name: orders }
         - matchLabels: { k8s:io.kubernetes.pod.namespace: platform, app.kubernetes.io/name: orgs }
         - matchLabels: { k8s:io.kubernetes.pod.namespace: platform, app.kubernetes.io/name: payment }
+        # pgweb (ADR-0012) — read-only DB inspector panel; connects to postgres-rw.
+        - matchLabels: { k8s:io.kubernetes.pod.namespace: platform, app.kubernetes.io/name: pgweb }
       toPorts:
         - ports: [{ port: "5432", protocol: TCP }]
     - fromEndpoints:

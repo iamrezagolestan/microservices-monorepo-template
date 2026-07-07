@@ -24,22 +24,21 @@ SERVER_IP="$(k get node -o jsonpath='{.items[0].status.addresses[?(@.type=="Inte
 echo "→ installing Cilium (apiserver ${SERVER_IP}:6443)"
 helm dependency update infra/helm/platform/cilium >/dev/null
 
-# Local-only datapath overrides (this installer runs for the local tier only;
-# prod's Cilium is Argo-managed from the chart, so it keeps the chart defaults):
-#   * encryption OFF — WireGuard-over-VXLAN stacks two encapsulations whose combined
-#     overhead has no reliable MTU fit inside k3d's 1500 docker bridge; the result is
-#     that full-size encapsulated packets (TLS to the API ClusterIP) are silently
-#     dropped while small ones pass, so controllers/pods time out intermittently.
-#     East-west encryption is a prod PII-posture requirement (ADR-0003), not a local
-#     dev-loop one, so local drops it for a stable datapath.
-#   * MTU 1370 — leaves headroom for the VXLAN tunnel (50B) under the 1500 underlay.
+# Local-only override: WireGuard encryption OFF (this installer runs for the local
+# tier only; prod's Cilium is Argo-managed from the chart and keeps encryption on).
+# The chart enables WireGuard transparent encryption (ADR-0003) for east-west PII
+# posture. Stacked on the local VXLAN tunnel over k3d's 1500 docker bridge, the
+# combined encapsulation overhead has no reliable MTU fit: full-size encapsulated
+# packets (a TLS handshake to the API ClusterIP) are dropped while small ones pass,
+# so controllers/pods time out under load — the local dev loop was smooth until this
+# was enabled. Encryption is a prod requirement, not a local dev-loop one, so local
+# drops it and runs the plain (working) VXLAN datapath with its auto-detected MTU.
 h upgrade --install cilium infra/helm/platform/cilium -n kube-system \
   --set cilium.kubeProxyReplacement=false \
   --set cilium.k8sServiceHost="${SERVER_IP}" \
   --set cilium.k8sServicePort=6443 \
   --set cilium.operator.replicas=1 \
   --set cilium.encryption.enabled=false \
-  --set cilium.MTU=1370 \
   --timeout 5m
 
 echo "→ waiting for the node to go Ready (Cilium up)…"
