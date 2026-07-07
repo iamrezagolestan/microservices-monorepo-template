@@ -123,6 +123,14 @@ the window for incident response.
 **Why `selfHeal=false` for prod platform:** manual interventions during an incident must be visible, not silently
 reverted. Drift alerts fire to Slack via ArgoCD notifications.
 
+**Retry on failed syncs:** every Application and ApplicationSet template carries a `retry` policy
+(`limit: 20`, exponential backoff `10s → 2m`). `automated`+`selfHeal` do *not* re-run a sync that
+**errored** on the same commit — `selfHeal` reacts only to live drift — so without `retry` a transient
+repo-server restart or network blip during bootstrap parks the app (a stale `ComparisonError`) until a
+manual `argocd app sync`. This is most dangerous on the hand-applied root App-of-Apps: if it wedges, its
+wave-gated children (gateway, services) are never created. `retry` makes that self-heal. Manual `app sync`
+remains the break-glass if retries exhaust; a cluster rebuild is never the remedy for a transient failure.
+
 ### Bootstrap
 
 A new cluster bootstraps with two commands after [ADR-0003](0003-cluster-topology.md)'s Ansible step (and Terraform, when the project provisions its own infra):
