@@ -8,7 +8,6 @@ import type { ReactNode } from "react";
 import { ButtonKitchenExamples } from "./ButtonKitchenExamples";
 import { ChatBoxKitchenExamples } from "./ChatBoxKitchenExamples";
 import { InputKitchenExamples } from "./InputKitchenExamples";
-import { KitchenThemeSwitch } from "./KitchenThemeSwitch";
 import { TypeBoxKitchenExamples } from "./TypeBoxKitchenExamples";
 import { SideBar } from "@/components/ui";
 
@@ -40,7 +39,6 @@ export default function KitchenSink() {
                 check for the Untitled UI bump cadence; not a replacement for component tests.
               </p>
             </div>
-            <KitchenThemeSwitch />
           </header>
 
           <Section title="Button">
