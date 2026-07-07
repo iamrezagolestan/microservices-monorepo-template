@@ -8,6 +8,7 @@ import type { ReactNode } from "react";
 import { ButtonKitchenExamples } from "./ButtonKitchenExamples";
 import { ChatBoxKitchenExamples } from "./ChatBoxKitchenExamples";
 import { InputKitchenExamples } from "./InputKitchenExamples";
+import { SearchModalKitchenExamples } from "./SearchModalKitchenExamples";
 import { TypeBoxKitchenExamples } from "./TypeBoxKitchenExamples";
 import { SideBar } from "@/components/ui";
 
@@ -57,6 +58,10 @@ export default function KitchenSink() {
 
           <Section title="ChatBox">
             <ChatBoxKitchenExamples />
+          </Section>
+
+          <Section title="SearchModal">
+            <SearchModalKitchenExamples />
           </Section>
         </div>
       </main>

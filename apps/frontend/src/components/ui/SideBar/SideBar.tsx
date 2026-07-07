@@ -64,7 +64,14 @@ function Logo({ isExpanded }: { isExpanded: boolean }) {
         isExpanded ? "justify-start" : "justify-center",
       )}
     >
-      <Image alt="logo" className="size-6 shrink-0" height={24} priority src={logoAsset} width={24} />
+      <Image
+        alt="logo"
+        className="size-6 shrink-0"
+        height={24}
+        priority
+        src={logoAsset}
+        width={24}
+      />
       {isExpanded && (
         <p className="shrink-0 text-end text-xl font-bold text-primary">یونی پرامپت</p>
       )}
@@ -110,9 +117,7 @@ function TokenBadge({
     <div className={className}>
       {isExpanded && (
         <div className="flex items-center gap-2">
-          <AlertCircle
-            className={cx("text-fg-quaternary", isExpanded ? "size-6" : "size-5")}
-          />
+          <AlertCircle className={cx("text-fg-quaternary", isExpanded ? "size-6" : "size-5")} />
           <span className="text-md font-semibold leading-6 text-primary">{tokenCount}</span>
         </div>
       )}
@@ -209,10 +214,7 @@ function ThemeToggle({ isExpanded }: { isExpanded: boolean }) {
         type="button"
       >
         <span
-          className={cx(
-            "size-4 rounded-full shadow-sm",
-            isDark ? "bg-primary" : "bg-neutral-300",
-          )}
+          className={cx("size-4 rounded-full shadow-sm", isDark ? "bg-primary" : "bg-neutral-300")}
         />
       </button>
     </div>
