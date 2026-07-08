@@ -1,6 +1,7 @@
 export { Button } from "../base/button/button";
 export { Input } from "../base/input/input";
 export { type ChatAttachment, ChatBox } from "./ChatBox/ChatBox";
+export { FirstChatCard } from "./FirstChatCard/FirstChatCard";
 export { SearchModal } from "./SearchModal/SearchModal";
 export { ShareModal } from "./ShareModal/ShareModal";
 export { SideBar } from "./SideBar/SideBar";

@@ -5,7 +5,7 @@
 // Add one <Section> per primitive added under @/components/.
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import { SideBar } from "@/components/ui";
+import { FirstChatCard, SideBar } from "@/components/ui";
 import { ButtonKitchenExamples } from "./ButtonKitchenExamples";
 import { ChatBoxKitchenExamples } from "./ChatBoxKitchenExamples";
 import { InputKitchenExamples } from "./InputKitchenExamples";
@@ -59,6 +59,12 @@ export default function KitchenSink() {
 
           <Section title="ChatBox">
             <ChatBoxKitchenExamples />
+          </Section>
+
+          <Section title="FirstChatCard">
+            <div className="w-[220px]" data-testid="first-chat-card">
+              <FirstChatCard />
+            </div>
           </Section>
 
           <Section title="SearchModal">
