@@ -10,6 +10,7 @@ import { ButtonKitchenExamples } from "./ButtonKitchenExamples";
 import { ChatBoxKitchenExamples } from "./ChatBoxKitchenExamples";
 import { InputKitchenExamples } from "./InputKitchenExamples";
 import { LlmSelectKitchenExamples } from "./LlmSelectKitchenExamples";
+import { NotificationKitchenExamples } from "./NotificationKitchenExamples";
 import { SearchModalKitchenExamples } from "./SearchModalKitchenExamples";
 import { ShareModalKitchenExamples } from "./ShareModalKitchenExamples";
 import { TypeBoxKitchenExamples } from "./TypeBoxKitchenExamples";
@@ -77,6 +78,12 @@ export default function KitchenSink() {
           <Section title="LlmSelect">
             <div className="w-full" data-testid="llm-select-kitchen">
               <LlmSelectKitchenExamples />
+            </div>
+          </Section>
+
+          <Section title="Notification">
+            <div className="w-full" data-testid="notification-kitchen">
+              <NotificationKitchenExamples />
             </div>
           </Section>
 
