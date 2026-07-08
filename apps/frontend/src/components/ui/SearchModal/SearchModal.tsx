@@ -42,17 +42,15 @@ function ResultList() {
     >
       {resultItems.map((item, index) => (
         <>
-        <AriaButton
-          className="flex w-full cursor-pointer flex-col p-1 rounded-md text-end outline-focus-ring transition duration-100 ease-linear  hover:bg-bg-primary_hover focus-visible:ring-2 focus-visible:ring-focus-ring"
-          key={`${item}-${index}`}
-          type="button"
-        >
-          <span className="w-full text-start font-semibold text-primary">
-            {item}
-          </span>
-        </AriaButton>
+          <AriaButton
+            className="flex w-full cursor-pointer flex-col p-1 rounded-md text-end outline-focus-ring transition duration-100 ease-linear  hover:bg-bg-primary_hover focus-visible:ring-2 focus-visible:ring-focus-ring"
+            key={`${item}-${index}`}
+            type="button"
+          >
+            <span className="w-full text-start font-semibold text-primary">{item}</span>
+          </AriaButton>
           {index < resultItems.length - 1 && <span className="h-px w-full bg-border-primary" />}
-          </>
+        </>
       ))}
     </div>
   );
