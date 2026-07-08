@@ -16,6 +16,7 @@ import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 import logoDark from "@/assets/logo-dark.svg";
 import logo from "@/assets/logo.svg";
+import { SearchModal } from "@/components/ui/SearchModal/SearchModal";
 import { cx } from "@/utils/cx";
 
 export type SideBarProps = {
@@ -127,11 +128,13 @@ function TokenBadge({
 }
 
 function IconRow({
+  ariaLabel,
   children,
   icon: Icon,
   isExpanded,
   onClick,
 }: {
+  ariaLabel?: string;
   children: string;
   icon: typeof SearchSm;
   isExpanded: boolean;
@@ -139,6 +142,7 @@ function IconRow({
 }) {
   return (
     <button
+      aria-label={ariaLabel}
       className={cx(
         "flex h-7 cursor-pointer w-full justify-end items-center gap-2 text-primary  transition duration-100 ease-linear",
         isExpanded ? "justify-start" : "justify-center",
@@ -228,6 +232,7 @@ function SideBarContent({
   isHistoryOpen,
   onCollapse,
   onSelectHistory,
+  onSearch,
   onToggleHistory,
   tokenCount,
 }: {
@@ -237,6 +242,7 @@ function SideBarContent({
   isHistoryOpen: boolean;
   onCollapse?: () => void;
   onSelectHistory: (index: number) => void;
+  onSearch: () => void;
   onToggleHistory: () => void;
   tokenCount: string;
 }) {
@@ -308,7 +314,12 @@ function SideBarContent({
               )}
             >
               <div className="hover:bg-primary_hover w-full rounded-lg p-2">
-                <IconRow icon={SearchSm} isExpanded={isExpanded}>
+                <IconRow
+                  ariaLabel="Open search modal"
+                  icon={SearchSm}
+                  isExpanded={isExpanded}
+                  onClick={onSearch}
+                >
                   جستجو
                 </IconRow>
               </div>
@@ -387,6 +398,7 @@ export function SideBar({
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
   const [isHistoryOpen, setIsHistoryOpen] = useState(defaultHistoryOpen);
   const [isOpen, setIsOpen] = useState(defaultOpen);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [activeHistoryIndex, setActiveHistoryIndex] = useState(0);
 
   return (
@@ -436,6 +448,7 @@ export function SideBar({
               isExpanded={true}
               isHistoryOpen={isHistoryOpen}
               onSelectHistory={setActiveHistoryIndex}
+              onSearch={() => setIsSearchOpen(true)}
               onToggleHistory={() => setIsHistoryOpen((current) => !current)}
               tokenCount={tokenCount}
             />
@@ -457,10 +470,13 @@ export function SideBar({
           isHistoryOpen={isHistoryOpen}
           onCollapse={() => setIsExpanded((current) => !current)}
           onSelectHistory={setActiveHistoryIndex}
+          onSearch={() => setIsSearchOpen(true)}
           onToggleHistory={() => setIsHistoryOpen((current) => !current)}
           tokenCount={tokenCount}
         />
       </aside>
+
+      <SearchModal isOpen={isSearchOpen} onOpenChange={setIsSearchOpen} />
     </div>
   );
 }

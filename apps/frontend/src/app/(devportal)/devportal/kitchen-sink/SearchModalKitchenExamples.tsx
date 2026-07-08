@@ -7,13 +7,9 @@ import { SearchModal } from "@/components/ui/SearchModal/SearchModal";
 export function SearchModalKitchenExamples() {
   const [isOpen, setIsOpen] = useState(false);
 
-  const openModal = () => {
-    setIsOpen(true);
-  };
-
   return (
     <>
-      <Button color="secondary" onPress={openModal} size="md">
+      <Button color="secondary" onPress={() => setIsOpen(true)} size="md">
         Open search modal
       </Button>
       <SearchModal isOpen={isOpen} onOpenChange={setIsOpen} />
