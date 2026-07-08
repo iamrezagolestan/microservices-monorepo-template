@@ -5,12 +5,13 @@
 // Add one <Section> per primitive added under @/components/.
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import { SideBar } from "@/components/ui";
 import { ButtonKitchenExamples } from "./ButtonKitchenExamples";
 import { ChatBoxKitchenExamples } from "./ChatBoxKitchenExamples";
 import { InputKitchenExamples } from "./InputKitchenExamples";
 import { SearchModalKitchenExamples } from "./SearchModalKitchenExamples";
+import { ShareModalKitchenExamples } from "./ShareModalKitchenExamples";
 import { TypeBoxKitchenExamples } from "./TypeBoxKitchenExamples";
-import { SideBar } from "@/components/ui";
 
 export const metadata: Metadata = { title: "UI kitchen sink" };
 
@@ -62,6 +63,12 @@ export default function KitchenSink() {
 
           <Section title="SearchModal">
             <SearchModalKitchenExamples />
+          </Section>
+
+          <Section title="ShareModal">
+            <div className="w-full">
+              <ShareModalKitchenExamples />
+            </div>
           </Section>
         </div>
       </main>
