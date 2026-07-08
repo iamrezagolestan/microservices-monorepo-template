@@ -9,6 +9,7 @@ import { FirstChatCard, MainLogo, SideBar } from "@/components/ui";
 import { ButtonKitchenExamples } from "./ButtonKitchenExamples";
 import { ChatBoxKitchenExamples } from "./ChatBoxKitchenExamples";
 import { InputKitchenExamples } from "./InputKitchenExamples";
+import { LlmSelectKitchenExamples } from "./LlmSelectKitchenExamples";
 import { SearchModalKitchenExamples } from "./SearchModalKitchenExamples";
 import { ShareModalKitchenExamples } from "./ShareModalKitchenExamples";
 import { TypeBoxKitchenExamples } from "./TypeBoxKitchenExamples";
@@ -70,6 +71,12 @@ export default function KitchenSink() {
           <Section title="MainLogo">
             <div className="w-full max-w-[328px]" data-testid="main-logo">
               <MainLogo />
+            </div>
+          </Section>
+
+          <Section title="LlmSelect">
+            <div className="w-full" data-testid="llm-select-kitchen">
+              <LlmSelectKitchenExamples />
             </div>
           </Section>
 

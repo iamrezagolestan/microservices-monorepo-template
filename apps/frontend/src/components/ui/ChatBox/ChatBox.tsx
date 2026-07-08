@@ -1,12 +1,13 @@
 "use client";
 
-import { Attachment01, File01, Folder, Paperclip, Send03, Stars01, Stop } from "@untitledui/icons";
+import { Attachment01, File01, Folder, Paperclip, Send03, Stop } from "@untitledui/icons";
 import type { ChangeEvent, ChangeEventHandler, FC, Ref, RefObject } from "react";
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { cx } from "@/utils/cx";
 import { Button } from "../../base/button/button";
 import { TextAreaBase } from "../../base/textArea/textArea";
 import { Tooltip, TooltipTrigger } from "../../base/tooltip/tooltip";
+import { LlmSelect } from "../LlmSelect/LlmSelect";
 
 type ButtonIcon = FC<{ className?: string; "data-icon"?: string }>;
 
@@ -151,7 +152,7 @@ function ChatBoxActions({
             onPress={onAttach}
             tooltip="Attach file"
           />
-          <ActionButton aria-label="AI tools" icon={Stars01} tooltip="AI tools" />
+          <LlmSelect trigger="icon" className="w-auto" />
         </div>
       )}
     </div>
