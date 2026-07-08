@@ -3,7 +3,7 @@
 - **Status:** Accepted
 - **Date:** 2026-07-06
 - **Deciders:** Platform team
-- **Related:** [ADR-0003](0003-cluster-topology.md), [ADR-0008](0008-api-contracts.md), [ADR-0010](0010-auth.md)
+- **Related:** [ADR-0003](0003-cluster-topology.md), [ADR-0008](0008-api-contracts.md), [ADR-0010](0010-auth.md), [ADR-0017](0017-url-and-domain-structure.md)
 
 ## Context
 
@@ -104,12 +104,22 @@ here, complementing the per-request CSP nonce the frontend sets ([ADR-0014](0014
 - There is **no gateway-specific API-definition codegen.** The OpenAPI spec drives service codegen
   ([ADR-0008](0008-api-contracts.md)); the edge does not consume it.
 
-### Developer portal
+### Developer portals
 
-The developer portal is a route group in the frontend application: `apps/frontend/src/app/(devportal)/`. It renders
-OpenAPI specs (Scalar or Redoc) and, when a public API exists, calls Hydra to issue and rotate third-party OAuth2 client
-credentials. Until the first third-party consumer, it serves a "documentation coming soon" placeholder — no separate
-component to operate.
+The portals render the OpenAPI specs ([ADR-0008](0008-api-contracts.md)) as **filtered projections** by audience — never
+separately maintained documents:
+
+- **Internal devportal** — a route group in the frontend at `apps/frontend/src/app/(devportal)/`, on the product origin
+  ([ADR-0017](0017-url-and-domain-structure.md)). It lists the `x-audience: public` edge services with **every**
+  operation, including the `x-internal` ones, for our own frontend/admin developers. It sits behind the app session and
+  is page-gated by the SpiceDB `Checker` ([ADR-0010](0010-auth.md)), like any product surface — not a bare session check.
+- **Public docs portal** — **anonymous, no login**, the norm for public API documentation. It renders the same
+  `x-audience: public` specs with `x-internal` operations stripped. It ships only when a public API does; until then the
+  internal devportal is the only portal and there is no public placeholder to operate.
+
+Credential management is a **separate, authenticated surface**, not part of either docs portal. When a public API exists,
+issuing and rotating third-party OAuth2 client credentials via Hydra lives behind login on its own dashboard origin
+([ADR-0017](0017-url-and-domain-structure.md)): viewing docs never requires an account, only managing keys does.
 
 ### Hydra is a public-API flag
 
@@ -174,6 +184,9 @@ Settled here and inherited by [ADR-0010](0010-auth.md):
 - Cookie-authenticated state-changing requests are Origin-checked by an Oathkeeper rule. Bearer-token traffic is exempt.
 - Hydra is deployed only for projects exposing a public API or external machine clients (`hydra_thirdparty` flag).
   Internal-only projects run Kratos + Oathkeeper + SpiceDB.
-- The developer portal is a route group in `apps/frontend/`, not a separate application or a gateway feature.
+- The internal developer portal is a `Checker`-gated route group in `apps/frontend/`; the public docs portal is anonymous
+  and renders `x-audience: public` specs with `x-internal` operations stripped ([ADR-0008](0008-api-contracts.md)),
+  shipping only with a public API. Both are filtered projections of the specs, not a gateway feature. Credential
+  management is a separate authenticated surface ([ADR-0017](0017-url-and-domain-structure.md)) and never gates the docs.
 - A project that needs tiered per-API-key quotas adds a full gateway (Tyk/Kong) for its own routes via its own decision;
   it is not the platform default.

@@ -3,7 +3,7 @@
 - **Status:** Accepted
 - **Date:** 2026-07-06
 - **Deciders:** Platform team
-- **Related:** [ADR-0003](0003-cluster-topology.md), [ADR-0009](0009-api-gateway.md), [ADR-0010](0010-auth.md), [ADR-0011](0011-observability.md), [ADR-0012](0012-internal-admin.md), [ADR-0014](0014-frontend.md), [ADR-0015](0015-naming-and-identifiers.md)
+- **Related:** [ADR-0003](0003-cluster-topology.md), [ADR-0008](0008-api-contracts.md), [ADR-0009](0009-api-gateway.md), [ADR-0010](0010-auth.md), [ADR-0011](0011-observability.md), [ADR-0012](0012-internal-admin.md), [ADR-0014](0014-frontend.md), [ADR-0015](0015-naming-and-identifiers.md)
 
 ## Context
 
@@ -182,6 +182,52 @@ a claim, for break-glass independence.
 - Ops: one `Host(\{concept}.ops.<host>\)` IngressRoute per tool, each behind the ops forward-auth middleware. Host-
   parameterised so local and deployed envs share the manifests ([ADR-0016](0016-environment-parity.md)).
 
+### Content & the public developer surface: SEO axis vs trust axis
+
+Two independent axes decide where a surface lives, and conflating them is the mistake this rule prevents:
+
+- **SEO / link-equity consolidation** favours an **apex subdirectory**: Google treats a subdomain as a separate site
+  whose authority is not shared with the root, so anonymous, indexable content compounds domain authority only when
+  served under `<host>/…`.
+- **Trust isolation** favours a **separate origin** — the boundary this ADR already draws for the ops tier.
+
+They conflict only for anonymous content, and one rule resolves it: **the SEO axis applies only to surfaces that are both
+anonymous and indexable; anything behind a login is `noindex` and is therefore placed on trust-isolation grounds alone.**
+
+| Surface                                                       | Placement                                | Deciding axis                                                     |
+|---------------------------------------------------------------|------------------------------------------|-------------------------------------------------------------------|
+| Product docs, blog, guides, changelog                         | `<host>/docs`, `<host>/blog`, … (subdir) | anonymous + indexable → SEO                                       |
+| Public API reference (read-only `x-audience: public` specs, `x-internal` stripped, [ADR-0008](0008-api-contracts.md)) | `<host>/developers` (subdir) | anonymous + indexable → SEO; first-party read-only, like the landing page |
+| Internal devportal (full specs, [ADR-0009](0009-api-gateway.md)) | `<host>/devportal` (subdir)           | behind app session + `Checker`; same-origin with `/api/<svc>`, so "try it" needs no CORS |
+| Partner credential dashboard (issue/rotate Hydra OAuth2 keys)  | its own subdomain, separate auth realm  | behind login → `noindex`; a non-Kratos (Hydra) realm must not share the apex session cookie |
+
+The public docs portal is **anonymous — no login** ([ADR-0009](0009-api-gateway.md)); only *credential management* is
+authenticated, on the separate dashboard origin above. This is a **deferred, external third tier**: internal-only
+projects (the default) have exactly the product and ops tiers; a project shipping a public API adds this external tier,
+scoped by the same two axes.
+
+### The API endpoint origin
+
+The service API stays at `<host>/api/<svc>/*` — a path, not its own origin — and that holds **even for a public/partner
+API**. The origin-isolation argument that puts ops dashboards on `*.ops.<host>` does **not** carry over to a JSON API:
+there is no DOM, JS, or browser storage to isolate, so a separate origin protects nothing an API has. The reasons a
+subdomain *sounds* right mostly evaporate here:
+
+- **CORS is a cost, not a benefit.** Same-origin `<host>/api` needs none; a subdomain would manufacture a cross-origin
+  problem. (A third-party's own browser app needs CORS to call us regardless of where our API sits.)
+- **WAF and rate-limits are path-scoped already.** Traefik attaches middleware per `PathPrefix` router — the per-service
+  `/api/<svc>` IngressRoutes already do ([ADR-0009](0009-api-gateway.md)).
+- **Infra separation already exists.** The edge routes `/api/*` to service pods and `/` to the frontend; a subdomain adds
+  nothing until traffic is routed to genuinely different edge/CDN infrastructure.
+- **Versioning is a path (`/v1`), not a host.** Auth realm is a path-scoped Oathkeeper rule (session *and* JWT on the same
+  `/api` prefix), not a host.
+
+A distinct origin is warranted in only two narrow cases, neither the template default: **hard credential isolation** —
+guaranteeing the app session cookie never reaches the API — which requires a **separate registrable domain**, not merely a
+subdomain (a parent-scoped `Domain=<host>` cookie is sent to `api.<host>` too); or **separate edge/CDN infrastructure at
+scale**. Absent those, the public API is another `<host>/api/<svc>` route, distinguished from the internal one by its
+`x-audience: public` contract ([ADR-0008](0008-api-contracts.md)) and Hydra-JWT auth, not by its origin.
+
 ## Consequences
 
 ### Positive
@@ -221,9 +267,20 @@ a claim, for break-glass independence.
 ## Rules
 
 - Surfaces belong to exactly one tier: **product** on the apex `<host>`, **ops tooling** on `*.ops.<host>`. No operator
-  dashboard is served from a product path, and no product surface is served from an `ops.` subdomain.
-- Service APIs stay same-origin under `<host>/api/<svc>/*`; they are not given their own origin unless a non-browser
-  client requires it.
+  dashboard is served from a product path, and no product surface is served from an `ops.` subdomain. A project that ships
+  a public API adds a deferred **external** tier (public docs at `<host>/developers` and the partner credential dashboard
+  subdomain); internal-only projects have only the product and ops tiers.
+- Anonymous, indexable, first-party content — product docs, blog, guides, changelog, and the public read-only API
+  reference — is served from an **apex subdirectory** for link-equity consolidation. A subdomain is used only for a
+  distinct trust boundary (third-party code or a separate auth realm), never merely because a surface is public.
+- The public API docs portal is anonymous; only credential management (Hydra keys) is authenticated, on its own origin
+  ([ADR-0009](0009-api-gateway.md)).
+- The service API stays on the path `<host>/api/<svc>/*`, **including the public/partner API** — a JSON API has no
+  DOM/storage to origin-isolate, and CORS/WAF/rate-limits/versioning are all path-scoped. The public API is a
+  `<host>/api/<svc>` route distinguished by its `x-audience: public` contract ([ADR-0008](0008-api-contracts.md)) and
+  Hydra-JWT auth, not by its origin. A distinct origin is used only for **hard credential isolation** (which needs a
+  *separate registrable domain*, since a `Domain=<host>` cookie reaches `api.<host>`) or **separate edge/CDN
+  infrastructure at scale** — never for CORS/WAF, which do not require it.
 - Ops-tier hostnames are `{concept}.ops.<host>`, lowercase, matching `^[a-z][a-z0-9-]*$`
   ([ADR-0015](0015-naming-and-identifiers.md)).
 - The default is one session cookie scoped to the parent `<host>`, shared across tiers; tier isolation is enforced by
