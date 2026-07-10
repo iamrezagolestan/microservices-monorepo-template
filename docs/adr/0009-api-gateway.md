@@ -123,6 +123,20 @@ separately maintained documents:
   `x-audience: public` specs with `x-internal` operations stripped. It ships only when a public API does; until then the
   internal devportal is the only portal and there is no public placeholder to operate.
 
+Both projections are rendered by **Scalar** (`@scalar/api-reference-react`), an MIT-licensed OpenAPI renderer embedded as a
+client island in the route group — **not** a separate service, keeping the "route group, not a component" decision intact.
+Each portal is handed a **pre-filtered spec** produced by the build: the public projection strips `x-internal` operations
+(and non-`public` specs); the internal projection passes the complete set. Audience filtering therefore stays *ours*
+([ADR-0008](0008-api-contracts.md)) rather than a renderer feature. Scalar's built-in request console is exactly why the
+internal devportal is same-origin with `/api` ([ADR-0017](0017-url-and-domain-structure.md)): "try it" hits the real edge
+with the caller's session and needs no CORS. It is self-hosted and self-contained (web fonts disabled — no CDN); its own
+theme makes the portal a deliberate visual island, not an Untitled UI surface ([ADR-0014](0014-frontend.md)).
+
+Redoc was rejected because its request console is paywalled (Redocly Reference) — a read-only renderer would negate the
+same-origin "try it" the URL layout was built for; Stoplight Elements is the free fallback if Scalar's release churn ever
+outweighs its momentum. A docs *platform* (Fern, Mintlify) is out: it is a separate stateful service and duplicates the
+SDK codegen already pinned in [ADR-0008](0008-api-contracts.md).
+
 Credential management is a **separate, authenticated surface**, not part of either docs portal. When a public API exists,
 issuing and rotating third-party OAuth2 client credentials via Hydra lives behind login on its own dashboard origin
 ([ADR-0017](0017-url-and-domain-structure.md)): viewing docs never requires an account, only managing keys does.
@@ -172,7 +186,8 @@ Settled here and inherited by [ADR-0010](0010-auth.md):
 - `infra/auth/oathkeeper/` access rules (validate session/JWT → strip → inject identity headers).
 - `infra/gateway/` Traefik `Middleware` + `IngressRoute` for `/api` routing, rate limiting, and static security headers.
 - `infra/auth/oathkeeper/` CSRF Origin-check rule for cookie-authenticated state-changing requests.
-- `apps/frontend/src/app/(devportal)/` placeholder route group.
+- `apps/frontend/src/app/(devportal)/` route group rendering the specs via Scalar (`@scalar/api-reference-react`), fed the
+  pre-filtered projection (`mise run gen:openapi-public`, [ADR-0008](0008-api-contracts.md)).
 - `docs/gateway/runbook.md` covering edge rules, rate-limit changes, and the public-API gateway add-on.
 
 ## Rules
@@ -192,7 +207,8 @@ Settled here and inherited by [ADR-0010](0010-auth.md):
   Internal-only projects run Kratos + Oathkeeper + SpiceDB.
 - The internal developer portal is a `Checker`-gated route group in `apps/frontend/`; the public docs portal is anonymous
   and renders `x-audience: public` specs with `x-internal` operations stripped ([ADR-0008](0008-api-contracts.md)),
-  shipping only with a public API. Both are filtered projections of the specs, not a gateway feature. Credential
+  shipping only with a public API. Both are filtered projections of the specs, not a gateway feature, rendered by Scalar
+  embedded in the frontend route group ([ADR-0014](0014-frontend.md)) — no separate docs service. Credential
   management is a separate authenticated surface ([ADR-0017](0017-url-and-domain-structure.md)) and never gates the docs.
 - A project that needs tiered per-API-key quotas adds a full gateway (Tyk/Kong) for its own routes via its own decision;
   it is not the platform default.

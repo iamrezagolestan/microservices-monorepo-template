@@ -127,6 +127,9 @@ The one spec per service is the source of truth, but not every service or operat
 - A CI lint (`mise run lint:api-resources`) enforcing the flat-namespace invariant: no two `x-audience`-exposed specs
   claim the same top-level resource prefix, and each exposed prefix has a matching `ingress.resources` entry
   ([ADR-0017](0017-url-and-domain-structure.md)).
+- A `mise run gen:openapi-public` projection task emitting the public docs bundle — `x-audience: public` specs with
+  `x-internal` operations stripped — that the Scalar-rendered docs portals consume ([ADR-0009](0009-api-gateway.md),
+  [ADR-0014](0014-frontend.md)). The internal portal renders the unfiltered specs directly.
 - **Implemented:** `mise run lint:api-audience` (`tools/lint-api-audience`) enforces the audience↔exposure invariant —
   a spec's `info.x-audience` must agree with whether the service is edge-exposed (`public` ⇔ has an `/api` route via
   `ingress.resources`, read from the canonical dev values); a spec-less control-plane service (authz) is exempt.

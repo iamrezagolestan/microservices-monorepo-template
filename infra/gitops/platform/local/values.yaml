@@ -45,7 +45,13 @@ kratos:
       # so the unauthenticated browser redirect must come back to localtest.me.
       selfservice:
         default_browser_return_url: https://dev.localtest.me:8443/
+        # Allow post-login `return_to` back to any gated app route on the local
+        # edge (the chart baseline lists dev.example.com); without this, a
+        # session-less visit to /panel or /devportal 400s into the error flow.
+        allowed_return_urls:
+          - https://dev.localtest.me:8443/
         flows:
+          error:        { ui_url: https://dev.localtest.me:8443/auth/error }
           login:        { ui_url: https://dev.localtest.me:8443/auth/login }
           registration: { ui_url: https://dev.localtest.me:8443/auth/register }
           recovery:     { ui_url: https://dev.localtest.me:8443/auth/recovery }

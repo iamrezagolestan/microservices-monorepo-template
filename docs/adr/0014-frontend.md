@@ -99,6 +99,27 @@ Icons are `@untitledui/icons` (Untitled UI's own icon set), passed to primitives
 
 **Kitchen-sink page.** `apps/frontend/src/app/(devportal)/devportal/kitchen-sink/page.tsx` renders every primitive under `src/components/` once. It is the cheap alternative to Storybook: one route, no separate toolchain, gated by the (devportal) Kratos session. Every primitive added under `src/components/` gets a `<Section>` there in the same PR.
 
+### Developer portal renderer: Scalar
+
+The `(devportal)` route group renders the OpenAPI specs through **Scalar** (`@scalar/api-reference-react`), an MIT-licensed
+renderer chosen for the one feature the URL layout depends on — a **built-in, free request console** that, being same-origin
+with `/api` ([ADR-0017](0017-url-and-domain-structure.md)), lets "try it" call the real edge with the caller's session and
+no CORS. It is embedded as a `"use client"` island in the route group, never a separate service ([ADR-0009](0009-api-gateway.md)).
+
+- **The spec it renders is a pre-filtered projection, not the raw specs.** `mise run gen:openapi-public` emits a public
+  bundle with `x-internal` operations and non-`public` specs stripped ([ADR-0008](0008-api-contracts.md)); the internal
+  portal renders the complete set. Audience scoping stays ours, so the renderer only ever sees what its audience may see —
+  the strip is real, not a UI hide.
+- **Self-hosted, no CDN.** The npm package is bundled by `next build` (not a `<script>` tag), and default web fonts are
+  disabled (`withDefaultFonts: false`) so nothing is fetched at runtime — matching the offline/proxied bring-up the rest of
+  the platform assumes.
+- **CSP fit** ([Content Security Policy](#content-security-policy)): Scalar injects inline styles (covered by `style-src`),
+  self-hosts its fonts (`font-src 'self'`), and its console fetches same-origin `/api` (covered by `connect-src 'self'`).
+- **A deliberate visual island.** Scalar ships its own theme; the portal does not reuse Untitled UI primitives. Accepted for
+  one route group — matching a spec renderer to the design system is not worth the maintenance, and the console is worth more
+  than pixel parity. Redoc (console paywalled) and a docs platform (Fern/Mintlify — a separate service, duplicates the SDK
+  codegen) were rejected on the ADR-0009 grounds; Stoplight Elements is the fallback if Scalar's churn bites.
+
 ### Forms
 
 - `react-hook-form` for state and validation orchestration.

@@ -132,11 +132,16 @@ run = "bash scripts/db-migrate.sh"
 # ── Code generation ───────────────────────────────────────────────────────────
 [tasks.gen]
 # No gateway codegen — the edge (Traefik + Oathkeeper) does not consume the
-# OpenAPI spec; ogen + sqlc are the only generators (ADR-0008, ADR-0009).
-depends = ["gen:openapi", "gen:sqlc"]
+# OpenAPI spec (ADR-0009). Generators: ogen + openapi-typescript (SDKs), sqlc
+# (queries), and the devportal spec projections rendered by Scalar (ADR-0008).
+depends = ["gen:openapi", "gen:openapi-public", "gen:sqlc"]
 
 [tasks."gen:openapi"]
 run = "bash scripts/gen-openapi.sh"
+
+[tasks."gen:openapi-public"]
+# Filtered OpenAPI projections for the Scalar developer portals (ADR-0008/0009/0014).
+run = "bash scripts/gen-openapi-public.sh"
 
 [tasks."gen:sqlc"]
 run = "bash scripts/gen-sqlc.sh"
