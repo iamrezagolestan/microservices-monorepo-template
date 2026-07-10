@@ -39,6 +39,9 @@ sops = "3.13.1"
 # JSON wrangling for runtime glue scripts (ops:grant). Static policy checks use
 # Go tools/ instead; this is the one reproducible binary for shell-side JSON.
 jq = "1.8.1"
+# YAML counterpart of jq, for the prod-promotion glue (promote-on-release writes
+# image digests into the prod values files — ADR-0013). Same rationale as jq.
+"aqua:mikefarah/yq" = "4.47.1"
 
 # Authorization (SpiceDB schema validation)
 "github:authzed/zed" = "1.1.1"

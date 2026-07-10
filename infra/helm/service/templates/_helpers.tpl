@@ -16,16 +16,27 @@ app.kubernetes.io/part-of: platform
 app.kubernetes.io/name: {{ include "service.name" . }}
 {{- end -}}
 
+{{/*
+Image reference (ADR-0002, ADR-0013). Pin by digest when set (prod — the strongest
+immutable identity, `repo@sha256:…`), else by SHA tag (dev/staging). Moving tags
+are rejected by lint-floating-tags.
+*/}}
 {{- define "service.image" -}}
 {{- $r := required ".Values.image.repository is required" .Values.image.repository -}}
-{{- $t := required ".Values.image.tag is required (concrete git SHA — ADR-0002)" .Values.image.tag -}}
-{{ $r }}:{{ $t }}
+{{- if .Values.image.digest -}}
+{{ $r }}@{{ .Values.image.digest }}
+{{- else -}}
+{{ $r }}:{{ required ".Values.image.tag or .Values.image.digest is required (concrete git SHA / digest — ADR-0002, ADR-0013)" .Values.image.tag }}
+{{- end -}}
 {{- end -}}
 
 {{- define "service.worker.image" -}}
 {{- $r := required ".Values.worker.image.repository is required" .Values.worker.image.repository -}}
-{{- $t := required ".Values.worker.image.tag is required" .Values.worker.image.tag -}}
-{{ $r }}:{{ $t }}
+{{- if .Values.worker.image.digest -}}
+{{ $r }}@{{ .Values.worker.image.digest }}
+{{- else -}}
+{{ $r }}:{{ required ".Values.worker.image.tag or .Values.worker.image.digest is required" .Values.worker.image.tag }}
+{{- end -}}
 {{- end -}}
 
 {{/*
