@@ -44,11 +44,16 @@ otel:
   # Per-env GitOps values may override (e.g. "staging"); local flips it to "local".
   deployEnv: "prod"
 
-# Ingress through Traefik (ADR-0003). API traffic is path-routed under /api/<name>/.
+# Ingress through Traefik (ADR-0003, ADR-0017). The API is a flat resource
+# namespace: `resources` lists the resource segments this service owns at the
+# edge; each becomes a `/api/<resource>` route and the shared `/api` prefix is
+# stripped, so the service serves them at root and its identity stays out of the
+# URL. Exactly one service may own a given resource (CI-linted, ADR-0008).
 ingress:
   enabled: true
   host: ""              # set per env, e.g. dev.example.com
-  pathPrefix: ""        # defaults to /api/<name>/
+  resources: []         # e.g. [products] for catalog, [orders], [orgs], [charges]
+  pathPrefix: ""        # literal-prefix fallback for non-API surfaces (frontend "/")
 
 # References to SOPS-decrypted Kubernetes Secrets (ADR-0005).
 # The sops-operator materialises these from infra/gitops/<env>/secrets/<svc>.enc.yaml.

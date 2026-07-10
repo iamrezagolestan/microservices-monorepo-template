@@ -15,9 +15,12 @@ filter, no API-management gateway) is [ADR-0009](../adr/0009-api-gateway.md); tr
 
 ## Add a route
 
-- Product API: a per-service `/api/<svc>` IngressRoute on the apex `<host>` behind the Oathkeeper
-  forward-auth. Every forward-auth route MUST apply `strip-identity-headers` before forward-auth —
-  enforced by `mise run lint:strip-headers` (part of `lint:authz`).
+- Product API: a flat `/api/<resource>` IngressRoute on the apex `<host>` behind the Oathkeeper
+  forward-auth ([ADR-0017](../adr/0017-url-and-domain-structure.md)). The service declares the resources it
+  owns in `ingress.resources`; the edge routes each `/api/<resource>` and strips `/api`. No two services may
+  own the same resource (CI-linted, [ADR-0008](../adr/0008-api-contracts.md)). Every forward-auth route MUST
+  apply `strip-identity-headers` before forward-auth — enforced by `mise run lint:strip-headers` (part of
+  `lint:authz`).
 - Ops tool: a `Host({tool}.ops.<host>)` IngressRoute behind the ops forward-auth, whose coarse gate is the
   `operator` claim + AAL2 ([ADR-0017](../adr/0017-url-and-domain-structure.md)). Add the Oathkeeper access
   rule in `infra/auth/oathkeeper/access-rules.json` (`mise run lint:authz` checks it uses `remote_json`,

@@ -112,7 +112,7 @@ A project chasing a real CPU or allocation problem sets `profiling: on`, which d
 - **Logs are structured JSON to stdout.** `obs` configures `slog` accordingly. `fmt.Println` for diagnostics is forbidden.
 - **Log levels:** `DEBUG` (off in prod), `INFO` (lifecycle), `WARN` (recoverable abnormalities), `ERROR` (failed operations). `FATAL`/`PANIC` only on startup.
 - **Trace context** is propagated via W3C `traceparent` across HTTP and Temporal. Traefik and Oathkeeper preserve it at the edge ([ADR-0009](0009-api-gateway.md)).
-- **Resource attributes** are set once by `obs.Init`: `service.name`, `service.version` (from build), `service.namespace`, `deployment.environment`.
+- **Resource attributes** are set once by `obs.Init`: `service.name`, `service.version` and `service.build.sha` (both from the baked-in `buildinfo`, so telemetry self-reports the running build — [ADR-0013](0013-release-and-versioning.md)), `service.namespace`, `deployment.environment`.
 - **Metric naming** follows OTel semantic conventions where they exist, else `<service>_<noun>_<unit>_<type>` (e.g. `payment_settlement_duration_seconds`).
 - **No PII in logs, metrics, traces, profiles.** Enforced by review; `libs/go/observability/redact/` provides safe formatters for user/org identifiers.
 - **Sampling defaults:** head sampling at 100% for errors, 5% for healthy traces. Tail sampling at the gateway promotes slow traces to 100%. Service authors do not configure sampling.

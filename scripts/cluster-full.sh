@@ -90,13 +90,19 @@ build_push() {  # <image-name> <dockerfile> <context> [extra docker build argsâ€
   return 1
 }
 echo "â†’ building + pushing repo images to ${REG}"
+# Build identity baked into each image (ADR-0013): the working-tree SHA (+ -dirty),
+# so /version and the X-App-Version header report exactly what this run deployed.
+REV="$(git rev-parse --short=12 HEAD 2>/dev/null || echo unknown)"
+git diff --quiet 2>/dev/null || REV="${REV}-dirty"
+BUILD_ID=(--build-arg "GIT_SHA=${REV}" --build-arg BUILD_VERSION=local \
+  --build-arg "BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)")
 for svc in authz catalog orders orgs payment; do
   build_push "${svc}-server" "services/${svc}/Dockerfile" . \
-    --build-arg SERVICE="${svc}" --build-arg APP_CMD=server
+    --build-arg SERVICE="${svc}" --build-arg APP_CMD=server "${BUILD_ID[@]}"
 done
 for svc in orders payment; do
   build_push "${svc}-worker" "services/${svc}/Dockerfile" . \
-    --build-arg SERVICE="${svc}" --build-arg APP_CMD=worker
+    --build-arg SERVICE="${svc}" --build-arg APP_CMD=worker "${BUILD_ID[@]}"
 done
 build_push admin apps/admin/Dockerfile apps/admin
 

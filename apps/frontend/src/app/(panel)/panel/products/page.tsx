@@ -3,7 +3,7 @@
 // generated catalog SDK once `mise run gen:openapi` has produced it.
 //
 // import type { paths } from "@sdks/catalog";
-// const catalog = await createServerClient<paths>({ service: "catalog" });
+// const catalog = await createServerClient<paths>();
 // const { data } = await catalog.GET("/products");
 
 import { createServerClient } from "@/lib/server-fetch/server";
@@ -17,7 +17,7 @@ type CatalogPaths = {
 };
 
 export default async function Products() {
-  const catalog = await createServerClient<CatalogPaths>({ service: "catalog" });
+  const catalog = await createServerClient<CatalogPaths>();
   const { data } = await catalog.GET("/products");
   const products = data ?? [];
 

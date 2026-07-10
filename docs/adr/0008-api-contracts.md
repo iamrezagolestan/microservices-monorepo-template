@@ -3,7 +3,7 @@
 - **Status:** Accepted
 - **Date:** 2026-07-06
 - **Deciders:** Platform team
-- **Related:** [ADR-0001](0001-language-and-runtime.md), [ADR-0009](0009-api-gateway.md), [ADR-0017](0017-url-and-domain-structure.md)
+- **Related:** [ADR-0001](0001-language-and-runtime.md), [ADR-0009](0009-api-gateway.md), [ADR-0017](0017-url-and-domain-structure.md), [ADR-0022](0022-api-lifecycle.md)
 
 ## Context
 
@@ -44,6 +44,18 @@ Wire efficiency for internal calls is explicitly **not** a priority. JSON over H
 ## Decision
 
 **The API contract source of truth is OpenAPI 3.1.** One spec per service at `services/<service>/openapi.yaml`. Each spec is **fully self-contained**: cross-service shapes (the error envelope, common ID/time types, the workflow handle from [ADR-0006](0006-temporal.md)) are declared in the spec's own `components` rather than imported from a shared `api/shared/` namespace by cross-file `$ref`. Keeping each spec self-contained (no external file references) makes specs portable across the codegen and linting tools and removes any cross-file resolution step, so these shapes are duplicated by convention and kept identical across services.
+
+### Server URL & paths: flat resource namespace
+
+Each spec's `servers` entry is the **shared flat prefix — `url: /api`** — and its paths are **globally-unique resource
+nouns** (`/products`, `/orders`, `/charges`), so the exposed URL is `<host>/api/<resource>` with no service segment
+([ADR-0017](0017-url-and-domain-structure.md)). The service that owns a resource is a hidden edge-routing detail, not part
+of the URL. Because all specs share one `/api` namespace, two `x-audience`-exposed specs must not claim the same top-level
+resource prefix; the vacuum lint fails on a collision. East-west, service-to-service endpoints (e.g. `/internal/*`) are
+declared in the spec but bypass the edge ([ADR-0009](0009-api-gateway.md)) and are not part of the `/api` surface.
+
+The API is **not versioned in the URL**: single-live-version by default, an `Api-Version` header only when online
+versioning is flagged on ([ADR-0022](0022-api-lifecycle.md)) — which is precisely why the flat resource URL is stable.
 
 ### Codegen
 
@@ -110,12 +122,19 @@ The one spec per service is the source of truth, but not every service or operat
 - The `mise run gen:*` task family (wrapping the `scripts/gen-*.sh` generators).
 - `tools/codegen/openapi-ruleset.yaml` ruleset.
 - Shared shapes (error envelope, workflow handle) declared inline in each `services/<service>/openapi.yaml` `components` block.
+- A CI lint (`mise run lint:api-resources`) enforcing the flat-namespace invariant: no two `x-audience`-exposed specs
+  claim the same top-level resource prefix, and each exposed prefix has a matching `ingress.resources` entry
+  ([ADR-0017](0017-url-and-domain-structure.md)).
 - Lefthook pre-commit hook running the affected generator slice.
 - CI drift-check job per [ADR-0002](0002-monorepo.md).
 
 ## Rules
 
 - The contract source of truth is OpenAPI 3.1, one file per service at `services/<service>/openapi.yaml`.
+- Each spec's `servers` url is the shared flat `/api`, and paths are globally-unique resource nouns — the exposed URL is
+  `<host>/api/<resource>` with no service segment ([ADR-0017](0017-url-and-domain-structure.md)). Vacuum lint fails if two
+  `x-audience`-exposed specs claim the same top-level resource prefix. The API carries no version segment
+  ([ADR-0022](0022-api-lifecycle.md)).
 - Each spec is self-contained: cross-service shapes (error envelope, workflow handle) are declared inline in the spec's `components` and kept identical across services. Cross-file `$ref` is avoided to keep specs portable across the codegen and linting tools.
 - Every spec declares `info.x-audience` (`internal` | `public`, extensible, default `internal`); operations withheld from public docs are marked `x-internal: true`. These are documentation-scoping labels, not access control.
 - Exposure is enforced independently by the edge route + Oathkeeper ([ADR-0009](0009-api-gateway.md)); a CI check keeps `x-audience: public` and the service's `ingress.enabled` in agreement.

@@ -1,6 +1,6 @@
 openapi: 3.1.0
 info: { title: orgs, version: 0.1.0, description: Organization and membership service. }
-servers: [{ url: /api/orgs }]
+servers: [{ url: /api }]   # flat resource namespace (ADR-0017); paths are globally unique
 tags: [{ name: orgs }, { name: internal }]
 paths:
   /orgs:

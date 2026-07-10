@@ -5,6 +5,7 @@ package observability
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -16,6 +17,7 @@ import (
 
 	"go.opentelemetry.io/contrib/bridges/otelslog"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
@@ -26,6 +28,8 @@ import (
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
 	"go.opentelemetry.io/otel/trace"
+
+	"github.com/tabmadi/microservices-monorepo-template/libs/go/buildinfo"
 )
 
 // Config is read from environment variables when omitted. Service code provides
@@ -66,9 +70,17 @@ func Init(ctx context.Context, cfg Config) (func(context.Context) error, error) 
 		local = true
 	}
 
+	// service.version (release) + service.build.sha (precise, always-unique) come
+	// from the baked-in build identity (ADR-0013), so every trace/log/metric
+	// self-reports which binary emitted it — answering "what's actually running"
+	// in Grafana without a bespoke endpoint.
 	res, err := resource.New(
 		ctx,
-		resource.WithAttributes(semconv.ServiceName(cfg.ServiceName)),
+		resource.WithAttributes(
+			semconv.ServiceName(cfg.ServiceName),
+			semconv.ServiceVersion(buildinfo.Version),
+			attribute.String("service.build.sha", buildinfo.SHA),
+		),
 		resource.WithFromEnv(),
 		resource.WithProcessRuntimeName(),
 	)
@@ -206,6 +218,15 @@ func serveAdmin(addr string) {
 				return
 			}
 			w.WriteHeader(http.StatusOK)
+		},
+	)
+	// Build identity of the running binary (ADR-0013): scriptable/curl-able per pod,
+	// so "is this pod the version I released?" is answerable directly, not inferred.
+	mux.HandleFunc(
+		"/version",
+		func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(buildinfo.Get())
 		},
 	)
 	mux.HandleFunc("/debug/pprof/", pprof.Index)

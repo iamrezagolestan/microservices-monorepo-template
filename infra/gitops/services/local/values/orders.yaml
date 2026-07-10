@@ -14,7 +14,7 @@ worker:
     repository: k3d-registry.localhost:5000/orders-worker
     tag: local
 server:  { replicas: 1 }
-ingress: { enabled: true, host: dev.localtest.me }
+ingress: { enabled: true, host: dev.localtest.me, resources: [orders] }
 otel:    { deployEnv: local }
 secrets: { envFrom: [orders-db] }
 env:

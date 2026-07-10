@@ -50,7 +50,14 @@ jobs:
         with:
           context: .
           file: services/${{ matrix.service }}/Dockerfile
-          build-args: APP_CMD=${{ matrix.cmd }}
+          # Bake the build identity (ADR-0013): the commit SHA the pod will
+          # self-report via /version and the X-App-Version header. BUILD_VERSION
+          # stays "dev" for master builds; prod's CalVer is stamped on release.
+          build-args: |
+            APP_CMD=${{ matrix.cmd }}
+            GIT_SHA=${{ github.sha }}
+            BUILD_VERSION=dev
+            BUILD_TIME=${{ github.event.head_commit.timestamp }}
           push: true
           tags: ghcr.io/${{ github.repository }}/${{ matrix.service }}-${{ matrix.cmd }}:${{ github.sha }}
           cache-from: type=gha

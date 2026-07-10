@@ -123,7 +123,7 @@ func handle(id string) *payment.WorkflowHandle {
 		ID:        "charge-" + id,
 		RunID:     id,
 		Status:    payment.WorkflowHandleStatusRunning,
-		ResultURL: payment.NewOptURI(url.URL{Path: "/api/payment/charges/" + id}),
+		ResultURL: payment.NewOptURI(url.URL{Path: "/api/charges/" + id}),
 	}
 }
 

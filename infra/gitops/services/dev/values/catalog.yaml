@@ -9,6 +9,7 @@ server:
 ingress:
   enabled: true
   host: dev.example.com
+  resources: [products]
 secrets:
   envFrom: [catalog-db-creds]
 env:

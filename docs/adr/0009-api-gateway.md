@@ -3,7 +3,7 @@
 - **Status:** Accepted
 - **Date:** 2026-07-06
 - **Deciders:** Platform team
-- **Related:** [ADR-0003](0003-cluster-topology.md), [ADR-0008](0008-api-contracts.md), [ADR-0010](0010-auth.md), [ADR-0017](0017-url-and-domain-structure.md)
+- **Related:** [ADR-0003](0003-cluster-topology.md), [ADR-0008](0008-api-contracts.md), [ADR-0010](0010-auth.md), [ADR-0017](0017-url-and-domain-structure.md), [ADR-0022](0022-api-lifecycle.md)
 
 ## Context
 
@@ -101,6 +101,12 @@ here, complementing the per-request CSP nonce the frontend sets ([ADR-0014](0014
   `infra/helm/platform/ory/` alongside Kratos and Hydra.
 - Traefik routing and rate-limit middleware live in `infra/gateway/` as Traefik CRDs (`Middleware`, `IngressRoute`),
   committed per [ADR-0002](0002-monorepo.md).
+- **Flat resource routing.** The API is a flat namespace (`<host>/api/<resource>`, [ADR-0017](0017-url-and-domain-structure.md)):
+  the edge routes each resource prefix (`/api/products`, `/api/orders`, …) to its backing service via a per-resource
+  `PathPrefix` rule, so the service topology is hidden and a resource can move between services without a URL change. The
+  route table is the **single registry of resource ownership** — a CI lint fails if two `x-audience`-exposed specs claim
+  the same prefix ([ADR-0008](0008-api-contracts.md)). Oathkeeper matches one rule on the whole `/api/` prefix (session or
+  JWT → identity headers); it does not enumerate services.
 - There is **no gateway-specific API-definition codegen.** The OpenAPI spec drives service codegen
   ([ADR-0008](0008-api-contracts.md)); the edge does not consume it.
 

@@ -28,11 +28,22 @@ app.kubernetes.io/name: {{ include "service.name" . }}
 {{ $r }}:{{ $t }}
 {{- end -}}
 
-{{- define "service.ingressPath" -}}
-{{- if .Values.ingress.pathPrefix -}}
-{{ .Values.ingress.pathPrefix }}
+{{/*
+Traefik match rule (ADR-0017). Flat-API mode when ingress.resources is set: the
+edge matches /api/<resource> for each resource the service owns, hiding the
+service topology behind a flat namespace. Otherwise ingress.pathPrefix is a
+literal prefix (the frontend catch-all "/").
+*/}}
+{{- define "service.ingressMatch" -}}
+{{- $host := required ".Values.ingress.host is required when ingress.enabled" .Values.ingress.host -}}
+{{- if .Values.ingress.resources -}}
+{{- $prefixes := list -}}
+{{- range .Values.ingress.resources -}}
+{{- $prefixes = append $prefixes (printf "PathPrefix(`/api/%s`)" .) -}}
+{{- end -}}
+Host(`{{ $host }}`) && ({{ join " || " $prefixes }})
 {{- else -}}
-/api/{{ include "service.name" . }}/
+Host(`{{ $host }}`) && PathPrefix(`{{ required ".Values.ingress.resources or .Values.ingress.pathPrefix is required" .Values.ingress.pathPrefix }}`)
 {{- end -}}
 {{- end -}}
 

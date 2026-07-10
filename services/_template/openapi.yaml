@@ -6,7 +6,10 @@ info:
     Skeleton OpenAPI spec. Copy this file when scaffolding a new service
     (see scripts/new-service.sh) and replace `_template` with the new name.
 servers:
-  - url: /api/_template
+  # Flat resource namespace (ADR-0017): the server prefix is the shared /api, and
+  # paths are globally-unique resource nouns — replace /items with this service's
+  # own resource(s). No two services may own the same top-level resource (CI-linted).
+  - url: /api
 tags:
   - name: items
 paths:
