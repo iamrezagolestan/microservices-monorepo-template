@@ -2,6 +2,10 @@ openapi: 3.1.0
 info:
   title: Template service
   version: 0.1.0
+  # Documentation audience (ADR-0008). Fail-closed default: `internal`. If the new
+  # service is edge-exposed (ingress.enabled / ingress.resources), it MUST declare
+  # `x-audience: public` — an edge-exposed spec may not read `internal`.
+  x-audience: internal
   description: |
     Skeleton OpenAPI spec. Copy this file when scaffolding a new service
     (see scripts/new-service.sh) and replace `_template` with the new name.

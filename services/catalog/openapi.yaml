@@ -1,5 +1,5 @@
 openapi: 3.1.0
-info: { title: catalog, version: 0.1.0, description: Product catalog service. }
+info: { title: catalog, version: 0.1.0, description: Product catalog service., x-audience: public }
 servers: [{ url: /api }]   # flat resource namespace (ADR-0017); paths are globally unique
 tags: [{ name: products }]
 paths:

@@ -43,7 +43,9 @@ Wire efficiency for internal calls is explicitly **not** a priority. JSON over H
 
 ## Decision
 
-**The API contract source of truth is OpenAPI 3.1.** One spec per service at `services/<service>/openapi.yaml`. Each spec is **fully self-contained**: cross-service shapes (the error envelope, common ID/time types, the workflow handle from [ADR-0006](0006-temporal.md)) are declared in the spec's own `components` rather than imported from a shared `api/shared/` namespace by cross-file `$ref`. Keeping each spec self-contained (no external file references) makes specs portable across the codegen and linting tools and removes any cross-file resolution step, so these shapes are duplicated by convention and kept identical across services.
+**The API contract source of truth is OpenAPI 3.1.** One spec per **resource-API** service at `services/<service>/openapi.yaml`. Each spec is **fully self-contained**: cross-service shapes (the error envelope, common ID/time types, the workflow handle from [ADR-0006](0006-temporal.md)) are declared in the spec's own `components` rather than imported from a shared `api/shared/` namespace by cross-file `$ref`. Keeping each spec self-contained (no external file references) makes specs portable across the codegen and linting tools and removes any cross-file resolution step, so these shapes are duplicated by convention and kept identical across services.
+
+**Control-plane services are exempt.** The rule covers services that expose an HTTP **resource API** (the ones ogen generates a server + SDK for). A pure control-plane/decision service whose contract is defined elsewhere ships **no** `openapi.yaml`: the `authz` service ([ADR-0010](0010-auth.md)) is contract-defined by its SpiceDB schema, and its few endpoints (`/internal/authorize`, `/admin/*`) are hand-written on a plain mux with no generated SDK. `mise run gen` discovers specs by glob (`services/*/openapi.yaml`), so an absent spec simply yields no generated surface — adding one to a non-ogen service would only produce dead artifacts.
 
 ### Server URL & paths: flat resource namespace
 
@@ -97,7 +99,7 @@ OpenAPI YAML is hand-written. **TypeSpec is not used.** If a service's spec grow
 
 The one spec per service is the source of truth, but not every service or operation is meant for every consumer group (the three from *Context*). Two orthogonal labels, both declared in the spec, classify the surface so the developer portals ([ADR-0009](0009-api-gateway.md)) render **filtered projections** of the same specs rather than separate hand-maintained documents.
 
-- **Service audience** — `info.x-audience`, exactly one per spec, an extensible enum seeded with `internal` and `public` (following Zalando's `x-audience`). `public` is an edge service whose contract third parties may see; `internal` is a service documented for our own developers only (e.g. the east-west `authz` service). It **defaults to `internal`** — fail-closed: a spec is never treated as public unless it says so.
+- **Service audience** — `info.x-audience`, exactly one per spec, an extensible enum seeded with `internal` and `public` (following Zalando's `x-audience`). `public` is an edge service whose contract third parties may see; `internal` is a service whose spec is documented for our own developers only — an east-west resource API consumed by other internal services and never edge-exposed. (A control-plane service like `authz` carries no spec at all — see *Decision* — so the label applies only to spec-bearing services.) It **defaults to `internal`** — fail-closed: a spec is never treated as public unless it says so.
 - **Operation visibility** — `x-internal: true` on an individual operation (following Google's API visibility and Redocly's `x-internal`), default false. It drops an operation — an admin action, or a small internal-detail endpoint — from the *public* projection while keeping it in the internal one, so public docs stay curated to the endpoints that matter and internal docs stay complete.
 
 **These labels are documentation scoping, not access control.** Removing an operation from a rendered spec does not protect it: exposure is decided solely by the edge route and Oathkeeper ([ADR-0009](0009-api-gateway.md)) — a service with no IngressRoute (`ingress.enabled: false`) is unreachable from the internet whatever its spec says. The two must not drift, so a CI check fails a spec marked `x-audience: public` whose service has no edge route (and an edge-exposed service whose spec says `internal`), keeping the documented audience and the real exposure boundary in lockstep.
@@ -125,12 +127,15 @@ The one spec per service is the source of truth, but not every service or operat
 - A CI lint (`mise run lint:api-resources`) enforcing the flat-namespace invariant: no two `x-audience`-exposed specs
   claim the same top-level resource prefix, and each exposed prefix has a matching `ingress.resources` entry
   ([ADR-0017](0017-url-and-domain-structure.md)).
+- **Implemented:** `mise run lint:api-audience` (`tools/lint-api-audience`) enforces the audience↔exposure invariant —
+  a spec's `info.x-audience` must agree with whether the service is edge-exposed (`public` ⇔ has an `/api` route via
+  `ingress.resources`, read from the canonical dev values); a spec-less control-plane service (authz) is exempt.
 - Lefthook pre-commit hook running the affected generator slice.
 - CI drift-check job per [ADR-0002](0002-monorepo.md).
 
 ## Rules
 
-- The contract source of truth is OpenAPI 3.1, one file per service at `services/<service>/openapi.yaml`.
+- The contract source of truth is OpenAPI 3.1, one file per **resource-API** service at `services/<service>/openapi.yaml`. A control-plane/decision service whose contract is defined elsewhere (e.g. `authz` → SpiceDB schema, [ADR-0010](0010-auth.md)) ships no spec.
 - Each spec's `servers` url is the shared flat `/api`, and paths are globally-unique resource nouns — the exposed URL is
   `<host>/api/<resource>` with no service segment ([ADR-0017](0017-url-and-domain-structure.md)). Vacuum lint fails if two
   `x-audience`-exposed specs claim the same top-level resource prefix. The API carries no version segment
