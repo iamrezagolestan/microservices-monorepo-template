@@ -6,4 +6,3 @@ services/*/internal/store/*.go  linguist-generated=true
 infra/gateway/apis/*.yaml       linguist-generated=true
 apps/admin/_generated/**        linguist-generated=true
 apps/frontend/public/devportal/openapi/**  linguist-generated=true
-apps/frontend/src/devportal/specs.ts       linguist-generated=true

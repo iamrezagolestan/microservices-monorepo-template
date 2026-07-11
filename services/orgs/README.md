@@ -1,5 +1,6 @@
 # orgs
 
 B2B multi-tenancy service (ADR-0010). Owns organisations + memberships.
-Receives a webhook from Kratos at `POST /internal/identity-created` to create a
-personal org for every new identity. Maps cleanly onto SpiceDB's `org` definition.
+Receives an east-west webhook from Kratos at `POST /cluster/identity-created`
+(`x-audience: cluster`, ADR-0008 — off the edge, in neither docs portal) to create
+a personal org for every new identity. Maps cleanly onto SpiceDB's `org` definition.

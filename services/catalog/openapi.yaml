@@ -13,6 +13,10 @@ paths:
         default: { $ref: "#/components/responses/Error" }
     post:
       operationId: createProduct
+      # First-party edge op: writing the catalog is an internal/admin action, so it
+      # is edge-reachable but kept out of the public docs (overrides the service's
+      # `public` default — ADR-0008 audience ladder). The public catalog is read-only.
+      x-audience: internal
       description: Create a product.
       tags: [products]
       requestBody:

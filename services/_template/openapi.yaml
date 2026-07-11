@@ -2,10 +2,12 @@ openapi: 3.1.0
 info:
   title: Template service
   version: 0.1.0
-  # Documentation audience (ADR-0008). Fail-closed default: `internal`. If the new
-  # service is edge-exposed (ingress.enabled / ingress.resources), it MUST declare
-  # `x-audience: public` — an edge-exposed spec may not read `internal`.
-  x-audience: internal
+  # Audience ladder (ADR-0008): cluster → internal → public, a widening boundary
+  # (service-to-service → first-party edge → third-party edge). Fail-closed default
+  # is `cluster` (east-west, no edge route). Raise it — here on `info` for the whole
+  # service, or per-operation — to `internal` (first-party edge) or `public`
+  # (third-party edge), and declare a matching `ingress.resources` route.
+  x-audience: cluster
   description: |
     Skeleton OpenAPI spec. Copy this file when scaffolding a new service
     (see scripts/new-service.sh) and replace `_template` with the new name.

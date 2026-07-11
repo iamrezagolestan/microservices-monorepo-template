@@ -38,7 +38,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/internal/identity-created": {
+    "/cluster/identity-created": {
         parameters: {
             query?: never;
             header?: never;

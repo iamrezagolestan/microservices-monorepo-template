@@ -197,8 +197,8 @@ anonymous and indexable; anything behind a login is `noindex` and is therefore p
 | Surface                                                       | Placement                                | Deciding axis                                                     |
 |---------------------------------------------------------------|------------------------------------------|-------------------------------------------------------------------|
 | Product docs, blog, guides, changelog                         | `<host>/docs`, `<host>/blog`, … (subdir) | anonymous + indexable → SEO                                       |
-| Public API reference (read-only `x-audience: public` specs, `x-internal` stripped, [ADR-0008](0008-api-contracts.md)) | `<host>/developers` (subdir) | anonymous + indexable → SEO; first-party read-only, like the landing page |
-| Internal devportal (full specs, [ADR-0009](0009-api-gateway.md)) | `<host>/devportal` (subdir)           | behind app session + `Checker`; same-origin with `/api`, so "try it" needs no CORS |
+| Public API reference (`x-audience: public` operations only, [ADR-0008](0008-api-contracts.md)) | `<host>/developers` (subdir) | anonymous + indexable → SEO; first-party read-only, like the landing page |
+| Dev portal (edge surface — audience `>= internal`, [ADR-0009](0009-api-gateway.md)) | `<host>/devportal` (subdir)           | behind app session + `Checker`; same-origin with `/api`, so "try it" needs no CORS |
 | Partner credential dashboard (issue/rotate Hydra OAuth2 keys)  | its own subdomain, separate auth realm  | behind login → `noindex`; a non-Kratos (Hydra) realm must not share the apex session cookie |
 
 The public docs portal is **anonymous — no login** ([ADR-0009](0009-api-gateway.md)); only *credential management* is
@@ -221,9 +221,10 @@ limitation — a name collision is a genuine domain-modelling conflict — and i
 fails if two `x-audience`-exposed specs claim the same top-level resource prefix. The edge route table (per-resource
 `PathPrefix`, [ADR-0009](0009-api-gateway.md)) is the single registry of who owns what.
 
-**East-west endpoints are not on this surface.** Internal service-to-service endpoints (e.g. `orgs`'s
-`/internal/identity-created`) bypass the edge entirely ([ADR-0006](0006-temporal.md), [ADR-0009](0009-api-gateway.md)) and
-are reached in-cluster, gated by Cilium NetworkPolicy — they are never `/api/<resource>` edge routes.
+**East-west endpoints are not on this surface.** Internal service-to-service endpoints (`x-audience: cluster`, by
+convention on a `/cluster/*` path — e.g. `orgs`'s `/cluster/identity-created`) bypass the edge entirely
+([ADR-0006](0006-temporal.md), [ADR-0009](0009-api-gateway.md)) and are reached in-cluster, gated by Cilium NetworkPolicy —
+they are never `/api/<resource>` edge routes, and appear in neither docs portal.
 
 A **path, not its own origin** — and that holds **even for a public/partner API**. The origin-isolation argument that puts
 ops dashboards on `*.ops.<host>` does **not** carry over to a JSON API: there is no DOM, JS, or browser storage to isolate,
@@ -296,7 +297,7 @@ scale**. Absent those, the public API is another `<host>/api/<resource>` route, 
 - The service API is a **flat resource namespace** on the path `<host>/api/<resource>` (`/api/products`, `/api/orders`,
   …), never per-service (`/api/<svc>/...`) — the URL names the resource, and which service serves it is a hidden,
   movable edge-routing detail. A CI lint fails if two `x-audience`-exposed specs claim the same top-level resource
-  prefix; the edge route table is the ownership registry. East-west endpoints (e.g. `/internal/*`) bypass the edge and
+  prefix; the edge route table is the ownership registry. East-west endpoints (`x-audience: cluster`, e.g. `/cluster/*`) bypass the edge and
   are not on this surface.
 - The path holds **including the public/partner API** — a JSON API has no DOM/storage to origin-isolate, and
   CORS/WAF/rate-limits are path-scoped; the API is not versioned in the URL at all (single-live-version by default, an

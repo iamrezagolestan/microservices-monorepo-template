@@ -97,12 +97,21 @@ OpenAPI YAML is hand-written. **TypeSpec is not used.** If a service's spec grow
 
 ### API audience & visibility
 
-The one spec per service is the source of truth, but not every service or operation is meant for every consumer group (the three from *Context*). Two orthogonal labels, both declared in the spec, classify the surface so the developer portals ([ADR-0009](0009-api-gateway.md)) render **filtered projections** of the same specs rather than separate hand-maintained documents.
+The one spec per service is the source of truth, but not every service or operation is meant for every consumer group (the three from *Context*). A single label — `x-audience` — classifies the surface so the developer portals ([ADR-0009](0009-api-gateway.md)) render **filtered projections** of the same specs rather than separate hand-maintained documents.
 
-- **Service audience** — `info.x-audience`, exactly one per spec, an extensible enum seeded with `internal` and `public` (following Zalando's `x-audience`). `public` is an edge service whose contract third parties may see; `internal` is a service whose spec is documented for our own developers only — an east-west resource API consumed by other internal services and never edge-exposed. (A control-plane service like `authz` carries no spec at all — see *Decision* — so the label applies only to spec-bearing services.) It **defaults to `internal`** — fail-closed: a spec is never treated as public unless it says so.
-- **Operation visibility** — `x-internal: true` on an individual operation (following Google's API visibility and Redocly's `x-internal`), default false. It drops an operation — an admin action, or a small internal-detail endpoint — from the *public* projection while keeping it in the internal one, so public docs stay curated to the endpoints that matter and internal docs stay complete.
+**`x-audience` is one ordered ladder** — a widening audience boundary, *service-to-service → first-party edge → third-party edge*:
 
-**These labels are documentation scoping, not access control.** Removing an operation from a rendered spec does not protect it: exposure is decided solely by the edge route and Oathkeeper ([ADR-0009](0009-api-gateway.md)) — a service with no IngressRoute (`ingress.enabled: false`) is unreachable from the internet whatever its spec says. The two must not drift, so a CI check fails a spec marked `x-audience: public` whose service has no edge route (and an edge-exposed service whose spec says `internal`), keeping the documented audience and the real exposure boundary in lockstep.
+| value | meaning | edge-reachable? |
+|---|---|---|
+| `cluster` | east-west, service-to-service, in-cluster only (gated by NetworkPolicy) | no — bypasses the edge |
+| `internal` | first-party edge surface — our own frontend/admin/tools, curated out of public docs | yes, `/api` |
+| `public` | third-party edge surface — the contract outsiders may see | yes, `/api` |
+
+The label is set on `info` as the **service default** and may be **overridden per operation** (an operation's `x-audience` wins, else the service default, else the fail-closed `cluster`). So a mostly-`public` service can mark one write op `internal` (edge-reachable, kept out of public docs), and an otherwise-edge service can mark an east-west webhook `cluster`. It **defaults to `cluster`** — fail-closed: a spec is never treated as edge-reachable, let alone public, unless it says so. (A control-plane service like `authz` carries no spec at all — see *Decision* — so the label applies only to spec-bearing services.)
+
+The field follows Zalando's `x-audience` convention; the three values are our own simplification of Zalando's enum, and folding operation-level visibility onto the *same* axis replaces the separate Redocly-style `x-internal` flag — one ladder, no second label to reconcile.
+
+**`x-audience` is documentation scoping, not access control.** Withholding an operation from a rendered spec does not protect it: exposure is decided solely by the edge route and Oathkeeper ([ADR-0009](0009-api-gateway.md)) — a service with no IngressRoute (`ingress.enabled: false`) is unreachable from the internet whatever its spec says. The two must not drift, so a CI check ties the ladder to real exposure: a service is edge-exposed **iff** it has at least one `internal`/`public` operation, and a `cluster`-only service must have no `/api` route. East-west endpoints follow the `/cluster/*` path convention ([ADR-0017](0017-url-and-domain-structure.md)) and never appear in either portal.
 
 ## Consequences
 
@@ -127,12 +136,13 @@ The one spec per service is the source of truth, but not every service or operat
 - A CI lint (`mise run lint:api-resources`) enforcing the flat-namespace invariant: no two `x-audience`-exposed specs
   claim the same top-level resource prefix, and each exposed prefix has a matching `ingress.resources` entry
   ([ADR-0017](0017-url-and-domain-structure.md)).
-- A `mise run gen:openapi-public` projection task emitting the public docs bundle — `x-audience: public` specs with
-  `x-internal` operations stripped — that the Scalar-rendered docs portals consume ([ADR-0009](0009-api-gateway.md),
-  [ADR-0014](0014-frontend.md)). The internal portal renders the unfiltered specs directly.
+- A `mise run gen:openapi-public` projection task emitting the merged docs bundles the Scalar-rendered portals consume
+  ([ADR-0009](0009-api-gateway.md), [ADR-0014](0014-frontend.md)): the dev-portal bundle keeps operations at audience
+  `>= internal`, the public-docs bundle keeps only `public` — a threshold on the ladder, resolved per operation.
 - **Implemented:** `mise run lint:api-audience` (`tools/lint-api-audience`) enforces the audience↔exposure invariant —
-  a spec's `info.x-audience` must agree with whether the service is edge-exposed (`public` ⇔ has an `/api` route via
-  `ingress.resources`, read from the canonical dev values); a spec-less control-plane service (authz) is exempt.
+  a service is edge-exposed iff it has an `internal`/`public` operation (resolving each op's audience against the service
+  default), and a `cluster`-only service has no `/api` route (`ingress.resources`, read from the canonical dev values);
+  a spec-less control-plane service (authz) is exempt.
 - Lefthook pre-commit hook running the affected generator slice.
 - CI drift-check job per [ADR-0002](0002-monorepo.md).
 
@@ -144,8 +154,8 @@ The one spec per service is the source of truth, but not every service or operat
   `x-audience`-exposed specs claim the same top-level resource prefix. The API carries no version segment
   ([ADR-0022](0022-api-lifecycle.md)).
 - Each spec is self-contained: cross-service shapes (error envelope, workflow handle) are declared inline in the spec's `components` and kept identical across services. Cross-file `$ref` is avoided to keep specs portable across the codegen and linting tools.
-- Every spec declares `info.x-audience` (`internal` | `public`, extensible, default `internal`); operations withheld from public docs are marked `x-internal: true`. These are documentation-scoping labels, not access control.
-- Exposure is enforced independently by the edge route + Oathkeeper ([ADR-0009](0009-api-gateway.md)); a CI check keeps `x-audience: public` and the service's `ingress.enabled` in agreement.
+- Every spec declares `info.x-audience` on the ordered ladder `cluster` | `internal` | `public` (default `cluster`); an operation may override it. It is documentation scoping, not access control.
+- Exposure is enforced independently by the edge route + Oathkeeper ([ADR-0009](0009-api-gateway.md)); a CI check (`lint:api-audience`) ties the ladder to reality — a service is edge-exposed iff it has an `internal`/`public` operation, and a `cluster`-only service has no `/api` route.
 - All clients and server stubs are generated from the spec and committed. CI fails on drift.
 - Hand-written code imports generated types. Parallel hand-written request/response types are forbidden.
 - The service validates request schemas from the OpenAPI artifact via the generated `ogen` server. There is no separate edge validation.

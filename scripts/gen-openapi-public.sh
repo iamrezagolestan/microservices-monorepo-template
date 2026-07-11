@@ -1,18 +1,29 @@
 #!/usr/bin/env bash
 # Emit the developer-portal spec projections the Scalar-rendered portals consume
-# (ADR-0008, ADR-0009, ADR-0014). Two projections per the audience model:
-#   - internal/  every operation, incl. those marked x-internal. The internal
-#                devportal (behind the /devportal session gate) renders these.
-#   - public/    x-audience:public specs with x-internal operations dropped —
-#                the anonymous public docs portal's data (ships with a public API).
-# Named for its headline output (the public projection); the internal passthrough
-# it emits alongside is what the always-on internal portal renders today.
+# (ADR-0008, ADR-0009, ADR-0014). Each projection is ONE merged OpenAPI document,
+# not a file per service: the flat /api/<resource> namespace (ADR-0017) hides
+# service topology, so the portal is a single unified reference grouped by resource
+# tag — no per-service document switcher.
 #
-# `x-*` specification extensions (x-audience/x-internal) are projection-time inputs
-# only — they decide what each projection contains, but the renderer never reads
-# them — so they are stripped from the emitted specs. That keeps the artifacts lean
-# and avoids editor JSON-schema false-positives ("Property is not allowed") on the
-# generated files. The source specs (services/*/openapi.yaml) keep the extensions.
+# The audience ladder (ADR-0008) is a single per-operation label — cluster →
+# internal → public — resolved from the operation's own `x-audience`, else the
+# service default (`info.x-audience`), else the fail-closed `cluster`. Projections
+# are a threshold on that ladder:
+#   - internal.json  audience >= internal (edge surface). The dev portal (behind the
+#                    /devportal session gate) renders this — first-party + public ops.
+#   - public.json    audience == public only — the anonymous public docs portal's
+#                    data (ships with a public API). `cluster` (east-west) ops are in
+#                    neither: they bypass the edge and are documented in the READMEs.
+#
+# Merge is safe because the flat namespace makes paths globally unique and the
+# duplicated shared components (Problem, WorkflowHandle, Error) are identical across
+# specs, so a deep merge collapses them. `tags` are rebuilt from the operations that
+# remain, which prunes tags orphaned by the filtering.
+#
+# `x-*` specification extensions (incl. the resolved `x-audience`) are projection-time
+# inputs only — the renderer never reads them — so they are stripped from the emitted
+# specs. That keeps the artifacts lean and avoids editor JSON-schema false-positives
+# ("Property is not allowed"). The source specs keep their extensions.
 #
 # Outputs are generated artifacts: git-committed, Biome-ignored, drift-checked by
 # ci:gen. YAML → JSON so the browser renderer needs no YAML parser.
@@ -23,56 +34,57 @@ shopt -s nullglob
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 cd "$ROOT"
 
-specs_dir="apps/frontend/public/devportal/openapi"
-manifest="apps/frontend/src/devportal/specs.ts"
+out_dir="apps/frontend/public/devportal/openapi"
 
+# Resolve each operation's effective audience (op override → service default →
+# cluster) onto the operation, so the merged document filters on one per-op label.
+resolve='.info.x-audience as $svc | (.paths.[].[] | select(tag == "!!map")) |= (.x-audience = (.x-audience // $svc // "cluster"))'
+# Deep-merge all documents into one (single emit; `*` collapses the identical shared
+# components, replaces arrays last-wins).
+merge='(. as $item ireduce ({}; . * $item))'
 # Recursively drop every `x-` extension key at any depth (info, operations, schemas).
 strip_ext='(.. | select(tag == "!!map")) |= with_entries(select(.key | test("^x-") | not))'
+# Unify the merged document: one title, the flat server, and a tag list derived from
+# the operations that remain (auto-pruning tags orphaned by the audience filter).
+envelope='.openapi = "3.1.0"
+  | .info = {"title": "API reference", "version": "1.0.0"}
+  | .servers = [{"url": "/api"}]
+  | .tags = ([.paths[][].tags // [] | .[]] | unique | map({"name": .}))'
+drop_empty_paths='del(.paths.* | select(tag == "!!map" and length == 0))'
 
-rm -rf "$specs_dir"
-mkdir -p "$specs_dir/internal" "$specs_dir/public"
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
 
-sources=""
-
+resolved=()
 for spec in services/*/openapi.yaml; do
   service=$(basename "$(dirname "$spec")")
   # _template is scaffolding, not a live service — never documented.
   [ "$service" = "_template" ] && continue
-
-  echo "→ $service: internal projection"
-  yq -o=json "$strip_ext" "$spec" >"$specs_dir/internal/${service}.json"
-  sources+="  { url: \"/devportal/openapi/internal/${service}.json\", title: \"${service}\", slug: \"${service}\" },"$'\n'
-
-  # Read audience from the source (the emitted spec no longer carries x-audience).
-  audience=$(yq '.info.x-audience // "internal"' "$spec")
-  if [ "$audience" = "public" ]; then
-    echo "→ $service: public projection (x-internal stripped)"
-    # Drop x-internal operations (and any now-empty paths) BEFORE stripping the
-    # extension keys, so the x-internal marker is still readable for the filter.
-    yq -o=json "
-      del(.paths.*.* | select(tag == \"!!map\" and .x-internal == true))
-      | del(.paths.* | select(tag == \"!!map\" and length == 0))
-      | ${strip_ext}
-    " "$spec" >"$specs_dir/public/${service}.json"
-  fi
+  yq "$resolve" "$spec" >"$tmp/${service}.yaml"
+  resolved+=("$tmp/${service}.yaml")
 done
+
+rm -rf "$out_dir"
+mkdir -p "$out_dir"
+
+echo "→ dev portal projection (audience >= internal)"
+yq ea -o=json "${merge}
+  | del(.paths.*.* | select(tag == \"!!map\" and .x-audience == \"cluster\"))
+  | ${drop_empty_paths} | ${envelope} | ${strip_ext}" \
+  "${resolved[@]}" >"$out_dir/internal.json"
+
+echo "→ public docs projection (audience == public)"
+yq ea -o=json "${merge}
+  | del(.paths.*.* | select(tag == \"!!map\" and .x-audience != \"public\"))
+  | ${drop_empty_paths} | ${envelope} | ${strip_ext}" \
+  "${resolved[@]}" >"$out_dir/public.json"
 
 # Belt-and-suspenders: fail loudly if any x- extension survived into the output, so
 # a future yq change can never silently reintroduce the editor warnings.
-for out in "$specs_dir"/*/*.json; do
+for out in "$out_dir"/*.json; do
   n=$(yq -o=json '[.. | select(tag == "!!map") | keys.[] | select(test("^x-"))] | length' "$out")
   if [ "$n" != "0" ]; then
     echo "✗ x- extension key leaked into ${out} (strip_ext failed)" >&2
     exit 1
   fi
 done
-
-echo "→ devportal source manifest"
-mkdir -p "$(dirname "$manifest")"
-cat >"$manifest" <<EOF
-// Code generated by scripts/gen-openapi-public.sh; DO NOT EDIT.
-// Scalar source list for the internal developer portal (ADR-0009, ADR-0014).
-export const devportalSources = [
-${sources%$'\n'}
-] as const;
-EOF

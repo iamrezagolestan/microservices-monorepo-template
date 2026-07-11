@@ -112,25 +112,28 @@ here, complementing the per-request CSP nonce the frontend sets ([ADR-0014](0014
 
 ### Developer portals
 
-The portals render the OpenAPI specs ([ADR-0008](0008-api-contracts.md)) as **filtered projections** by audience — never
-separately maintained documents:
+The portals render the OpenAPI specs ([ADR-0008](0008-api-contracts.md)) as **filtered projections** on the `x-audience`
+ladder — never separately maintained documents. Both render the **edge `/api` surface**; `cluster` (east-west) operations
+are in neither — they bypass the edge and are documented in the service READMEs.
 
-- **Internal devportal** — a route group in the frontend at `apps/frontend/src/app/(devportal)/`, on the product origin
-  ([ADR-0017](0017-url-and-domain-structure.md)). It lists the `x-audience: public` edge services with **every**
-  operation, including the `x-internal` ones, for our own frontend/admin developers. It sits behind the app session and
-  is page-gated by the SpiceDB `Checker` ([ADR-0010](0010-auth.md)), like any product surface — not a bare session check.
-- **Public docs portal** — **anonymous, no login**, the norm for public API documentation. It renders the same
-  `x-audience: public` specs with `x-internal` operations stripped. It ships only when a public API does; until then the
-  internal devportal is the only portal and there is no public placeholder to operate.
+- **Dev portal** — a route group in the frontend at `apps/frontend/src/app/(devportal)/`, on the product origin
+  ([ADR-0017](0017-url-and-domain-structure.md)). It renders **every edge operation** — audience `>= internal`, so
+  first-party `internal` ops and `public` ops alike — for our own frontend/admin developers. It sits behind the app session
+  and is page-gated by the SpiceDB `Checker` ([ADR-0010](0010-auth.md)), like any product surface — not a bare session check.
+- **Public docs portal** — **anonymous, no login**, the norm for public API documentation. It renders only `public`
+  operations (`internal` ones dropped). It ships only when a public API does; until then the dev portal is the only portal
+  and there is no public placeholder to operate.
 
 Both projections are rendered by **Scalar** (`@scalar/api-reference-react`), an MIT-licensed OpenAPI renderer embedded as a
 client island in the route group — **not** a separate service, keeping the "route group, not a component" decision intact.
-Each portal is handed a **pre-filtered spec** produced by the build: the public projection strips `x-internal` operations
-(and non-`public` specs); the internal projection passes the complete set. Audience filtering therefore stays *ours*
+The two service specs are **merged into one document per projection** so the portal is a single unified reference grouped by
+resource tag, not a per-service document switcher (which would re-leak the service topology the flat namespace hides,
+[ADR-0017](0017-url-and-domain-structure.md)). Each portal is handed a **pre-filtered spec** produced by the build — a
+threshold on the ladder (dev portal `>= internal`, public docs `== public`) — so audience filtering stays *ours*
 ([ADR-0008](0008-api-contracts.md)) rather than a renderer feature. Scalar's built-in request console is exactly why the
-internal devportal is same-origin with `/api` ([ADR-0017](0017-url-and-domain-structure.md)): "try it" hits the real edge
-with the caller's session and needs no CORS. It is self-hosted and self-contained (web fonts disabled — no CDN); its own
-theme makes the portal a deliberate visual island, not an Untitled UI surface ([ADR-0014](0014-frontend.md)).
+dev portal is same-origin with `/api` ([ADR-0017](0017-url-and-domain-structure.md)): "try it" hits the real edge with the
+caller's session and needs no CORS. It is self-hosted and self-contained (web fonts disabled — no CDN); its own theme makes
+the portal a deliberate visual island, not an Untitled UI surface ([ADR-0014](0014-frontend.md)).
 
 Redoc was rejected because its request console is paywalled (Redocly Reference) — a read-only renderer would negate the
 same-origin "try it" the URL layout was built for; Stoplight Elements is the free fallback if Scalar's release churn ever
@@ -205,10 +208,11 @@ Settled here and inherited by [ADR-0010](0010-auth.md):
 - Cookie-authenticated state-changing requests are Origin-checked by an Oathkeeper rule. Bearer-token traffic is exempt.
 - Hydra is deployed only for projects exposing a public API or external machine clients (`hydra_thirdparty` flag).
   Internal-only projects run Kratos + Oathkeeper + SpiceDB.
-- The internal developer portal is a `Checker`-gated route group in `apps/frontend/`; the public docs portal is anonymous
-  and renders `x-audience: public` specs with `x-internal` operations stripped ([ADR-0008](0008-api-contracts.md)),
-  shipping only with a public API. Both are filtered projections of the specs, not a gateway feature, rendered by Scalar
-  embedded in the frontend route group ([ADR-0014](0014-frontend.md)) — no separate docs service. Credential
-  management is a separate authenticated surface ([ADR-0017](0017-url-and-domain-structure.md)) and never gates the docs.
+- The dev portal is a `Checker`-gated route group in `apps/frontend/` rendering every edge operation (audience
+  `>= internal`); the public docs portal is anonymous and renders only `public` operations
+  ([ADR-0008](0008-api-contracts.md)), shipping only with a public API. Both are filtered projections of the specs — a
+  threshold on the `x-audience` ladder — not a gateway feature, rendered by Scalar embedded in the frontend route group
+  ([ADR-0014](0014-frontend.md)) as one merged document per projection; `cluster` (east-west) operations appear in neither.
+  Credential management is a separate authenticated surface ([ADR-0017](0017-url-and-domain-structure.md)) and never gates the docs.
 - A project that needs tiered per-API-key quotas adds a full gateway (Tyk/Kong) for its own routes via its own decision;
   it is not the platform default.

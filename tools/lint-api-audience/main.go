@@ -1,10 +1,11 @@
-// Command lint-api-audience is the audience↔exposure gate (ADR-0008). A service's
-// documented API audience (info.x-audience) must agree with whether the service is
-// actually edge-exposed: a `public` spec MUST have an edge route, and an edge-exposed
-// service MUST NOT read `internal` (the fail-closed default). This keeps the
-// documented audience and the real exposure boundary in lockstep — a public contract
-// is never published for an unreachable service, and an edge API is never silently
-// left `internal` (the omission that produced finding D).
+// Command lint-api-audience is the audience↔exposure gate (ADR-0008). The audience
+// ladder — cluster → internal → public — is a per-operation label (resolved from the
+// operation's own x-audience, else the service default info.x-audience, else the
+// fail-closed `cluster`). A service is edge-exposed iff it has at least one operation
+// at `internal` or `public` (the edge surface); a `cluster`-only service is east-west
+// and must NOT have an /api route. This keeps the documented audience and the real
+// exposure boundary in lockstep — an edge contract is never published for an
+// unreachable service, and an edge service is never silently left all-cluster.
 //
 // Edge exposure is read from the canonical dev gitops values (ingress.resources is
 // identical across envs). A control-plane/decision service with no spec (e.g. authz,
@@ -21,19 +22,27 @@ import (
 )
 
 const (
-	audiencePublic   = "public"
+	audienceCluster  = "cluster"
 	audienceInternal = "internal"
+	audiencePublic   = "public"
 )
+
+// The OpenAPI operation keys under a path item; other keys (parameters, servers,
+// summary) are not operations and carry no audience.
+var httpMethods = map[string]bool{
+	"get": true, "put": true, "post": true, "delete": true,
+	"patch": true, "options": true, "head": true, "trace": true,
+}
 
 func main() {
 	specs, err := filepath.Glob(filepath.Join("services", "*", "openapi.yaml"))
 	if err != nil {
 		failf("glob specs: %v", err)
 	}
-	var problems []string
+	problems := make([]string, 0, len(specs))
 	for _, path := range specs {
 		svc := filepath.Base(filepath.Dir(path))
-		aud, err := readAudience(path)
+		auds, err := effectiveAudiences(path)
 		if err != nil {
 			failf("%s: %v", path, err)
 		}
@@ -41,10 +50,7 @@ func main() {
 		if err != nil {
 			failf("%s: %v", svc, err)
 		}
-		msg := check(svc, aud, exposed)
-		if msg != "" {
-			problems = append(problems, msg)
-		}
+		problems = append(problems, check(svc, auds, exposed)...)
 	}
 	if len(problems) > 0 {
 		_, _ = fmt.Fprintln(os.Stderr, "✗ API audience does not match edge exposure (ADR-0008):")
@@ -56,39 +62,76 @@ func main() {
 	_, _ = fmt.Fprintf(os.Stdout, "✓ %d API specs: x-audience matches edge exposure\n", len(specs))
 }
 
-// check reports a problem when the documented audience and the real exposure
-// disagree. An empty audience is the fail-closed default `internal` (ADR-0008).
-func check(svc, audience string, exposed bool) string {
-	if audience == "" {
-		audience = audienceInternal
+// check reports problems when the audience ladder and real edge exposure disagree.
+// auds are the resolved effective audiences of every operation. A service is
+// edge-exposed iff any operation is internal or public; a cluster-only service is
+// east-west and must not have an /api route. Unknown audiences are also reported.
+func check(svc string, auds []string, exposed bool) []string {
+	problems := make([]string, 0, len(auds))
+	hasEdge := false
+	for _, a := range auds {
+		switch a {
+		case audienceCluster:
+		case audienceInternal, audiencePublic:
+			hasEdge = true
+		default:
+			msg := fmt.Sprintf("%s: unknown x-audience %q (expected cluster, internal, or public)", svc, a)
+			problems = append(problems, msg)
+		}
 	}
 	switch {
-	case audience != audiencePublic && audience != audienceInternal:
-		return fmt.Sprintf("%s: unknown x-audience %q (expected public or internal)", svc, audience)
-	case audience == audiencePublic && !exposed:
-		return svc + ": x-audience is public but the service has no edge route (ingress.resources empty)"
-	case audience == audienceInternal && exposed:
-		return svc + ": edge-exposed (ingress.resources set) but x-audience is internal" +
-			" (or unset → internal); an edge service must declare x-audience: public"
+	case hasEdge && !exposed:
+		msg := svc + ": has edge operations (x-audience internal/public) but no /api route (ingress.resources empty)"
+		problems = append(problems, msg)
+	case !hasEdge && exposed:
+		msg := svc + ": edge-exposed (ingress.resources set) but every operation is x-audience: cluster (east-west)"
+		problems = append(problems, msg)
 	}
-	return ""
+	return problems
 }
 
-func readAudience(path string) (string, error) {
+// effectiveAudiences resolves each operation's audience: its own x-audience, else the
+// service default (info.x-audience), else the fail-closed `cluster`.
+func effectiveAudiences(path string) ([]string, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return "", fmt.Errorf("read %s: %w", path, err)
+		return nil, fmt.Errorf("read %s: %w", path, err)
 	}
 	var s struct {
 		Info struct {
 			XAudience string `yaml:"x-audience"`
 		} `yaml:"info"`
+		Paths map[string]map[string]yaml.Node `yaml:"paths"`
 	}
 	err = yaml.Unmarshal(data, &s)
 	if err != nil {
-		return "", fmt.Errorf("parse %s: %w", path, err)
+		return nil, fmt.Errorf("parse %s: %w", path, err)
 	}
-	return s.Info.XAudience, nil
+	def := s.Info.XAudience
+	if def == "" {
+		def = audienceCluster
+	}
+	var auds []string
+	for _, methods := range s.Paths {
+		for method, node := range methods {
+			if !httpMethods[method] {
+				continue
+			}
+			var op struct {
+				XAudience string `yaml:"x-audience"`
+			}
+			err := node.Decode(&op)
+			if err != nil {
+				return nil, fmt.Errorf("parse %s operation %q: %w", path, method, err)
+			}
+			a := op.XAudience
+			if a == "" {
+				a = def
+			}
+			auds = append(auds, a)
+		}
+	}
+	return auds, nil
 }
 
 // edgeExposed reports whether the service has an /api route, read from its canonical

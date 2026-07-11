@@ -44,7 +44,7 @@ type Invoker interface {
 	//
 	// Kratos post-registration webhook. Creates a personal org for the new identity.
 	//
-	// POST /internal/identity-created
+	// POST /cluster/identity-created
 	OnIdentityCreated(ctx context.Context, request *OnIdentityCreatedReq) error
 }
 
@@ -272,7 +272,7 @@ func (c *Client) sendGetOrg(ctx context.Context, params GetOrgParams) (res *Org,
 //
 // Kratos post-registration webhook. Creates a personal org for the new identity.
 //
-// POST /internal/identity-created
+// POST /cluster/identity-created
 func (c *Client) OnIdentityCreated(ctx context.Context, request *OnIdentityCreatedReq) error {
 	_, err := c.sendOnIdentityCreated(ctx, request)
 	return err
@@ -282,7 +282,7 @@ func (c *Client) sendOnIdentityCreated(ctx context.Context, request *OnIdentityC
 	otelAttrs := []attribute.KeyValue{
 		otelogen.OperationID("onIdentityCreated"),
 		semconv.HTTPRequestMethodKey.String("POST"),
-		semconv.URLTemplateKey.String("/internal/identity-created"),
+		semconv.URLTemplateKey.String("/cluster/identity-created"),
 	}
 	otelAttrs = append(otelAttrs, c.cfg.Attributes...)
 
@@ -316,7 +316,7 @@ func (c *Client) sendOnIdentityCreated(ctx context.Context, request *OnIdentityC
 	stage = "BuildURL"
 	u := uri.Clone(c.requestURL(ctx))
 	var pathParts [1]string
-	pathParts[0] = "/internal/identity-created"
+	pathParts[0] = "/cluster/identity-created"
 	uri.AddPathParts(u, pathParts[:]...)
 
 	stage = "EncodeRequest"

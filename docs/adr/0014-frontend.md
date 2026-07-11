@@ -106,10 +106,11 @@ renderer chosen for the one feature the URL layout depends on — a **built-in, 
 with `/api` ([ADR-0017](0017-url-and-domain-structure.md)), lets "try it" call the real edge with the caller's session and
 no CORS. It is embedded as a `"use client"` island in the route group, never a separate service ([ADR-0009](0009-api-gateway.md)).
 
-- **The spec it renders is a pre-filtered projection, not the raw specs.** `mise run gen:openapi-public` emits a public
-  bundle with `x-internal` operations and non-`public` specs stripped ([ADR-0008](0008-api-contracts.md)); the internal
-  portal renders the complete set. Audience scoping stays ours, so the renderer only ever sees what its audience may see —
-  the strip is real, not a UI hide.
+- **The spec it renders is a pre-filtered projection, not the raw specs.** `mise run gen:openapi-public` merges the service
+  specs into one document per projection and filters on the `x-audience` ladder ([ADR-0008](0008-api-contracts.md)): the
+  dev portal keeps operations at audience `>= internal`, the public bundle keeps only `public`, and `cluster` (east-west)
+  ops appear in neither. Audience scoping stays ours, so the renderer only ever sees what its audience may see — the strip
+  is real, not a UI hide.
 - **Self-hosted, no CDN.** The npm package is bundled by `next build` (not a `<script>` tag), and default web fonts are
   disabled (`withDefaultFonts: false`) so nothing is fetched at runtime — matching the offline/proxied bring-up the rest of
   the platform assumes.
