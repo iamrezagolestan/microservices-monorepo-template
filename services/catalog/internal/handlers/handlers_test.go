@@ -39,21 +39,24 @@ func TestCreateProductAuthz(t *testing.T) {
 		{"checker failure is internal", true, fakeChecker{err: errors.New("spicedb down")}, 500},
 	}
 	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-			ctx := context.Background()
-			if tc.authed {
-				ctx = authmw.NewContext(ctx, &authmw.Principal{UserID: "alice"})
-			}
-			h := &Handlers{checker: tc.checker}
-			_, err := h.CreateProduct(ctx, req)
-			e, ok := apierr.As(err)
-			if !ok {
-				t.Fatalf("want *apierr.Error, got %v", err)
-			}
-			if e.Status != tc.want {
-				t.Fatalf("status = %d, want %d", e.Status, tc.want)
-			}
-		})
+		t.Run(
+			tc.name,
+			func(t *testing.T) {
+				t.Parallel()
+				ctx := context.Background()
+				if tc.authed {
+					ctx = authmw.NewContext(ctx, &authmw.Principal{UserID: "alice"})
+				}
+				h := &Handlers{checker: tc.checker}
+				_, err := h.CreateProduct(ctx, req)
+				e, ok := apierr.As(err)
+				if !ok {
+					t.Fatalf("want *apierr.Error, got %v", err)
+				}
+				if e.Status != tc.want {
+					t.Fatalf("status = %d, want %d", e.Status, tc.want)
+				}
+			},
+		)
 	}
 }
