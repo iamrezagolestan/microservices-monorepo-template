@@ -14,7 +14,7 @@ import {
 import { z } from "zod";
 import type { BadgeColors } from "@/components/base/badges/badge-types";
 import { Badge } from "@/components/base/badges/badges";
-import { Button } from "@/components/base/buttons/button";
+import { Button } from "@/components/base/button/button";
 import { Input } from "@/components/base/input/input";
 import { createBrowserClient } from "@/lib/server-fetch/client";
 import { pollWorkflow, type WorkflowHandle } from "@/lib/server-fetch/workflow-handle";
