@@ -14,19 +14,23 @@ import (
 	"go.opentelemetry.io/otel/metric"
 
 	"github.com/tabmadi/microservices-monorepo-template/libs/go/apierr"
+	"github.com/tabmadi/microservices-monorepo-template/libs/go/authmw"
+	"github.com/tabmadi/microservices-monorepo-template/libs/go/authz"
 	"github.com/tabmadi/microservices-monorepo-template/libs/go/observability"
-	catalog "github.com/tabmadi/microservices-monorepo-template/libs/go/sdks/catalog"
+	"github.com/tabmadi/microservices-monorepo-template/libs/go/sdks/catalog"
 	"github.com/tabmadi/microservices-monorepo-template/services/catalog/internal/store"
 )
 
 type Handlers struct {
 	q               *store.Queries
+	checker         authz.Checker
 	productsCreated metric.Int64Counter
 }
 
-func New(db *pgxpool.Pool) *Handlers {
+func New(db *pgxpool.Pool, checker authz.Checker) *Handlers {
 	return &Handlers{
 		q:               store.New(db),
+		checker:         checker,
 		productsCreated: observability.Counter("catalog.products_created"),
 	}
 }
@@ -59,6 +63,21 @@ func (h *Handlers) GetProduct(ctx context.Context, params catalog.GetProductPara
 func (h *Handlers) CreateProduct(ctx context.Context, req *catalog.ProductInput) (*catalog.Product, error) {
 	ctx, span := observability.StartSpan(ctx, "catalog.CreateProduct")
 	defer span.End()
+
+	// Writing the global catalog is a first-party back-office action (x-audience:
+	// internal, ADR-0008): authorize via the shared SpiceDB Checker (ADR-0010) — the
+	// caller must be an operator. Reads (List/Get) stay open; only writes are gated.
+	principal, _ := authmw.FromContext(ctx)
+	if !principal.Authenticated() {
+		return nil, apierr.Unauthorized()
+	}
+	allowed, err := h.checker.Allowed(ctx, principal.Subject(), "member", "group:operator")
+	if err != nil {
+		return nil, apierr.Internal(err.Error())
+	}
+	if !allowed {
+		return nil, apierr.Forbidden("creating products requires operator")
+	}
 
 	if req.Name == "" || req.PriceCents < 0 || req.PriceCents > math.MaxInt32 {
 		return nil, apierr.BadRequest("name and price_cents required")

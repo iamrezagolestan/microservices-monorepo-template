@@ -9,4 +9,9 @@ worker:  { enabled: false }
 server:  { replicas: 1 }
 ingress: { enabled: true, host: dev.localtest.me, resources: [products] }
 otel:    { deployEnv: local }
-secrets: { envFrom: [catalog-db] }
+secrets: { envFrom: [catalog-db, spicedb-creds] }
+env:
+  # Write authz (ADR-0010): dial SpiceDB via the shared Checker. Blank preshared key
+  # falls back to spicedb-creds.preshared_key (envFrom), as the authz service does.
+  SPICEDB_ENDPOINT: "spicedb.platform.svc.cluster.local:50051"
+  SPICEDB_PRESHARED_KEY: ""

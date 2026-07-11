@@ -37,7 +37,9 @@ spec:
 ---
 ## SpiceDB — authorization store. authz-server checks permissions; the admin
 ## console (lowdefy) writes relationship grants. The spicedb-seed job writes the
-## schema + bootstrap grants at bring-up, so it needs 50051 too.
+## schema + bootstrap grants at bring-up, so it needs 50051 too. Business services
+## that authorize writes via the shared Checker (ADR-0010) dial it directly too —
+## catalog gates product creation on group:operator.
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
@@ -51,5 +53,6 @@ spec:
         - matchLabels: { k8s:io.kubernetes.pod.namespace: platform, app.kubernetes.io/name: authz }
         - matchLabels: { k8s:io.kubernetes.pod.namespace: platform, app.kubernetes.io/name: lowdefy }
         - matchLabels: { k8s:io.kubernetes.pod.namespace: platform, app.kubernetes.io/name: spicedb-seed }
+        - matchLabels: { k8s:io.kubernetes.pod.namespace: platform, app.kubernetes.io/name: catalog }
       toPorts:
         - ports: [{ port: "50051", protocol: TCP }]
