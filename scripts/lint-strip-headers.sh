@@ -5,8 +5,10 @@
 # (anonymous routes especially). Fails CI if a forward-auth route is missing the
 # strip, or applies it after forwardAuth.
 set -euo pipefail
+source "$(dirname "$0")/lib/log.sh"
 cd "$(cd "$(dirname "$0")/.." && pwd)"
 
+step "checking every forward-auth route strips identity headers first"
 # Render the gateway + per-service /api route, then feed the manifests to the
 # single-binary Go gate (no ambient Python). The Go tool reads YAML from stdin.
 {

@@ -1,9 +1,9 @@
 # ADR-0008: API Contracts & Codegen
 
 - **Status:** Accepted
-- **Date:** 2026-05-19
+- **Date:** 2026-07-06
 - **Deciders:** Platform team
-- **Related:** [ADR-0001](0001-language-and-runtime.md), [ADR-0009](0009-api-gateway.md)
+- **Related:** [ADR-0001](0001-language-and-runtime.md), [ADR-0009](0009-api-gateway.md), [ADR-0017](0017-url-and-domain-structure.md)
 
 ## Context
 
@@ -81,6 +81,15 @@ Schema validation is **service-side only.** The edge ([ADR-0009](0009-api-gatewa
 
 OpenAPI YAML is hand-written. **TypeSpec is not used.** If a service's spec grows unwieldy, the response is to split the service or factor shapes into more `components` within the same file (possibly splitting the service), not to introduce a second authoring tool.
 
+### API audience & visibility
+
+The one spec per service is the source of truth, but not every service or operation is meant for every consumer group (the three from *Context*). Two orthogonal labels, both declared in the spec, classify the surface so the developer portals ([ADR-0009](0009-api-gateway.md)) render **filtered projections** of the same specs rather than separate hand-maintained documents.
+
+- **Service audience** — `info.x-audience`, exactly one per spec, an extensible enum seeded with `internal` and `public` (following Zalando's `x-audience`). `public` is an edge service whose contract third parties may see; `internal` is a service documented for our own developers only (e.g. the east-west `authz` service). It **defaults to `internal`** — fail-closed: a spec is never treated as public unless it says so.
+- **Operation visibility** — `x-internal: true` on an individual operation (following Google's API visibility and Redocly's `x-internal`), default false. It drops an operation — an admin action, or a small internal-detail endpoint — from the *public* projection while keeping it in the internal one, so public docs stay curated to the endpoints that matter and internal docs stay complete.
+
+**These labels are documentation scoping, not access control.** Removing an operation from a rendered spec does not protect it: exposure is decided solely by the edge route and Oathkeeper ([ADR-0009](0009-api-gateway.md)) — a service with no IngressRoute (`ingress.enabled: false`) is unreachable from the internet whatever its spec says. The two must not drift, so a CI check fails a spec marked `x-audience: public` whose service has no edge route (and an edge-exposed service whose spec says `internal`), keeping the documented audience and the real exposure boundary in lockstep.
+
 ## Consequences
 
 ### Positive
@@ -108,6 +117,8 @@ OpenAPI YAML is hand-written. **TypeSpec is not used.** If a service's spec grow
 
 - The contract source of truth is OpenAPI 3.1, one file per service at `services/<service>/openapi.yaml`.
 - Each spec is self-contained: cross-service shapes (error envelope, workflow handle) are declared inline in the spec's `components` and kept identical across services. Cross-file `$ref` is avoided to keep specs portable across the codegen and linting tools.
+- Every spec declares `info.x-audience` (`internal` | `public`, extensible, default `internal`); operations withheld from public docs are marked `x-internal: true`. These are documentation-scoping labels, not access control.
+- Exposure is enforced independently by the edge route + Oathkeeper ([ADR-0009](0009-api-gateway.md)); a CI check keeps `x-audience: public` and the service's `ingress.enabled` in agreement.
 - All clients and server stubs are generated from the spec and committed. CI fails on drift.
 - Hand-written code imports generated types. Parallel hand-written request/response types are forbidden.
 - The service validates request schemas from the OpenAPI artifact via the generated `ogen` server. There is no separate edge validation.

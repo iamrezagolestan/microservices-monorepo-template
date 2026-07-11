@@ -5,6 +5,9 @@ export const landing = {
   title: "Platform",
   tagline: "Self-hosted microservices template.",
   signIn: "Sign in",
+  createAccount: "Create account",
+  forgotPassword: "Forgot your password?",
+  accountSettings: "Account settings & security",
   customerPanel: "Customer panel",
   developerPortal: "Developer portal",
   auth: {

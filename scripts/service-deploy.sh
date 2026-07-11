@@ -9,7 +9,7 @@
 #
 # If the full tier (ArgoCD) manages this service, its auto-sync is paused first so
 # self-heal does not revert your local image; re-enable with:
-#   argocd app set local-svc-<svc> --sync-policy automated   (or just cluster:full)
+#   argocd app set local-service-<svc> --sync-policy automated   (or just cluster:full)
 set -euo pipefail
 
 CLUSTER="${CLUSTER:-platform}"
@@ -46,9 +46,9 @@ if grep -qE '^\s*enabled:\s*true' <(awk '/^worker:/{f=1} f' "$VALUES"); then
 fi
 
 # Pause Argo auto-sync on this service if the full tier manages it.
-if k -n argocd get application.argoproj.io "local-svc-${SVC}" >/dev/null 2>&1; then
-  echo "→ pausing ArgoCD auto-sync on local-svc-${SVC}"
-  k -n argocd patch application.argoproj.io "local-svc-${SVC}" --type merge \
+if k -n argocd get application.argoproj.io "local-service-${SVC}" >/dev/null 2>&1; then
+  echo "→ pausing ArgoCD auto-sync on local-service-${SVC}"
+  k -n argocd patch application.argoproj.io "local-service-${SVC}" --type merge \
     -p '{"spec":{"syncPolicy":{"automated":null}}}'
 fi
 

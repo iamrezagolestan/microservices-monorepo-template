@@ -53,6 +53,19 @@ mise run cluster:stop        # stops the cluster, keeps the image cache + volume
 mise run cluster:delete       # deletes the cluster (reclaims disk, forces a clean recreate)
 ```
 
+## After a reboot
+
+If the whole cluster is stuck (every pod `ContainerCreating`, Cilium down) after
+your machine rebooted, it's almost always the node's `host.k3d.internal` alias:
+Docker's restart policy replays the node container raw, skipping the k3d start
+step that injects it, so image pulls fail and the CNI never comes up. Heal it:
+
+```sh
+mise run cluster:heal        # stop + start so k3d re-injects host.k3d.internal
+```
+
+This is idempotent; run it whenever the cluster looks wedged after a reboot.
+
 ## End-to-end & visual tests
 
 End-to-end and visual-regression tests are owned by [ADR-0018](adr/0018-testing-strategy.md):
@@ -77,7 +90,7 @@ by hand. Playwright's runner is Node — the **one** sanctioned Node tool in the
 Generated code is never linted or formatted: Go SDKs (ogen) and sqlc store code
 are skipped via `exclusions.generated` in `.golangci.yml` (both `golangci-lint
 run` and `golangci-lint fmt`), the TS SDKs and admin `_generated/` via
-`biome.json`, and rumdl via `.rumdl.toml`.
+`biome.jsonc`, and rumdl via `.rumdl.toml`.
 Markdown is governed by **rumdl** (`.rumdl.toml`), the single source of truth for
 both linting and formatting. `mise run format:md` (`rumdl fmt`) auto-fixes most
 rules and runs on staged `.md` files via the lefthook pre-commit hook. For inline
@@ -106,7 +119,7 @@ Oathkeeper), and the Lowdefy console.
 `cluster:full` creates the cluster, installs the two components ArgoCD cannot
 bootstrap (the CNI and ArgoCD itself), plants the SOPS age key, **builds + pushes the
 repo images (the 5 services and the Lowdefy console) to a local registry**, then
-applies a local root-app (`infra/gitops/bootstrap-local/`) that syncs committed
+applies a local root-app (`infra/gitops/local-bootstrap/`) that syncs committed
 **`master`** from the remote. Ordering, readiness, and secret materialisation are
 ArgoCD's job (sync waves), not a shell script's. Because it syncs committed `master`,
 uncommitted infra needs a push — see [cluster/gitops-local.md](cluster/gitops-local.md);
@@ -143,27 +156,41 @@ Everything is served from one origin, **`https://dev.localtest.me:8443`** (real 
 → 127.0.0.1, self-signed wildcard TLS — accept the cert once). The edge (Traefik)
 matches longest-prefix, so the specific routes below win over the `/` catch-all.
 
-| URL | What it gives you | Auth | Defined in |
-| --- | --- | --- | --- |
-| `/` | Landing page (host-run `next dev`) | public | `infra/local/edge-auth.yaml` |
-| `/panel`, `/admin`, `/devportal` | Frontend authenticated areas | Kratos session | `apps/frontend/src/proxy.ts` |
-| `/auth/login`, `/auth/registration`, … | Kratos UI pages (host-run `next dev`) | public | `infra/local/edge-auth.yaml` |
-| `/auth/self-service`, `/auth/.well-known`, `/auth/sessions` | Kratos public API | public | `infra/local/edge-auth.yaml` |
-| `/api/catalog/`, `/api/orders/`, `/api/orgs/`, `/api/payment/` | Service APIs through the edge | Oathkeeper | `infra/helm/service/templates/ingressroute.yaml` |
-| `/api/observability/faro` | Faro/RUM browser-telemetry ingest | public | `infra/gateway/frontend-observability.yaml` |
+| URL                                                            | What it gives you                     | Auth           | Defined in                                       |
+|----------------------------------------------------------------|---------------------------------------|----------------|--------------------------------------------------|
+| `/`                                                            | Landing page (host-run `next dev`)    | public         | `infra/local/edge-auth.yaml`                     |
+| `/panel`, `/devportal`                                         | Frontend authenticated areas          | Kratos session | `apps/frontend/src/proxy.ts`                     |
+| `/auth/login`, `/auth/registration`, …                         | Kratos UI pages (host-run `next dev`) | public         | `infra/local/edge-auth.yaml`                     |
+| `/auth/self-service`, `/auth/.well-known`, `/auth/sessions`    | Kratos public API                     | public         | `infra/local/edge-auth.yaml`                     |
+| `/api/catalog/`, `/api/orders/`, `/api/orgs/`, `/api/payment/` | Service APIs through the edge         | Oathkeeper     | `infra/helm/service/templates/ingressroute.yaml` |
+| `/api/observability/faro`                                      | Faro/RUM browser-telemetry ingest     | public         | `infra/gateway/frontend-observability.yaml`      |
 
 The **ops tier** (ADR-0017) is a separate origin per operator dashboard under
-`*.ops.<host>` — never a product path. Each requires an authorized (AAL2 operator)
-session; a bare login does not grant tool access.
+`*.ops.<host>` — never a product path. The **coarse gate** is a claim, not a
+SpiceDB call: the ops forward-auth requires the `operator` trait **and** an AAL2
+session, and makes no `Checker` call, so the debugging surface never shares fate
+with the product authz plane ([docs/ops/break-glass.md](ops/break-glass.md)). A
+bare login does not grant tool access. Per-tool `dashboard:<tool>#view` grants are
+the **optional fine layer** (`OPS_FINE_GRAINED`), off by default.
 
-| Ops URL | Tool | Auth | Defined in |
-| --- | --- | --- | --- |
-| `grafana.ops.dev.localtest.me/` | **Grafana** — LGTM dashboards | Oathkeeper (`dashboard:grafana#view`) | `infra/gateway/ingressroutes.yaml` |
-| `hubble.ops.dev.localtest.me/` | Cilium **Hubble UI** — network-flow map | Oathkeeper (`dashboard:hubble#view`) | `infra/gateway/ingressroutes.yaml` |
-| `temporal.ops.dev.localtest.me/` | **Temporal Web UI** | Oathkeeper (`dashboard:temporal#view`) | `infra/gateway/ingressroutes.yaml` |
-| `minio.ops.dev.localtest.me/` | **MinIO console** (non-prod) | Oathkeeper (`dashboard:minio#view`), then MinIO login `minio` / `minio-password` | `infra/gateway/ingressroutes.yaml` |
-| `console.ops.<host>/` | **Lowdefy** admin console (deployed envs) | Oathkeeper (`dashboard:console#view`) | `infra/gateway/ingressroutes.yaml` |
-| `argo.ops.<host>/` | **Argo CD** | Oathkeeper (`dashboard:argo#view`) | `infra/gateway/ingressroutes.yaml` |
+The local edge is published on the unprivileged port **`:8443`** (see the URLs
+below); deployed envs terminate on standard `443` and omit the port.
+
+The **Auth** column shows the always-on coarse gate (`operator` claim + AAL2); the
+optional per-tool `dashboard:<tool>#view` fine layer is off by default. Every route
+below is defined in `infra/gateway/ingressroutes.yaml` (the opt-in tools' routes
+resolve to a backend only once their chart is enabled).
+
+| Ops URL                                        | Tool                                                                                   | Auth                                             |
+|------------------------------------------------|----------------------------------------------------------------------------------------|--------------------------------------------------|
+| `https://o11y.ops.dev.localtest.me:8443/`      | **Grafana** — metrics/logs/traces                                                      | operator + AAL2                                  |
+| `https://network.ops.dev.localtest.me:8443/`   | Cilium **Hubble UI** — network-flow map                                                | operator + AAL2                                  |
+| `https://workflows.ops.dev.localtest.me:8443/` | **Temporal Web UI**                                                                    | operator + AAL2                                  |
+| `https://s3.ops.dev.localtest.me:8443/`        | **MinIO console** (non-prod)                                                           | operator + AAL2, then `minio` / `minio-password` |
+| `https://admin.ops.dev.localtest.me:8443/`     | **Lowdefy** admin console                                                              | operator + AAL2                                  |
+| `https://deploy.ops.dev.localtest.me:8443/`    | **Argo CD**                                                                            | operator + AAL2                                  |
+| `https://k8s.ops.dev.localtest.me:8443/`       | **Headlamp** — k8s debug UI (r/o, [ADR-0024](adr/0024-kubernetes-debug-ui.md))         | operator + AAL2                                  |
+| `https://db.ops.dev.localtest.me:8443/`        | **pgweb** — read-only DB inspector ([ADR-0012](adr/0012-internal-admin.md))            | operator + AAL2                                  |
 
 Grafana trusts the Oathkeeper edge and serves anonymously (its login form is
 disabled, `auth.anonymous` Admin) — an operator who clears the edge lands straight
@@ -178,7 +205,10 @@ credentials — the pre-seeded root user `minio` / `minio-password`.
 
 `cluster:full` brings up the whole platform (edge, services, observability,
 console); Argo CD itself is installed imperatively for the local full tier and is
-reachable at `argo.ops.<host>` like the other dashboards.
+reachable at `deploy.ops.<host>` like the other dashboards. Headlamp (`k8s.ops`)
+and pgweb (`db.ops`) are Core ops tools, on in every environment
+([docs/operational-surface.md](operational-surface.md)); a project that does not
+want one drops it with `enabled: false` in its env values overlay.
 
 ### Login flow
 
@@ -187,7 +217,8 @@ The edge serves `*.dev.localtest.me` on `:8443` (real DNS → 127.0.0.1, no
 `https://hubble.dev.localtest.me:8443/`) redirect an unauthenticated browser to
 Kratos at `…/auth/login`; register/login there and the redirect returns you to the
 gated page. The Kratos session cookie is scoped to `dev.localtest.me` (parent
-domain), so one login covers the edge and every `*.dev.localtest.me` subdomain. The landing page and `/auth` UI are served by a host-run `next dev`
+domain), so one login covers the edge and every `*.dev.localtest.me` subdomain. The landing page and `/auth` UI are
+served by a host-run `next dev`
 (run `next dev -H 0.0.0.0` on the host — the dev server is not in-cluster), wired
 through `infra/local/edge-auth.yaml`.
 

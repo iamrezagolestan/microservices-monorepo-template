@@ -46,7 +46,11 @@ async function createIdentity(id: TestIdentity): Promise<string> {
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
       schema_id: SCHEMA_ID,
-      traits: { email: id.email },
+      // The `operator` trait is the coarse ops-gate claim (ADR-0017) and is ALWAYS
+      // enforced — SpiceDB group:operator membership only feeds the optional fine
+      // gate. Set it here too, or the operator fails the gate despite the grant
+      // below (same coupling as scripts/ops-grant.sh).
+      traits: { email: id.email, operator: id.operator },
       // Import path: the password is hashed by Kratos and is NOT run through the
       // sign-up policy (HIBP/length) — deterministic committed creds are fine.
       credentials: { password: { config: { password: id.password } } },

@@ -5,8 +5,10 @@
 # validation document `zed validate` expects, then runs it. Keeping the schema in
 # schema.zed avoids duplicating it in a combined playground file.
 set -euo pipefail
+source "$(dirname "$0")/lib/log.sh"
 cd "$(cd "$(dirname "$0")/.." && pwd)"
 
+step "validating SpiceDB schema + assertions with zed"
 DIR="infra/auth/spicedb"
 tmp="$(mktemp --suffix=.yaml)"
 trap 'rm -f "$tmp"' EXIT

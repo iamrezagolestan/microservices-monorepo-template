@@ -11,17 +11,25 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"go.opentelemetry.io/otel/metric"
 
 	"github.com/tabmadi/microservices-monorepo-template/libs/go/apierr"
+	"github.com/tabmadi/microservices-monorepo-template/libs/go/observability"
 	catalog "github.com/tabmadi/microservices-monorepo-template/libs/go/sdks/catalog"
 	"github.com/tabmadi/microservices-monorepo-template/services/catalog/internal/store"
 )
 
 type Handlers struct {
-	q *store.Queries
+	q               *store.Queries
+	productsCreated metric.Int64Counter
 }
 
-func New(db *pgxpool.Pool) *Handlers { return &Handlers{q: store.New(db)} }
+func New(db *pgxpool.Pool) *Handlers {
+	return &Handlers{
+		q:               store.New(db),
+		productsCreated: observability.Counter("catalog.products_created"),
+	}
+}
 
 var _ catalog.Handler = (*Handlers)(nil)
 
@@ -49,6 +57,9 @@ func (h *Handlers) GetProduct(ctx context.Context, params catalog.GetProductPara
 }
 
 func (h *Handlers) CreateProduct(ctx context.Context, req *catalog.ProductInput) (*catalog.Product, error) {
+	ctx, span := observability.StartSpan(ctx, "catalog.CreateProduct")
+	defer span.End()
+
 	if req.Name == "" || req.PriceCents < 0 || req.PriceCents > math.MaxInt32 {
 		return nil, apierr.BadRequest("name and price_cents required")
 	}
@@ -56,6 +67,7 @@ func (h *Handlers) CreateProduct(ctx context.Context, req *catalog.ProductInput)
 	if err != nil {
 		return nil, apierr.Internal(err.Error())
 	}
+	h.productsCreated.Add(ctx, 1)
 	return &catalog.Product{ID: row.ID.Bytes, Name: row.Name, PriceCents: int(row.PriceCents)}, nil
 }
 

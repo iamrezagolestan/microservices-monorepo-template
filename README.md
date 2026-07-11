@@ -26,7 +26,7 @@ in the [ADRs](docs/adr) so a new project starts at "build features" rather than 
 | API contract         | OpenAPI 3.1 (ogen + openapi-typescript)                   | [0008](docs/adr/0008-api-contracts.md)                                           |
 | Edge                 | Traefik + Ory Oathkeeper                                  | [0009](docs/adr/0009-api-gateway.md)                                             |
 | Auth                 | Ory Kratos + Oathkeeper + SpiceDB (Hydra per-flag)        | [0010](docs/adr/0010-auth.md)                                                    |
-| Observability        | OpenTelemetry → Grafana LGTM (monolithic)                 | [0011](docs/adr/0011-observability.md)                                           |
+| Observability        | OpenTelemetry → Grafana + Loki/Tempo + Prometheus         | [0011](docs/adr/0011-observability.md)                                           |
 | Internal admin       | Lowdefy (YAML pages)                                      | [0012](docs/adr/0012-internal-admin.md)                                          |
 | Release / versioning | Conventional Commits + cocogitto, tag per product         | [0013](docs/adr/0013-release-and-versioning.md)                                  |
 

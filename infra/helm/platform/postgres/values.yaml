@@ -3,9 +3,10 @@
 cloudnative-pg:
   fullnameOverride: cnpg-operator
   monitoring:
-    # No Prometheus Operator on this platform (observability is Grafana LGTM +
-    # OTel/Alloy). Alloy scrapes CNPG's metrics endpoint via discovery, so a
-    # PodMonitor (monitoring.coreos.com/v1) would reference an absent CRD.
+    # No Prometheus Operator on this platform — metrics flow through the OTel
+    # Collector into Prometheus (ADR-0011), and the PodMonitor CRD
+    # (monitoring.coreos.com/v1) the operator would install is absent, so a
+    # PodMonitor here would reference a CRD that does not exist.
     podMonitorEnabled: false
 
 cluster:

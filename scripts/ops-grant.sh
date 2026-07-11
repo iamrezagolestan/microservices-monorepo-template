@@ -51,8 +51,19 @@ if [ -z "$id" ]; then
   exit 1
 fi
 
+# Coarse ops gate (ADR-0017) is a CLAIM check on the `operator` identity trait, NOT
+# a SpiceDB call — and it is ALWAYS enforced (the SpiceDB group:operator membership
+# below only feeds the optional fine gate, OPS_FINE_GRAINED). Setting group:operator
+# without the trait grants nothing, so set the trait here too. The gate additionally
+# requires AAL2, which the operator enrols themselves.
+op_val=true; [ "$action" = "delete" ] && op_val=false
+curl -fsS -X PATCH "http://localhost:4434/admin/identities/${id}" \
+  -H 'Content-Type: application/json' \
+  -d "[{\"op\":\"add\",\"path\":\"/traits/operator\",\"value\":${op_val}}]" >/dev/null
+
 zed relationship "$action" group:operator member "user:${id}" \
   --endpoint 127.0.0.1:50051 --insecure --token "$sk"
 
 verb="granted"; [ "$action" = "delete" ] && verb="revoked"
-echo "✓ ${verb} group:operator for ${email} (user:${id})"
+echo "✓ ${verb} operator trait + group:operator for ${email} (user:${id})"
+[ "$action" = "touch" ] && echo "  → they must have AAL2 (a second factor) enrolled; re-login if already signed in."

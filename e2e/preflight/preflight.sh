@@ -43,12 +43,17 @@ deploy_ready platform    spicedb
 deploy_ready platform    grafana
 deploy_ready platform    temporal-web
 deploy_ready platform    lowdefy
+deploy_ready platform    headlamp
+deploy_ready platform    pgweb
 deploy_ready kube-system hubble-ui
 deploy_ready kube-system hubble-relay
-edge_gates grafana
-edge_gates temporal
-edge_gates hubble
-edge_gates console
+# Ops origins are the ADR-0017 concept slugs, not the tool names.
+edge_gates o11y
+edge_gates workflows
+edge_gates network
+edge_gates admin
+edge_gates k8s
+edge_gates db
 
 if [ "$failed" -gt 0 ]; then
   printf '\npreflight: %d check(s) failed — cluster:full is not ready (infra down, not app broken)\n' "$failed" >&2

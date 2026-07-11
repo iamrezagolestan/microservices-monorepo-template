@@ -8,8 +8,9 @@
 
 import { createServerClient } from "@/lib/server-fetch/server";
 import { panel } from "@/strings/panel";
-
-type Product = { id: string; name: string; price_cents: number };
+// React Aria's Table must build its collection client-side, so the interactive
+// table is a client child; this RSC just fetches and hands it the data.
+import { type Product, ProductsTable } from "./products-table";
 
 type CatalogPaths = {
   "/products": { get: { responses: { 200: { content: { "application/json": Product[] } } } } };
@@ -23,14 +24,7 @@ export default async function Products() {
   return (
     <main className="mx-auto max-w-3xl p-6">
       <h1 className="text-2xl font-semibold">{panel.products.title}</h1>
-      <ul className="mt-4 divide-y divide-border-secondary">
-        {products.map((p) => (
-          <li key={p.id} className="flex justify-between py-2">
-            <span>{p.name}</span>
-            <span className="tabular-nums text-tertiary">${(p.price_cents / 100).toFixed(2)}</span>
-          </li>
-        ))}
-      </ul>
+      <ProductsTable products={products} />
     </main>
   );
 }

@@ -13,9 +13,11 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"go.opentelemetry.io/otel/metric"
 	"go.temporal.io/sdk/client"
 
 	"github.com/tabmadi/microservices-monorepo-template/libs/go/apierr"
+	"github.com/tabmadi/microservices-monorepo-template/libs/go/observability"
 	"github.com/tabmadi/microservices-monorepo-template/libs/go/sdks/payment"
 	"github.com/tabmadi/microservices-monorepo-template/services/payment/internal/store"
 	"github.com/tabmadi/microservices-monorepo-template/services/payment/internal/workflows"
@@ -24,11 +26,18 @@ import (
 const serviceName = "payment"
 
 type Handlers struct {
-	q  *store.Queries
-	tc client.Client
+	q              *store.Queries
+	tc             client.Client
+	chargesCreated metric.Int64Counter
 }
 
-func New(db *pgxpool.Pool, tc client.Client) *Handlers { return &Handlers{q: store.New(db), tc: tc} }
+func New(db *pgxpool.Pool, tc client.Client) *Handlers {
+	return &Handlers{
+		q:              store.New(db),
+		tc:             tc,
+		chargesCreated: observability.Counter("payment.charges_created"),
+	}
+}
 
 var _ payment.Handler = (*Handlers)(nil)
 
@@ -37,6 +46,9 @@ func (h *Handlers) CreateCharge(
 	req *payment.ChargeInput,
 	params payment.CreateChargeParams,
 ) (*payment.WorkflowHandle, error) {
+	ctx, span := observability.StartSpan(ctx, "payment.CreateCharge")
+	defer span.End()
+
 	if params.IdempotencyKey == "" {
 		return nil, apierr.BadRequest("Idempotency-Key required")
 	}
@@ -82,6 +94,7 @@ func (h *Handlers) CreateCharge(
 	if err != nil {
 		return nil, apierr.Internal(err.Error())
 	}
+	h.chargesCreated.Add(ctx, 1)
 	return handle(id), nil
 }
 

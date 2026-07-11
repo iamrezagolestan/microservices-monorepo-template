@@ -1,7 +1,7 @@
 # ADR-0018: Testing Strategy & End-to-End
 
 - **Status:** Accepted
-- **Date:** 2026-06-26
+- **Date:** 2026-07-06
 - **Deciders:** Platform team
 - **Related:** [ADR-0001](0001-language-and-runtime.md), [ADR-0002](0002-monorepo.md), [ADR-0008](0008-api-contracts.md), [ADR-0014](0014-frontend.md), [ADR-0016](0016-environment-parity.md), [ADR-0017](0017-url-and-domain-structure.md)
 
@@ -91,7 +91,7 @@ one runner):
 - `e2e/platform/` — cross-service product journeys (register → catalog → order → pay) and the
   operator-dashboard journeys (Grafana, Hubble, Temporal, MinIO rendered behind an AAL2 session
   per [ADR-0017](0017-url-and-domain-structure.md)).
-- `e2e/frontend/(landing|panel|admin|devportal)/` — per-route-group frontend feature suites.
+- `e2e/frontend/(landing|panel|devportal)/` — per-route-group frontend feature suites.
 - `e2e/visual/` — component visual regression against committed baselines.
 
 ### Cadence

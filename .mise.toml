@@ -96,11 +96,27 @@ run = "bash scripts/cluster-stop.sh"
 # Deletes the cluster and wipes its image cache (reclaims disk, clean rebuild).
 run = "k3d cluster delete ${CLUSTER:-platform}"
 
+[tasks."cluster:heal"]
+# Recover a cluster wedged after a host reboot: Docker's raw restart of the node
+# skips k3d's host.k3d.internal injection, so pulls fail and Cilium/pods hang. This
+# stop+starts to re-inject it. Run it when everything is stuck ContainerCreating
+# after a reboot.
+run = "bash scripts/cluster-heal.sh"
+
 [tasks."cluster:unwedge"]
 # OPT-IN, proxied networks only: host-pull + k3d-import any image the node's
 # containerd is failing to pull through an HTTP proxy (ImagePullBackOff), then
 # restart the stuck pods. Not part of any bring-up — clean networks never need it.
 run = "bash scripts/cluster-unwedge-images.sh"
+
+[tasks."cluster:preload"]
+# OPT-IN, proxied networks only: PROACTIVELY host-pull + k3d-import the
+# bootstrap-critical images (Cilium, ArgoCD) before cluster:full's imperative
+# `helm --wait` head can wedge on them — the gap cluster:unwedge (reactive, pods
+# only) cannot cover. Image list is derived from the charts, not hardcoded.
+# `PRELOAD_ALL=1` also warms the Argo-synced platform apps. cluster:full runs this
+# automatically only when CLUSTER_PRELOAD=1.
+run = "bash scripts/cluster-preload-images.sh"
 
 [tasks."dev:forward"]
 # Port-forward the inner-loop deps so a natively-run service can reach them.
@@ -145,7 +161,7 @@ run = "rumdl fmt ."
 
 # ── Lint ──────────────────────────────────────────────────────────────────────
 [tasks.lint]
-depends = ["lint:go", "lint:gostyle", "lint:ts", "lint:sql", "lint:openapi", "lint:floating-tags", "lint:md", "lint:node-scope", "lint:auth-inline", "lint:authz"]
+depends = ["lint:go", "lint:gostyle", "lint:ts", "lint:sql", "lint:openapi", "lint:floating-tags", "lint:md", "lint:node-scope", "lint:auth-inline", "lint:authz", "lint:log-vocab"]
 
 [tasks."lint:go"]
 run = "golangci-lint run ./..."
@@ -168,6 +184,11 @@ run = "bash scripts/lint-floating-tags.sh"
 
 [tasks."lint:md"]
 run = "rumdl check ."
+
+[tasks."lint:log-vocab"]
+# Human-output vocabulary gate (ADR-0019): scripts use →/✓/✗/⚠ via scripts/lib/log.sh,
+# not bare WARN/ERROR/FAIL prose.
+run = "bash scripts/lint-log-vocab.sh"
 
 [tasks."lint:node-scope"]
 # Node confinement guard (ADR-0001/ADR-0018): Node/npm may appear ONLY in the

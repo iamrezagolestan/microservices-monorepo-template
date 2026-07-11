@@ -6,10 +6,14 @@ kind: Application
 metadata:
   name: gateway
   namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: gateway
   annotations:
     # CRDs (middlewares) before the per-service IngressRoutes that reference them.
     argocd.argoproj.io/sync-wave: "5"
 spec:
+  # Shared edge config: a single Application across the fanned envs, so it has no
+  # single env AppProject to belong to — it stays in `default`.
   project: default
   source:
     repoURL: https://github.com/tabmadi/microservices-monorepo-template.git
@@ -21,3 +25,9 @@ spec:
   syncPolicy:
     automated: { prune: true, selfHeal: true }
     syncOptions: [CreateNamespace=true, ServerSideApply=true]
+    # Retry on failure — automated+selfHeal won't re-run a sync that errored on
+    # the same commit, so a transient blip would otherwise leave the edge
+    # unrouted until a manual sync. Backoff caps at 2m (ADR-0004).
+    retry:
+      limit: 20
+      backoff: { duration: 10s, maxDuration: 2m, factor: 2 }
