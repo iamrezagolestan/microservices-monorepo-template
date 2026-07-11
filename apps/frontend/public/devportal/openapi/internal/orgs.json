@@ -3,8 +3,7 @@
   "info": {
     "title": "orgs",
     "version": "0.1.0",
-    "description": "Organization and membership service.",
-    "x-audience": "public"
+    "description": "Organization and membership service."
   },
   "servers": [
     {
@@ -94,7 +93,6 @@
     "/internal/identity-created": {
       "post": {
         "operationId": "onIdentityCreated",
-        "x-internal": true,
         "tags": [
           "internal"
         ],

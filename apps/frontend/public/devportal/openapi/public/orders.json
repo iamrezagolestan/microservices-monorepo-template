@@ -3,8 +3,7 @@
   "info": {
     "title": "orders",
     "version": "0.1.0",
-    "description": "Order checkout and saga orchestration service.",
-    "x-audience": "public"
+    "description": "Order checkout and saga orchestration service."
   },
   "servers": [
     {

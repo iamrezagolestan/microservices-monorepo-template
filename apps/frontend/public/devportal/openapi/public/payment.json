@@ -3,8 +3,7 @@
   "info": {
     "title": "payment",
     "version": "0.1.0",
-    "description": "Payment charge and settlement service.",
-    "x-audience": "public"
+    "description": "Payment charge and settlement service."
   },
   "servers": [
     {

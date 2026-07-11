@@ -1,12 +1,19 @@
 #!/usr/bin/env bash
 # Emit the developer-portal spec projections the Scalar-rendered portals consume
 # (ADR-0008, ADR-0009, ADR-0014). Two projections per the audience model:
-#   - internal/  full specs, every operation (incl. x-internal). The internal
+#   - internal/  every operation, incl. those marked x-internal. The internal
 #                devportal (behind the /devportal session gate) renders these.
-#   - public/    x-audience:public specs with x-internal operations stripped —
+#   - public/    x-audience:public specs with x-internal operations dropped —
 #                the anonymous public docs portal's data (ships with a public API).
 # Named for its headline output (the public projection); the internal passthrough
 # it emits alongside is what the always-on internal portal renders today.
+#
+# `x-*` specification extensions (x-audience/x-internal) are projection-time inputs
+# only — they decide what each projection contains, but the renderer never reads
+# them — so they are stripped from the emitted specs. That keeps the artifacts lean
+# and avoids editor JSON-schema false-positives ("Property is not allowed") on the
+# generated files. The source specs (services/*/openapi.yaml) keep the extensions.
+#
 # Outputs are generated artifacts: git-committed, Biome-ignored, drift-checked by
 # ci:gen. YAML → JSON so the browser renderer needs no YAML parser.
 set -euo pipefail
@@ -19,6 +26,9 @@ cd "$ROOT"
 specs_dir="apps/frontend/public/devportal/openapi"
 manifest="apps/frontend/src/devportal/specs.ts"
 
+# Recursively drop every `x-` extension key at any depth (info, operations, schemas).
+strip_ext='(.. | select(tag == "!!map")) |= with_entries(select(.key | test("^x-") | not))'
+
 rm -rf "$specs_dir"
 mkdir -p "$specs_dir/internal" "$specs_dir/public"
 
@@ -30,16 +40,30 @@ for spec in services/*/openapi.yaml; do
   [ "$service" = "_template" ] && continue
 
   echo "→ $service: internal projection"
-  yq -o=json '.' "$spec" >"$specs_dir/internal/${service}.json"
+  yq -o=json "$strip_ext" "$spec" >"$specs_dir/internal/${service}.json"
   sources+="  { url: \"/devportal/openapi/internal/${service}.json\", title: \"${service}\", slug: \"${service}\" },"$'\n'
 
+  # Read audience from the source (the emitted spec no longer carries x-audience).
   audience=$(yq '.info.x-audience // "internal"' "$spec")
   if [ "$audience" = "public" ]; then
     echo "→ $service: public projection (x-internal stripped)"
-    yq -o=json '
-      del(.paths.*.* | select(tag == "!!map" and .x-internal == true))
-      | del(.paths.* | select(tag == "!!map" and length == 0))
-    ' "$spec" >"$specs_dir/public/${service}.json"
+    # Drop x-internal operations (and any now-empty paths) BEFORE stripping the
+    # extension keys, so the x-internal marker is still readable for the filter.
+    yq -o=json "
+      del(.paths.*.* | select(tag == \"!!map\" and .x-internal == true))
+      | del(.paths.* | select(tag == \"!!map\" and length == 0))
+      | ${strip_ext}
+    " "$spec" >"$specs_dir/public/${service}.json"
+  fi
+done
+
+# Belt-and-suspenders: fail loudly if any x- extension survived into the output, so
+# a future yq change can never silently reintroduce the editor warnings.
+for out in "$specs_dir"/*/*.json; do
+  n=$(yq -o=json '[.. | select(tag == "!!map") | keys.[] | select(test("^x-"))] | length' "$out")
+  if [ "$n" != "0" ]; then
+    echo "✗ x- extension key leaked into ${out} (strip_ext failed)" >&2
+    exit 1
   fi
 done
 
