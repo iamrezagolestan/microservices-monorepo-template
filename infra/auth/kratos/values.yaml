@@ -22,7 +22,17 @@ kratos:
             url: file:///etc/config/user.v1.json
       selfservice:
         default_browser_return_url: https://dev.example.com/
+        # Kratos forbids any post-flow `return_to` not prefixed by an entry here.
+        # The proxy (ADR-0014) sends a session-less visit to a gated route
+        # (/panel, /devportal) to login with `return_to=<that path>`, so the app
+        # origin must be allow-listed or the login redirect 400s into the error
+        # flow. Per-env overlays override the host.
+        allowed_return_urls:
+          - https://dev.example.com/
         flows:
+          # No local error UI ⇒ Kratos falls back to its hosted error page; keep
+          # the whole self-service flow set pointed at our own routes.
+          error:        { ui_url: https://dev.example.com/auth/error }
           login:        { ui_url: https://dev.example.com/auth/login }
           registration: { ui_url: https://dev.example.com/auth/register }
           recovery:
@@ -70,7 +80,7 @@ kratos:
         whoami:
           required_aal: highest_available
         # Scope the session cookie to the parent host so it is shared with
-        # subdomains (e.g. hubble.ops.<host>, served at its own origin). Without a
+        # subdomains (e.g. network.ops.<host>, served at its own origin). Without a
         # domain the cookie is host-only and the subdomain sees no session. Set to
         # the app host; each env overrides it (local → dev.localtest.me).
         cookie:

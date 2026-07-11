@@ -70,9 +70,9 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				break
 			}
 			switch elem[0] {
-			case 'i': // Prefix: "internal/identity-created"
+			case 'c': // Prefix: "cluster/identity-created"
 
-				if l := len("internal/identity-created"); len(elem) >= l && elem[0:l] == "internal/identity-created" {
+				if l := len("cluster/identity-created"); len(elem) >= l && elem[0:l] == "cluster/identity-created" {
 					elem = elem[l:]
 				} else {
 					break
@@ -257,9 +257,9 @@ func (s *Server) FindPath(method string, u *url.URL) (r Route, _ bool) {
 				break
 			}
 			switch elem[0] {
-			case 'i': // Prefix: "internal/identity-created"
+			case 'c': // Prefix: "cluster/identity-created"
 
-				if l := len("internal/identity-created"); len(elem) >= l && elem[0:l] == "internal/identity-created" {
+				if l := len("cluster/identity-created"); len(elem) >= l && elem[0:l] == "cluster/identity-created" {
 					elem = elem[l:]
 				} else {
 					break
@@ -273,7 +273,7 @@ func (s *Server) FindPath(method string, u *url.URL) (r Route, _ bool) {
 						r.summary = ""
 						r.operationID = "onIdentityCreated"
 						r.operationGroup = ""
-						r.pathPattern = "/internal/identity-created"
+						r.pathPattern = "/cluster/identity-created"
 						r.args = args
 						r.count = 0
 						return r, true

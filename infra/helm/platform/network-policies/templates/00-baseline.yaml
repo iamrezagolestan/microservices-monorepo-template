@@ -30,5 +30,16 @@ spec:
             k8s:io.kubernetes.pod.namespace: platform
     # Kubernetes API server — operators (cert-manager, CNPG, sops), the OTel
     # collector and the CNPG instance manager watch/patch resources.
+    #
+    # `host` + `remote-node` are required alongside `kube-apiserver`: when the API
+    # server runs ON a cluster node (single-node k3d locally, or any node-hosted
+    # apiserver), Cilium classifies its address as the `host`/`remote-node` reserved
+    # identity, which takes precedence over `kube-apiserver`. With only
+    # `kube-apiserver` here, every pod→API SYN to the node IP is dropped as
+    # "Policy denied", so operators can never reconcile and the platform never
+    # converges. This is host-to-apiserver reachability, not a security loosening —
+    # pods still cannot reach arbitrary node ports (no ingress is granted on hosts).
     - toEntities:
         - kube-apiserver
+        - host
+        - remote-node

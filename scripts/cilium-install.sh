@@ -24,6 +24,8 @@ SERVER_IP="$(k get node -o jsonpath='{.items[0].status.addresses[?(@.type=="Inte
 echo "→ installing Cilium (apiserver ${SERVER_IP}:6443)"
 helm dependency update infra/helm/platform/cilium >/dev/null
 
+# Local runs the chart as-is, including WireGuard transparent encryption (ADR-0003)
+# for east-west PII posture — same datapath as prod, so no local/prod parity gap.
 h upgrade --install cilium infra/helm/platform/cilium -n kube-system \
   --set cilium.kubeProxyReplacement=false \
   --set cilium.k8sServiceHost="${SERVER_IP}" \
@@ -33,4 +35,18 @@ h upgrade --install cilium infra/helm/platform/cilium -n kube-system \
 
 echo "→ waiting for the node to go Ready (Cilium up)…"
 k wait --for=condition=Ready node --all --timeout=600s
+
+# hubble-relay CrashLoopBackOff after a stop/start survivor: hubble-peer is backed
+# by the cilium-agent pod itself (a hostPort :4244). With kubeProxyReplacement off,
+# Cilium's eBPF LB still owns that ClusterIP and health-gates the backend from the
+# EndpointSlice's ready condition. On a stop/start the agent goes briefly NotReady →
+# endpoint ready:false → Cilium marks the sole backend Unhealthy (quarantined) and,
+# because the LB state is restored from the PINNED bpf map, never re-reconciles it —
+# `service-no-backend-response: reject` then turns every relay peer-notify into an
+# instant ECONNREFUSED, wedging hubble-relay permanently (a fresh build never hits the
+# race, so it only bites after the first stop/start). The chart hard-codes hubble-peer
+# with no publishNotReadyAddresses and exposes no knob, so patch it: keeping the peer
+# endpoint always-ready across agent restarts stops the quarantine at the source.
+# (Persists across stop/start; re-applied on every cluster:full when this script re-runs.)
+k -n kube-system patch svc hubble-peer --type merge -p '{"spec":{"publishNotReadyAddresses":true}}'
 echo "✓ Cilium installed; node Ready"

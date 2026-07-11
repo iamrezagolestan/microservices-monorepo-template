@@ -6,9 +6,9 @@ relationships: |
   order:o2#org@org:acme
   order:o2#owner@user:bob
   group:operator#member@user:alice
-  dashboard:console#viewer@user:alice
-  dashboard:grafana#viewer@group:operator#member
-  dashboard:hubble#viewer@group:operator#member
-  dashboard:temporal#viewer@group:operator#member
-  dashboard:minio#viewer@group:operator#member
-  dashboard:argo#viewer@group:operator#member
+  dashboard:admin#viewer@user:alice
+  dashboard:o11y#viewer@group:operator#member
+  dashboard:network#viewer@group:operator#member
+  dashboard:workflows#viewer@group:operator#member
+  dashboard:s3#viewer@group:operator#member
+  dashboard:deploy#viewer@group:operator#member

@@ -13,9 +13,11 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"go.opentelemetry.io/otel/metric"
 	"go.temporal.io/sdk/client"
 
 	"github.com/tabmadi/microservices-monorepo-template/libs/go/apierr"
+	"github.com/tabmadi/microservices-monorepo-template/libs/go/observability"
 	orders "github.com/tabmadi/microservices-monorepo-template/libs/go/sdks/orders"
 	"github.com/tabmadi/microservices-monorepo-template/services/orders/internal/store"
 	"github.com/tabmadi/microservices-monorepo-template/services/orders/internal/workflows"
@@ -24,15 +26,25 @@ import (
 const serviceName = "orders"
 
 type Handlers struct {
-	q  *store.Queries
-	tc client.Client
+	q                *store.Queries
+	tc               client.Client
+	checkoutsStarted metric.Int64Counter
 }
 
-func New(db *pgxpool.Pool, tc client.Client) *Handlers { return &Handlers{q: store.New(db), tc: tc} }
+func New(db *pgxpool.Pool, tc client.Client) *Handlers {
+	return &Handlers{
+		q:                store.New(db),
+		tc:               tc,
+		checkoutsStarted: observability.Counter("orders.checkouts_started"),
+	}
+}
 
 var _ orders.Handler = (*Handlers)(nil)
 
 func (h *Handlers) Checkout(ctx context.Context, req *orders.CheckoutInput) (*orders.WorkflowHandle, error) {
+	ctx, span := observability.StartSpan(ctx, "orders.Checkout")
+	defer span.End()
+
 	if req.Quantity <= 0 || req.Quantity > math.MaxInt32 {
 		return nil, apierr.BadRequest("product_id and quantity required")
 	}
@@ -64,11 +76,12 @@ func (h *Handlers) Checkout(ctx context.Context, req *orders.CheckoutInput) (*or
 	if err != nil {
 		return nil, apierr.Internal(err.Error())
 	}
+	h.checkoutsStarted.Add(ctx, 1)
 	return &orders.WorkflowHandle{
 		ID:        "checkout-" + id,
 		RunID:     id,
 		Status:    orders.WorkflowHandleStatusRunning,
-		ResultURL: orders.NewOptURI(url.URL{Path: "/api/orders/orders/" + id}),
+		ResultURL: orders.NewOptURI(url.URL{Path: "/api/orders/" + id}),
 	}, nil
 }
 

@@ -5,6 +5,7 @@ package observability
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -14,8 +15,9 @@ import (
 	"strconv"
 	"time"
 
-	otelslog "go.opentelemetry.io/contrib/bridges/otelslog"
+	"go.opentelemetry.io/contrib/bridges/otelslog"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
@@ -26,6 +28,8 @@ import (
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
 	"go.opentelemetry.io/otel/trace"
+
+	"github.com/tabmadi/microservices-monorepo-template/libs/go/buildinfo"
 )
 
 // Config is read from environment variables when omitted. Service code provides
@@ -66,9 +70,17 @@ func Init(ctx context.Context, cfg Config) (func(context.Context) error, error) 
 		local = true
 	}
 
+	// service.version (release) + service.build.sha (precise, always-unique) come
+	// from the baked-in build identity (ADR-0013), so every trace/log/metric
+	// self-reports which binary emitted it — answering "what's actually running"
+	// in Grafana without a bespoke endpoint.
 	res, err := resource.New(
 		ctx,
-		resource.WithAttributes(semconv.ServiceName(cfg.ServiceName)),
+		resource.WithAttributes(
+			semconv.ServiceName(cfg.ServiceName),
+			semconv.ServiceVersion(buildinfo.Version),
+			attribute.String("service.build.sha", buildinfo.SHA),
+		),
 		resource.WithFromEnv(),
 		resource.WithProcessRuntimeName(),
 	)
@@ -191,7 +203,32 @@ func Counter(name string, opts ...metric.Int64CounterOption) metric.Int64Counter
 
 func serveAdmin(addr string) {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
+	// Liveness is SHALLOW — "the process is running", never a dependency check.
+	// (A dep-aware liveness turns a dependency blip into a self-inflicted restart.)
+	mux.HandleFunc("/livez", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
+	// Readiness is DEEP — "can I serve?" — 200 only if every registered dependency
+	// check passes; on failure the pod leaves Service rotation WITHOUT restarting,
+	// and rejoins when the dependency recovers (see readiness.go).
+	mux.HandleFunc(
+		"/readyz",
+		func(w http.ResponseWriter, r *http.Request) {
+			name, err := checkReadiness(r.Context())
+			if err != nil {
+				http.Error(w, "not ready: "+name+": "+err.Error(), http.StatusServiceUnavailable)
+				return
+			}
+			w.WriteHeader(http.StatusOK)
+		},
+	)
+	// Build identity of the running binary (ADR-0013): scriptable/curl-able per pod,
+	// so "is this pod the version I released?" is answerable directly, not inferred.
+	mux.HandleFunc(
+		"/version",
+		func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(buildinfo.Get())
+		},
+	)
 	mux.HandleFunc("/debug/pprof/", pprof.Index)
 	mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
 	mux.HandleFunc("/debug/pprof/profile", pprof.Profile)

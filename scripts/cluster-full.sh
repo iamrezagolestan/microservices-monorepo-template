@@ -29,6 +29,14 @@ ac() { KUBECONFIG="$AC_KUBECONFIG" argocd --core "$@"; }
 
 # 1. Cluster + CNI (a CNI must exist before Argo's pods can schedule).
 bash scripts/cluster-ensure.sh
+# On a proxied network the node's containerd can wedge pulling the large Cilium /
+# ArgoCD images through privoxy, stalling the `helm --wait` steps below (which run
+# before Argo, so cluster:unwedge can't rescue them). CLUSTER_PRELOAD=1 warms those
+# images on the host first. Off by default — clean networks never need it.
+if [ "${CLUSTER_PRELOAD:-0}" = "1" ]; then
+  echo "→ CLUSTER_PRELOAD=1: preloading bootstrap-critical images"
+  bash scripts/cluster-preload-images.sh
+fi
 bash scripts/cilium-install.sh
 
 # 2. ArgoCD (it cannot sync itself into existence). Excluded from the local
@@ -82,25 +90,32 @@ build_push() {  # <image-name> <dockerfile> <context> [extra docker build args�
   return 1
 }
 echo "→ building + pushing repo images to ${REG}"
+# Build identity baked into each image (ADR-0013): the working-tree SHA (+ -dirty),
+# so /version and the X-App-Version header report exactly what this run deployed.
+REV="$(git rev-parse --short=12 HEAD 2>/dev/null || echo unknown)"
+git diff --quiet 2>/dev/null || REV="${REV}-dirty"
+BUILD_ID=(--build-arg "GIT_SHA=${REV}" --build-arg BUILD_VERSION=local \
+  --build-arg "BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)")
 for svc in authz catalog orders orgs payment; do
   build_push "${svc}-server" "services/${svc}/Dockerfile" . \
-    --build-arg SERVICE="${svc}" --build-arg APP_CMD=server
+    --build-arg SERVICE="${svc}" --build-arg APP_CMD=server "${BUILD_ID[@]}"
 done
 for svc in orders payment; do
   build_push "${svc}-worker" "services/${svc}/Dockerfile" . \
-    --build-arg SERVICE="${svc}" --build-arg APP_CMD=worker
+    --build-arg SERVICE="${svc}" --build-arg APP_CMD=worker "${BUILD_ID[@]}"
 done
 build_push admin apps/admin/Dockerfile apps/admin
 
 # 4. Local root App-of-Apps → Argo discovers the local appsets + apps from git.
 echo "→ applying local root application"
-k apply -f infra/gitops/bootstrap-local/root-application-local.yaml
+k apply -f infra/gitops/local-bootstrap/root-application.yaml
 
 # 5. Wait for Argo to converge with `argocd app wait` — it blocks in the
 #    foreground, streams per-resource sync/health as it changes, and exits
 #    non-zero with the offending resource the moment a sync operation fails
 #    (no silent wait to the timeout). Two phases because apps are generated
-#    asynchronously: first the root app (its 2 child apps + 2 appsets), then
+#    asynchronously: first the root app (its AppProject + 2 child apps + 2
+#    appsets), then
 #    every app the appsets produced. Appset generation lags appset sync, so the
 #    set is re-listed until stable.
 echo "→ waiting for ArgoCD to converge (this is a full platform; first run is slow)…"
@@ -128,7 +143,7 @@ wait_apps() {
   ac app wait "$@" --sync --health --operation --timeout "$timeout"
 }
 
-wait_apps 600 root-local
+wait_apps 600 local-root
 while :; do
   apps="$(ac app list -o name)"
   # shellcheck disable=SC2086  # names are newline-separated, intentional split
@@ -166,17 +181,22 @@ EOF
 cat <<EOF
 
 ✓ cluster:full up (ArgoCD-driven from master).
-  Product (Traefik):  https://${DOMAIN}:8443/api/<service>/   (self-signed TLS)
-  Ops tier (ADR-0017, one origin per tool, AAL2 operator session required):
-    Grafana:          https://grafana.ops.${DOMAIN}:8443/
-    Hubble UI:        https://hubble.ops.${DOMAIN}:8443/
-    Temporal UI:      https://temporal.ops.${DOMAIN}:8443/
-    MinIO console:    https://minio.ops.${DOMAIN}:8443/  (login: minio / minio-password)
-    Lowdefy console:  https://console.ops.${DOMAIN}:8443/
-    ArgoCD:           https://argo.ops.${DOMAIN}:8443/
+  Product (Traefik):  https://${DOMAIN}:8443/api/<resource>/   (flat namespace, self-signed TLS)
+  Ops tier (ADR-0017; coarse gate = operator claim + AAL2, no SpiceDB call):
+    Grafana:          https://o11y.ops.${DOMAIN}:8443/
+    Hubble UI:        https://network.ops.${DOMAIN}:8443/
+    Temporal UI:      https://workflows.ops.${DOMAIN}:8443/
+    MinIO console:    https://s3.ops.${DOMAIN}:8443/  (login: minio / minio-password)
+    Lowdefy console:  https://admin.ops.${DOMAIN}:8443/
+    ArgoCD:           https://deploy.ops.${DOMAIN}:8443/
+    Headlamp (k8s):   https://k8s.ops.${DOMAIN}:8443/   (read-only debug UI)
+    pgweb (DB):       https://db.ops.${DOMAIN}:8443/    (read-only DB inspector)
   Frontend:           run it natively on :3000 (the frontend-dev EndpointSlice
                       routes /auth + landing to the host).
   Diagnose:           argocd --core --kube-context k3d-${CLUSTER} app get <app>
                       UI: kubectl -n argocd port-forward svc/argocd-server 8080:443
+  Break-glass:        auth plane down? reach any tool via kubectl port-forward with
+                      your kubeconfig — the sanctioned bypass (docs/ops/break-glass.md),
+                      e.g. kubectl -n platform port-forward svc/grafana 3000:80
   Teardown:           mise run cluster:stop  (keep cache) / cluster:delete (delete)
 EOF

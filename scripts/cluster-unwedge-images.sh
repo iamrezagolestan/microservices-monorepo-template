@@ -48,8 +48,18 @@ echo "→ ${#stuck[@]} image(s) stuck behind the proxy; pulling on the host + im
 # The proxy is slow, so a single host pull can trip docker's TLS-handshake timeout
 # even when the image is perfectly reachable — retry a few times before giving up.
 docker_pull() {
+  local ref="$1" host="${1%%/*}" out
+  case "$host" in *.*|*:*) ;; *) host="docker.io" ;; esac  # bare name → Docker Hub
   for attempt in 1 2 3; do
-    docker pull "$1" && return 0
+    if out=$(docker pull "$ref" 2>&1); then return 0; fi
+    printf '%s\n' "$out" | tail -1
+    # A stale ~/.docker/config.json entry for a PUBLIC registry fails an anonymous
+    # pull with "denied"; one logout of that host clears it (we only pull public
+    # images here).
+    if printf '%s' "$out" | grep -qiE 'denied|unauthorized' && [ "$attempt" = 1 ]; then
+      echo "    (auth denied for a public image — docker logout $host and retry)"
+      docker logout "$host" >/dev/null 2>&1 || true
+    fi
     echo "    (pull attempt $attempt failed — retrying)"
   done
   return 1

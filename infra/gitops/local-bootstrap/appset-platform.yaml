@@ -1,0 +1,96 @@
+# Local Platform ApplicationSet (ADR-0004, ADR-0016). Identical to
+# bootstrap/appset-platform.yaml except the list generator carries a single
+# { env: local } element, so it deploys the same platform charts at the local
+# overlay (infra/gitops/platform/local/values.yaml). This replaces the
+# imperative ordering that scripts/cluster-full.sh did with two-pass helm +
+# kubectl waits.
+#
+# Naming: env-prefix throughout (ADR-0004). This set is named `local-platform`
+# and every Application it generates is `local-platform-<chart>` — the env is a
+# prefix, never a suffix, and the same template drives the prod set's
+# `<env>-platform-<chart>`. Grouping is by the `local` AppProject + labels
+# (see appproject.yaml), not by parsing the name string.
+#
+# sync-wave "0" on the ApplicationSet itself (see appset-platform.yaml for why
+# this is a real gate, not a no-op) holds back local-gateway (wave "5") and
+# local-services (wave "25") until every platform component here is Synced+Healthy.
+# local-secrets shares wave "0" (it delivers Secrets these charts consume, so it
+# must run concurrently, not after — see app-secrets.yaml).
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: local-platform
+  namespace: argocd
+  labels:
+    env: local
+    app.kubernetes.io/part-of: platform
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - matrix:
+        generators:
+          - list:
+              elements:
+                - { env: local, server: "https://kubernetes.default.svc" }
+          - git:
+              repoURL: https://github.com/tabmadi/microservices-monorepo-template.git
+              revision: master
+              directories:
+                - { path: "infra/helm/platform/*" }
+                # Bootstrap-level components are installed imperatively by
+                # cluster:full BEFORE Argo can run (a CNI must exist before any pod
+                # schedules; Argo cannot install itself). Exclude them so Argo does
+                # not fight the imperative releases. Everything else is Argo-managed.
+                - { path: "infra/helm/platform/cilium", exclude: true }
+                - { path: "infra/helm/platform/argocd", exclude: true }
+  template:
+    metadata:
+      name: "{{ .env }}-platform-{{ .path.basename }}"
+      labels:
+        env: "{{ .env }}"
+        app.kubernetes.io/part-of: platform
+        app.kubernetes.io/component: "{{ .path.basename }}"
+      annotations:
+        argocd.argoproj.io/sync-wave: "10"
+    spec:
+      # Real tenancy/grouping boundary (ADR-0004): one AppProject per environment,
+      # not project:default. See appproject.yaml.
+      project: "{{ .env }}"
+      source:
+        repoURL: https://github.com/tabmadi/microservices-monorepo-template.git
+        targetRevision: master
+        path: "{{ .path.path }}"
+        helm:
+          # Stable Helm release name = chart basename, so resources are named
+          # the same under ArgoCD as under a direct `helm install <chart>` (a
+          # bare release name would prefix every resource with the app name and
+          # break in-cluster DNS / cross-component refs).
+          releaseName: "{{ .path.basename }}"
+          # Same auth single-source wiring as the prod appset; the per-env file
+          # (local/values.yaml) layers last so its host/dsn/secret overrides win.
+          valueFiles:
+            - "../../../auth/kratos/values.yaml"
+            - "../../../auth/oathkeeper/values.yaml"
+            - "../../../gitops/platform/{{ .env }}/values.yaml"
+          fileParameters:
+            - name: 'kratos.kratos.identitySchemas.user\.v1\.json'
+              path: "../../../auth/kratos/identity-schemas/user.v1.json"
+            - name: oathkeeper.oathkeeper.accessRules
+              path: "../../../auth/oathkeeper/access-rules.json"
+            # SpiceDB schema for the seed Job (ADR-0007); only the spicedb chart
+            # reads it, the rest ignore the extra value.
+            - name: seed.schema
+              path: "../../../auth/spicedb/schema.zed"
+      destination: { server: "{{ .server }}", namespace: platform }
+      syncPolicy:
+        automated: { prune: true, selfHeal: true }
+        syncOptions: [CreateNamespace=true, ServerSideApply=true]
+        # Retry on failure — automated+selfHeal won't re-run a sync that errored
+        # on the same commit; without this a transient repo-server/network blip
+        # parks the generated app until a manual sync. Caps at 2m (ADR-0004).
+        retry:
+          limit: 20
+          backoff: { duration: 10s, maxDuration: 2m, factor: 2 }

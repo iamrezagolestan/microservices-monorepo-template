@@ -69,6 +69,12 @@ func FromContext(ctx context.Context) (*Principal, bool) {
 	return p, ok
 }
 
+// NewContext returns ctx with p attached — the inverse of FromContext. Handlers
+// receive a principal via Middleware; tests inject one directly with this.
+func NewContext(ctx context.Context, p *Principal) context.Context {
+	return context.WithValue(ctx, principalKey, p)
+}
+
 // Middleware attaches the parsed principal to the request context. It never
 // rejects: validation already happened at the edge, and authorisation is the
 // handler's job via the authz Checker.

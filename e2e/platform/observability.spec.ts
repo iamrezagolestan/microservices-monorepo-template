@@ -1,16 +1,16 @@
 // Observability wiring gauge (ADR-0011): the three Grafana datasources resolve
 // and answer. This is the acceptance check behind the service-name fix — Grafana,
-// the OTel collector and prod all reach Loki/Tempo/Mimir at their short in-cluster
-// names (loki/tempo/mimir, not the release-prefixed defaults), and Loki runs
-// single-tenant so header-less queries don't 401. Driven through the real ops
-// edge with the saved AAL2 operator session (Grafana's HTTP API, no browser).
+// the OTel collector and prod all reach Loki/Tempo/Prometheus at their short
+// in-cluster names (loki/tempo/prometheus, not the release-prefixed defaults), and
+// Loki runs single-tenant so header-less queries don't 401. Driven through the real
+// ops edge with the saved AAL2 operator session (Grafana's HTTP API, no browser).
 import { type APIRequestContext, expect, request, test } from "@playwright/test";
 import { OPERATOR_STATE, opsURL } from "../fixtures/env";
 
-const GRAFANA_API = `${opsURL("grafana")}/api/datasources`;
+const GRAFANA_API = `${opsURL("o11y")}/api/datasources`;
 
 test.describe("grafana datasources", () => {
-  for (const name of ["Loki", "Tempo", "Mimir"]) {
+  for (const name of ["Loki", "Tempo", "Prometheus"]) {
     test(`${name} datasource is healthy behind the operator session`, async () => {
       const ctx: APIRequestContext = await request.newContext({
         ignoreHTTPSErrors: true,

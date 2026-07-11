@@ -9,7 +9,12 @@ server:
 ingress:
   enabled: true
   host: dev.example.com
+  resources: [products]
 secrets:
-  envFrom: [catalog-db-creds]
+  envFrom: [catalog-db-creds, spicedb-creds]
 env:
   DATABASE_URL_SECRET_REF: catalog-db-creds
+  # Write authz (ADR-0010): dial SpiceDB via the shared Checker. Blank preshared key
+  # falls back to spicedb-creds.preshared_key (envFrom), as the authz service does.
+  SPICEDB_ENDPOINT: "spicedb.platform.svc.cluster.local:50051"
+  SPICEDB_PRESHARED_KEY: ""

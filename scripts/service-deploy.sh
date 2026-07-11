@@ -9,7 +9,7 @@
 #
 # If the full tier (ArgoCD) manages this service, its auto-sync is paused first so
 # self-heal does not revert your local image; re-enable with:
-#   argocd app set local-svc-<svc> --sync-policy automated   (or just cluster:full)
+#   argocd app set local-service-<svc> --sync-policy automated   (or just cluster:full)
 set -euo pipefail
 
 CLUSTER="${CLUSTER:-platform}"
@@ -29,9 +29,17 @@ h() { helm --kube-context "k3d-${CLUSTER}" "$@"; }
 TAG="local-$(date +%s)"   # unique tag forces a re-pull of the imported image
 SET=(--set "image.repository=${SVC}-server" --set "image.tag=${TAG}")
 
+# Build identity baked into the image (ADR-0013): the working-tree SHA (+ -dirty
+# for uncommitted edits — the norm for this local path), so /version and the
+# X-App-Version header report exactly what you deployed.
+REV="$(git rev-parse --short=12 HEAD 2>/dev/null || echo unknown)"
+git diff --quiet 2>/dev/null || REV="${REV}-dirty"
+BUILD_ARGS=(--build-arg "GIT_SHA=${REV}" --build-arg BUILD_VERSION=local \
+  --build-arg "BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)")
+
 echo "→ building ${SVC}-server"
 docker build -t "${SVC}-server:${TAG}" \
-  --build-arg SERVICE="${SVC}" --build-arg APP_CMD=server \
+  --build-arg SERVICE="${SVC}" --build-arg APP_CMD=server "${BUILD_ARGS[@]}" \
   -f "${SVC_DIR}/Dockerfile" .
 k3d image import "${SVC}-server:${TAG}" -c "$CLUSTER"
 
@@ -39,16 +47,16 @@ k3d image import "${SVC}-server:${TAG}" -c "$CLUSTER"
 if grep -qE '^\s*enabled:\s*true' <(awk '/^worker:/{f=1} f' "$VALUES"); then
   echo "→ building ${SVC}-worker"
   docker build -t "${SVC}-worker:${TAG}" \
-    --build-arg SERVICE="${SVC}" --build-arg APP_CMD=worker \
+    --build-arg SERVICE="${SVC}" --build-arg APP_CMD=worker "${BUILD_ARGS[@]}" \
     -f "${SVC_DIR}/Dockerfile" .
   k3d image import "${SVC}-worker:${TAG}" -c "$CLUSTER"
   SET+=(--set "worker.image.repository=${SVC}-worker" --set "worker.image.tag=${TAG}")
 fi
 
 # Pause Argo auto-sync on this service if the full tier manages it.
-if k -n argocd get application.argoproj.io "local-svc-${SVC}" >/dev/null 2>&1; then
-  echo "→ pausing ArgoCD auto-sync on local-svc-${SVC}"
-  k -n argocd patch application.argoproj.io "local-svc-${SVC}" --type merge \
+if k -n argocd get application.argoproj.io "local-service-${SVC}" >/dev/null 2>&1; then
+  echo "→ pausing ArgoCD auto-sync on local-service-${SVC}"
+  k -n argocd patch application.argoproj.io "local-service-${SVC}" --type merge \
     -p '{"spec":{"syncPolicy":{"automated":null}}}'
 fi
 

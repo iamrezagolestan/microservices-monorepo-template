@@ -1,7 +1,8 @@
 {{- if .Values.externalObjectStorage }}
-## Prod only: the LGTM backends push blocks/chunks/traces to an off-cluster S3
-## bucket (ADR-0003), so they need egress to the internet on 443. Local uses
-## in-cluster MinIO and leaves this off — no platform pod reaches the world.
+## Prod only: Loki and Tempo push chunks/traces to an off-cluster S3 bucket
+## (ADR-0003), so they need egress to the internet on 443. Prometheus keeps a
+## local TSDB and needs no bucket egress. Local uses in-cluster MinIO and leaves
+## this off — no platform pod reaches the world.
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
@@ -11,7 +12,7 @@ spec:
     matchExpressions:
       - key: app.kubernetes.io/name
         operator: In
-        values: [loki, mimir, tempo]
+        values: [loki, tempo]
   egress:
     - toEntities: [world]
       toPorts:

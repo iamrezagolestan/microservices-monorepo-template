@@ -1,5 +1,5 @@
 # Local full-tier values for the orders service (ADR-0016). Read by the local
-# services ApplicationSet (infra/gitops/bootstrap-local/appset-services-local.yaml).
+# services ApplicationSet (infra/gitops/local-bootstrap/appset-services.yaml).
 # Same chart as dev/prod; only host, image tag, and the SOPS secret name differ.
 # The secret name (orders-db) matches the local SopsSecret resource
 # (infra/gitops/platform/local/secrets/platform.enc.yaml), not dev's *-db-creds.
@@ -14,7 +14,7 @@ worker:
     repository: k3d-registry.localhost:5000/orders-worker
     tag: local
 server:  { replicas: 1 }
-ingress: { enabled: true, host: dev.localtest.me }
+ingress: { enabled: true, host: dev.localtest.me, resources: [orders] }
 otel:    { deployEnv: local }
 secrets: { envFrom: [orders-db] }
 env:

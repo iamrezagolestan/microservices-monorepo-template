@@ -1,11 +1,12 @@
 apiVersion: v2
 name: observability
 description: |
-  Grafana LGTM (Loki, Grafana, Tempo, Mimir) in monolithic single-binary mode +
-  a single-tier OTel Collector DaemonSet (ADR-0011). Self-hosted via official
-  charts; long-term storage is the external S3 bucket from ADR-0003. Pyroscope
-  (profile storage) and the OTel Collector gateway tier are per-project add-ons
-  (`profiling` / tail-sampling flags), not in the default release.
+  Grafana + Loki/Tempo (monolithic single-binary mode) + Prometheus (Core metrics,
+  local TSDB, OTLP ingest) + a single-tier OTel Collector DaemonSet (ADR-0011).
+  Self-hosted via official charts; log/trace long-term storage is the external S3
+  bucket from ADR-0003. Mimir (metrics Scale swap), Pyroscope (profile storage), and
+  the OTel Collector gateway tier are per-project add-ons (`profiling` / tail-sampling
+  flags / Scale seam), not in the default release.
 type: application
 version: 0.1.0
 appVersion: "1.0.0"
@@ -30,7 +31,8 @@ appVersion: "1.0.0"
 # opencensus/otlp-legacy receiver ports are unused; the OTel collector ships
 # traces over OTLP). Re-apply both edits after a fresh `helm pull tempo`.
 
-# Mimir runs as a hand-written monolithic Deployment (templates/mimir.yaml), not
-# a subchart: there is no official monolithic Mimir chart, and the distributed
-# chart spins up 6+ components even at single-replica scale. `grafana/mimir
-# -target=all` is one process, matching Loki (SingleBinary) and Tempo (ADR-0011).
+# Prometheus runs as a hand-written Deployment (templates/prometheus.yaml), not a
+# subchart: the Core metrics floor is one prom/prometheus process with a local TSDB
+# and native OTLP ingest — no Helm dependency, no object storage. The horizontally
+# scalable, bucket-backed variant is the Mimir Scale swap (docs/operational-surface.md),
+# added per-project when a measured signal demands it, not shipped by default.

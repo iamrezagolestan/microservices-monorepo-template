@@ -1,7 +1,7 @@
 # ADR-0016: Environment Parity & Local Tiers
 
 - **Status:** Accepted
-- **Date:** 2026-06-23
+- **Date:** 2026-07-06
 - **Deciders:** Platform team
 - **Related:** [ADR-0000](0000-platform-foundations.md), [ADR-0003](0003-cluster-topology.md), [ADR-0004](0004-gitops.md), [ADR-0005](0005-secrets.md), [ADR-0007](0007-data.md), [ADR-0011](0011-observability.md)
 
@@ -104,7 +104,7 @@ Profiles stay a handful of composable toggles, not per-engineer snowflakes.
 
 ArgoCD reconciles committed git state, so it is **not** the inner loop's engine — the inner loop runs the service
 natively against `cluster:lite`'s stand-ins ([ADR-0004](0004-gitops.md)). The **full-platform tier does run ArgoCD**: a
-local bootstrap (`infra/gitops/bootstrap-local/`) applies the same app-of-apps prod uses, syncing committed `master`
+local bootstrap (`infra/gitops/local-bootstrap/`) applies the same app-of-apps prod uses, syncing committed `master`
 from the remote, so sync ordering, app discovery, and secret materialisation are exercised exactly as in prod. Only the
 two genuine bootstrap components ArgoCD cannot self-create — the CNI (Cilium) and ArgoCD itself — are installed
 imperatively by `cluster:full` before the root-app is applied; everything else is Argo-managed.

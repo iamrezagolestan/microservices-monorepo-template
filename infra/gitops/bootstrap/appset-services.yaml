@@ -13,6 +13,8 @@ kind: ApplicationSet
 metadata:
   name: services
   namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: services
   annotations:
     argocd.argoproj.io/sync-wave: "10"
 spec:
@@ -23,9 +25,11 @@ spec:
         generators:
           - list:
               elements:
-                - { env: dev,     syncWindowStart: "*",          server: "https://kubernetes.default.svc" }
-                - { env: staging, syncWindowStart: "0 5 * * *",  server: "https://kubernetes.default.svc" }
-                - { env: prod,    syncWindowStart: "*",          server: "https://kubernetes.default.svc" }
+                # Sync windows (e.g. staging's 05:00 UTC gate) live on the
+                # per-env AppProject, not here — see bootstrap/appproject.yaml.
+                - { env: dev,     server: "https://kubernetes.default.svc" }
+                - { env: staging, server: "https://kubernetes.default.svc" }
+                - { env: prod,    server: "https://kubernetes.default.svc" }
           - git:
               repoURL: https://github.com/tabmadi/microservices-monorepo-template.git
               revision: master
@@ -33,9 +37,13 @@ spec:
                 - { path: "infra/gitops/services/{{ .env }}/values/*.yaml" }
   template:
     metadata:
-      name: "{{ .env }}-svc-{{ .path.filenameNormalized }}"
+      name: "{{ .env }}-service-{{ .path.filenameNormalized }}"
+      labels:
+        env: "{{ .env }}"
+        app.kubernetes.io/part-of: services
+        app.kubernetes.io/component: "{{ .path.filenameNormalized }}"
     spec:
-      project: default
+      project: "{{ .env }}"
       source:
         repoURL: https://github.com/tabmadi/microservices-monorepo-template.git
         targetRevision: master
@@ -47,3 +55,9 @@ spec:
       syncPolicy:
         automated: { prune: true, selfHeal: true }
         syncOptions: [CreateNamespace=true, ServerSideApply=true]
+        # Retry on failure — automated+selfHeal won't re-run a sync that errored
+        # on the same commit; without this a transient repo-server/network blip
+        # parks the generated app until a manual sync. Caps at 2m (ADR-0004).
+        retry:
+          limit: 20
+          backoff: { duration: 10s, maxDuration: 2m, factor: 2 }

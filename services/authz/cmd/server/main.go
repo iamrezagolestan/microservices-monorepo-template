@@ -50,8 +50,13 @@ func run() error {
 		return fmt.Errorf("authz granter: %w", err)
 	}
 
+	// Coarse claim gate is always on; the optional fine per-tool SpiceDB layer is
+	// enabled per-project (ADR-0017). Default off keeps the coarse gate free of any
+	// SpiceDB dependency.
+	fineGrained := os.Getenv("OPS_FINE_GRAINED") == "true"
+
 	mux := http.NewServeMux()
-	mux.Handle("/internal/authorize", decision.New(checker, slog.Default()))
+	mux.Handle("/internal/authorize", decision.New(checker, fineGrained, slog.Default()))
 	mux.Handle("/admin/operators", operator.New(granter, slog.Default()))
 
 	srv := &http.Server{

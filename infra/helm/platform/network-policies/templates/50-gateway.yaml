@@ -28,4 +28,40 @@ spec:
     - fromEndpoints:
         - matchLabels: { k8s:io.kubernetes.pod.namespace: kube-system }
       toPorts:
-        - ports: [{ port: "80", protocol: TCP }]
+        # Cilium enforces L4 on the pod's real port (containerPort 3000), not the
+        # Service port 80 that fronts it — the edge connects to targetPort http=3000.
+        - ports: [{ port: "3000", protocol: TCP }]
+---
+## Headlamp — k8s debug UI (ADR-0024), reached only through the edge (4466).
+## A no-op selector when the chart is disabled (no headlamp pods exist).
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: headlamp
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: headlamp
+  ingress:
+    - fromEndpoints:
+        - matchLabels: { k8s:io.kubernetes.pod.namespace: kube-system }
+      toPorts:
+        # Enforced on the pod's real containerPort 4466, not the Service port 80.
+        - ports: [{ port: "4466", protocol: TCP }]
+---
+## pgweb — DB inspector (ADR-0012), reached only through the edge (8081).
+## A no-op selector when the chart is disabled (no pgweb pods exist).
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: pgweb
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: pgweb
+  ingress:
+    - fromEndpoints:
+        - matchLabels: { k8s:io.kubernetes.pod.namespace: kube-system }
+      toPorts:
+        # Enforced on the pod's real containerPort 8081, not the Service port 80.
+        - ports: [{ port: "8081", protocol: TCP }]
