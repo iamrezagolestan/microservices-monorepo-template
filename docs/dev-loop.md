@@ -162,7 +162,7 @@ matches longest-prefix, so the specific routes below win over the `/` catch-all.
 | `/panel`, `/devportal`                                         | Frontend authenticated areas          | Kratos session | `apps/frontend/src/proxy.ts`                     |
 | `/auth/login`, `/auth/registration`, …                         | Kratos UI pages (host-run `next dev`) | public         | `infra/local/edge-auth.yaml`                     |
 | `/auth/self-service`, `/auth/.well-known`, `/auth/sessions`    | Kratos public API                     | public         | `infra/local/edge-auth.yaml`                     |
-| `/api/catalog/`, `/api/orders/`, `/api/orgs/`, `/api/payment/` | Service APIs through the edge         | Oathkeeper     | `infra/helm/service/templates/ingressroute.yaml` |
+| `/api/products`, `/api/orders`, `/api/orgs`, `/api/charges`    | Service APIs (flat `/api/<resource>`, ADR-0017) | Oathkeeper | `infra/helm/service/templates/ingressroute.yaml` |
 | `/api/observability/faro`                                      | Faro/RUM browser-telemetry ingest     | public         | `infra/gateway/frontend-observability.yaml`      |
 
 The **ops tier** (ADR-0017) is a separate origin per operator dashboard under
@@ -249,70 +249,77 @@ local-only).
 ## HTTP proxies
 
 Proxy configuration is a property of **your machine**, not of this template — the
-repo carries no proxy values or logic, and the scripts never will. Behind a
-corporate/loopback proxy you configure it once, system-side, and the `cluster:*`
-tasks work unchanged.
+repo carries no proxy values or logic, and the scripts never will. On a clean
+network, skip this whole section. Behind a proxy, do the three one-time steps
+below and the `cluster:*` tasks work unchanged.
 
-There are two independent layers, and they need separate handling:
+The steps assume a **loopback** proxy on your host — e.g. privoxy at
+`http://127.0.0.1:8118`. Each step is read from a different place (host, a build
+container, the k3d node), so the address you write differs — that's the only
+subtlety. If your proxy is instead a **routable** address
+(`http://proxy.example.com:8080`), it works from everywhere: use it verbatim in
+every step and ignore the per-step address notes.
 
-**1. Host-side pulls (the k3s node image, host `docker pull`/`helm`).** These go
-through the Docker daemon and the Docker CLI on your host. Point both at your proxy:
+### Step 1 — Proxy the Docker daemon (image pulls)
 
-- Docker **CLI** (`~/.docker/config.json`) — used by host `docker` commands:
+Create `/etc/systemd/system/docker.service.d/http-proxy.conf`. The daemon runs on
+your host, so a loopback proxy stays `127.0.0.1`:
 
-  ```json
-  {
-    "proxies": {
-      "default": {
-        "httpProxy": "http://proxy.example.com:8080",
-        "httpsProxy": "http://proxy.example.com:8080",
-        "noProxy": "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,.svc,.svc.cluster.local,127.0.0.1,localhost,.localtest.me"
-      }
+```ini
+[Service]
+Environment="HTTP_PROXY=http://127.0.0.1:8118"
+Environment="HTTPS_PROXY=http://127.0.0.1:8118"
+Environment="NO_PROXY=10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,.svc,.svc.cluster.local,127.0.0.1,localhost,.localtest.me"
+```
+
+then `sudo systemctl daemon-reload && sudo systemctl restart docker`.
+
+### Step 2 — Proxy Docker builds (the Lowdefy image's npm fetch)
+
+Docker injects `~/.docker/config.json` → `proxies.default` into `docker build` RUN
+steps. There the reader is *inside a container*, where `127.0.0.1` would mean the
+container itself — so use the **docker-bridge gateway IP** (find it with
+`docker network inspect bridge -f '{{(index .IPAM.Config 0).Gateway}}'`, usually
+`172.17.0.1`):
+
+```json
+{
+  "proxies": {
+    "default": {
+      "httpProxy": "http://172.17.0.1:8118",
+      "httpsProxy": "http://172.17.0.1:8118",
+      "noProxy": "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,.svc,.svc.cluster.local,127.0.0.1,localhost,.localtest.me"
     }
   }
-  ```
+}
+```
 
-- Docker **daemon** (`/etc/systemd/system/docker.service.d/http-proxy.conf`) — so
-  the daemon's own image pulls are proxied:
+Keep `registry.npmjs.org`/`docker.io` **out** of `noProxy` so they route through the
+proxy. A loopback value here is the classic Lowdefy-build failure: `npm` inside the
+build can't see the proxy, goes direct, and the firewall blocks it.
 
-  ```ini
-  [Service]
-  Environment="HTTP_PROXY=http://proxy.example.com:8080"
-  Environment="HTTPS_PROXY=http://proxy.example.com:8080"
-  Environment="NO_PROXY=10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,.svc,.svc.cluster.local,127.0.0.1,localhost,.localtest.me"
-  ```
+### Step 3 — Export the proxy before bringing up the cluster (the k3d node)
 
-  then `sudo systemctl daemon-reload && sudo systemctl restart docker`.
-
-**2. In-cluster pulls (Cilium, the inner-loop deps, every ArgoCD-synced workload).**
-These are pulled by the **containerd that runs inside the k3d node**, using the
-node's own process environment — which none of the settings above reach. k3d creates
-its nodes through the Docker SDK, so the node does **not** inherit
-`~/.docker/config.json` proxies, the daemon's proxy env, or your exported shell
-`HTTP_PROXY`. The proxy has to be present on the node, and the only way to put it
-there is at cluster-create time (k3d `-e` flags).
-
-`cluster-ensure.sh` bridges this **from your shell**: at create time it reads your
-exported `HTTP_PROXY`/`HTTPS_PROXY` and, if set, injects it onto the node — rewriting
-a loopback proxy (`127.0.0.1`/`localhost`) to `host.k3d.internal` so the node can
-reach it. No proxy value lives in the repo: a clean shell makes a pristine cluster;
-a proxied shell is wired automatically. So the whole setup is just:
+Export it in the shell you run `cluster:full` from; write it as **your host** sees it
+(loopback stays `127.0.0.1`). At create time `cluster:ensure` injects it onto the k3d
+node, rewriting a loopback proxy to `host.k3d.internal` for you:
 
 ```sh
-# Export your proxy once, system-side (skip on a clean network — nothing to do).
-export HTTPS_PROXY=http://proxy.example.com:8080   # or http://127.0.0.1:8118, etc.
+export HTTPS_PROXY=http://127.0.0.1:8118
+mise run cluster:full
+```
 
-mise run cluster:full      # cluster:ensure creates the cluster with your proxy wired
+Verify the node got it (a loopback proxy should now read `host.k3d.internal`):
 
-# Verify the node actually got it (only meaningful on a proxied machine):
+```sh
 docker exec k3d-platform-server-0 env | grep -i proxy
 ```
 
-`cluster:ensure` is convergent — it reuses an existing cluster (only starting it), so
-export the proxy **before the first** bring-up. To rewire an already-created cluster,
-recreate it (`mise run cluster:delete && mise run cluster:full`). If a node restart
-drops `host.k3d.internal`, re-add `<gateway-ip> host.k3d.internal` to the node's
-`/etc/hosts` (Docker normally provides it as the gateway).
+`cluster:ensure` wires the proxy only at **create** time, so export it **before the
+first** bring-up. To rewire an existing cluster, recreate it
+(`mise run cluster:delete && mise run cluster:full`). If a node restart drops
+`host.k3d.internal`, re-add `<gateway-ip> host.k3d.internal` to the node's
+`/etc/hosts`.
 
 > **Stalled image pulls through a proxy.** Even with the node proxied, some egress
 > proxies time out or truncate large image layers on containerd's single-stream pull

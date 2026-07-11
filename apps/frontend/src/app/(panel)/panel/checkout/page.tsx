@@ -60,7 +60,7 @@ const renderProductId = ({
 
 export default function Checkout() {
   const [status, setStatus] = useState<Status>({ text: panel.checkout.idle, tone: "gray" });
-  const orders = createBrowserClient<OrdersPaths>("orders");
+  const orders = createBrowserClient<OrdersPaths>();
 
   const { control, handleSubmit, formState } = useForm<FormValues>({
     resolver: zodResolver(schema),

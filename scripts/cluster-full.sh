@@ -90,13 +90,19 @@ build_push() {  # <image-name> <dockerfile> <context> [extra docker build args�
   return 1
 }
 echo "→ building + pushing repo images to ${REG}"
+# Build identity baked into each image (ADR-0013): the working-tree SHA (+ -dirty),
+# so /version and the X-App-Version header report exactly what this run deployed.
+REV="$(git rev-parse --short=12 HEAD 2>/dev/null || echo unknown)"
+git diff --quiet 2>/dev/null || REV="${REV}-dirty"
+BUILD_ID=(--build-arg "GIT_SHA=${REV}" --build-arg BUILD_VERSION=local \
+  --build-arg "BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)")
 for svc in authz catalog orders orgs payment; do
   build_push "${svc}-server" "services/${svc}/Dockerfile" . \
-    --build-arg SERVICE="${svc}" --build-arg APP_CMD=server
+    --build-arg SERVICE="${svc}" --build-arg APP_CMD=server "${BUILD_ID[@]}"
 done
 for svc in orders payment; do
   build_push "${svc}-worker" "services/${svc}/Dockerfile" . \
-    --build-arg SERVICE="${svc}" --build-arg APP_CMD=worker
+    --build-arg SERVICE="${svc}" --build-arg APP_CMD=worker "${BUILD_ID[@]}"
 done
 build_push admin apps/admin/Dockerfile apps/admin
 
@@ -175,7 +181,7 @@ EOF
 cat <<EOF
 
 ✓ cluster:full up (ArgoCD-driven from master).
-  Product (Traefik):  https://${DOMAIN}:8443/api/<service>/   (self-signed TLS)
+  Product (Traefik):  https://${DOMAIN}:8443/api/<resource>/   (flat namespace, self-signed TLS)
   Ops tier (ADR-0017; coarse gate = operator claim + AAL2, no SpiceDB call):
     Grafana:          https://o11y.ops.${DOMAIN}:8443/
     Hubble UI:        https://network.ops.${DOMAIN}:8443/
@@ -183,7 +189,6 @@ cat <<EOF
     MinIO console:    https://s3.ops.${DOMAIN}:8443/  (login: minio / minio-password)
     Lowdefy console:  https://admin.ops.${DOMAIN}:8443/
     ArgoCD:           https://deploy.ops.${DOMAIN}:8443/
-    Opt-in (off by default — enable in the local overlay, ADR-0024 / ADR-0012):
     Headlamp (k8s):   https://k8s.ops.${DOMAIN}:8443/   (read-only debug UI)
     pgweb (DB):       https://db.ops.${DOMAIN}:8443/    (read-only DB inspector)
   Frontend:           run it natively on :3000 (the frontend-dev EndpointSlice

@@ -1,6 +1,6 @@
 openapi: 3.1.0
-info: { title: payment, version: 0.1.0, description: Payment charge and settlement service. }
-servers: [{ url: /api/payment }]
+info: { title: payment, version: 0.1.0, description: Payment charge and settlement service., x-audience: public }
+servers: [{ url: /api }]   # flat resource namespace (ADR-0017); paths are globally unique
 tags: [{ name: charges }]
 paths:
   /charges:

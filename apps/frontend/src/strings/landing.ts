@@ -46,4 +46,11 @@ export const landing = {
     submit: "Save",
     error: "Could not start settings. Please retry.",
   },
+  errorFlow: {
+    // Kratos' error flow (selfservice.flows.error.ui_url) lands here with ?id=.
+    title: "Something went wrong",
+    loading: "Loading error details…",
+    generic: "An unexpected error occurred.",
+    toLogin: "Back to sign in",
+  },
 } as const;

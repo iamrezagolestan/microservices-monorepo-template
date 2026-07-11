@@ -4,5 +4,5 @@ image:
   tag: "0000000000000000000000000000000000000000"
 worker: { enabled: false }
 server:  { replicas: 1 }
-ingress: { enabled: true, host: dev.example.com }
+ingress: { enabled: true, host: dev.example.com, resources: [orgs] }
 secrets: { envFrom: [orgs-db-creds] }

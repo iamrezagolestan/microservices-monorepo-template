@@ -81,7 +81,7 @@ func (h *Handlers) Checkout(ctx context.Context, req *orders.CheckoutInput) (*or
 		ID:        "checkout-" + id,
 		RunID:     id,
 		Status:    orders.WorkflowHandleStatusRunning,
-		ResultURL: orders.NewOptURI(url.URL{Path: "/api/orders/orders/" + id}),
+		ResultURL: orders.NewOptURI(url.URL{Path: "/api/orders/" + id}),
 	}, nil
 }
 

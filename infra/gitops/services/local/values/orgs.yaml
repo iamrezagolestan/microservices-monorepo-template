@@ -7,6 +7,6 @@ image:
   pullPolicy: Always    # re-pull the rebuilt :local on a cluster:full re-run
 worker:  { enabled: false }
 server:  { replicas: 1 }
-ingress: { enabled: true, host: dev.localtest.me }
+ingress: { enabled: true, host: dev.localtest.me, resources: [orgs] }
 otel:    { deployEnv: local }
 secrets: { envFrom: [orgs-db] }

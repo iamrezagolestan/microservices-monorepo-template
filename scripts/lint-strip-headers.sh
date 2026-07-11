@@ -14,8 +14,10 @@ step "checking every forward-auth route strips identity headers first"
 {
   kubectl kustomize infra/gateway
   echo '---'
-  # The per-service /api route (chart template) — render with ingress on.
+  # The per-resource /api route (chart template) — render with ingress on and a
+  # resource declared, as real services are configured (flat /api/<resource>, ADR-0017).
   helm template svc infra/helm/service \
     --set name=svc --set image.repository=svc --set image.tag=dev \
-    --set ingress.enabled=true --set ingress.host=example.com
+    --set ingress.enabled=true --set ingress.host=example.com \
+    --set 'ingress.resources={svc}'
 } | go run ./tools/lint-strip-headers

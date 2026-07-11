@@ -3,7 +3,7 @@
 - **Status:** Accepted
 - **Date:** 2026-07-06
 - **Deciders:** Platform team
-- **Related:** [ADR-0003](0003-cluster-topology.md), [ADR-0008](0008-api-contracts.md), [ADR-0009](0009-api-gateway.md), [ADR-0010](0010-auth.md), [ADR-0011](0011-observability.md), [ADR-0012](0012-internal-admin.md), [ADR-0014](0014-frontend.md), [ADR-0015](0015-naming-and-identifiers.md)
+- **Related:** [ADR-0003](0003-cluster-topology.md), [ADR-0008](0008-api-contracts.md), [ADR-0009](0009-api-gateway.md), [ADR-0010](0010-auth.md), [ADR-0011](0011-observability.md), [ADR-0012](0012-internal-admin.md), [ADR-0014](0014-frontend.md), [ADR-0015](0015-naming-and-identifiers.md), [ADR-0022](0022-api-lifecycle.md)
 
 ## Context
 
@@ -11,7 +11,7 @@ Every environment exposes two very different kinds of HTTP surface behind the sa
 ([ADR-0003](0003-cluster-topology.md), [ADR-0009](0009-api-gateway.md)):
 
 1. **Product** — the user-facing Next.js app (landing, auth UI, the `panel`/`devportal` route groups,
-   [ADR-0014](0014-frontend.md)), the service APIs (`/api/<svc>`, [ADR-0008](0008-api-contracts.md)), and browser
+   [ADR-0014](0014-frontend.md)), the service APIs (flat `/api/<resource>`, [ADR-0008](0008-api-contracts.md)), and browser
    telemetry ingest.
 2. **Operations tooling** — third-party operator dashboards we deploy but do not author: Hubble
    ([ADR-0003](0003-cluster-topology.md)), Grafana ([ADR-0011](0011-observability.md)), the Lowdefy internal-admin
@@ -61,12 +61,12 @@ split into exactly two tiers:
 
 | Tier        | Origin                 | What lives there                                                                 |
 |-------------|------------------------|----------------------------------------------------------------------------------|
-| **Product** | `<host>` (apex)        | Next.js app — landing, `/auth/*`, `panel`/`devportal`; `/api/<svc>/*`; `/api/observability/faro` |
+| **Product** | `<host>` (apex)        | Next.js app — landing, `/auth/*`, `panel`/`devportal`; `/api/<resource>/*`; `/api/observability/faro` |
 | **Ops**     | `*.ops.<host>`         | one origin per operator tool (table below)                                       |
 
 The Next.js app is the **whole product origin**: it serves the public landing page and the authenticated route groups,
-and the service APIs stay **same-origin** under `<host>/api/<svc>/*` (the browser app is their only client, so
-same-origin avoids CORS and keeps the session cookie naturally scoped). The ops tier nests every tool one level under a
+and the service APIs stay **same-origin** under the flat `<host>/api/<resource>/*` (the browser app is their only client,
+so same-origin avoids CORS and keeps the session cookie naturally scoped). The ops tier nests every tool one level under a
 shared `ops.` label.
 
 ### Ops-tier hostnames
@@ -177,7 +177,7 @@ a claim, for break-glass independence.
 
 ### Routing
 
-- Product: Traefik `Host(\<host>\)` routes (the per-service `/api/<svc>` IngressRoutes and the frontend catch-all
+- Product: Traefik `Host(\<host>\)` routes (the per-resource `/api/<resource>` IngressRoutes and the frontend catch-all
   already match on `Host`, [ADR-0009](0009-api-gateway.md)).
 - Ops: one `Host(\{concept}.ops.<host>\)` IngressRoute per tool, each behind the ops forward-auth middleware. Host-
   parameterised so local and deployed envs share the manifests ([ADR-0016](0016-environment-parity.md)).
@@ -197,8 +197,8 @@ anonymous and indexable; anything behind a login is `noindex` and is therefore p
 | Surface                                                       | Placement                                | Deciding axis                                                     |
 |---------------------------------------------------------------|------------------------------------------|-------------------------------------------------------------------|
 | Product docs, blog, guides, changelog                         | `<host>/docs`, `<host>/blog`, … (subdir) | anonymous + indexable → SEO                                       |
-| Public API reference (read-only `x-audience: public` specs, `x-internal` stripped, [ADR-0008](0008-api-contracts.md)) | `<host>/developers` (subdir) | anonymous + indexable → SEO; first-party read-only, like the landing page |
-| Internal devportal (full specs, [ADR-0009](0009-api-gateway.md)) | `<host>/devportal` (subdir)           | behind app session + `Checker`; same-origin with `/api/<svc>`, so "try it" needs no CORS |
+| Public API reference (`x-audience: public` operations only, [ADR-0008](0008-api-contracts.md)) | `<host>/developers` (subdir) | anonymous + indexable → SEO; first-party read-only, like the landing page |
+| Dev portal (edge surface — audience `>= internal`, [ADR-0009](0009-api-gateway.md)) | `<host>/devportal` (subdir)           | behind app session + `Checker`; same-origin with `/api`, so "try it" needs no CORS |
 | Partner credential dashboard (issue/rotate Hydra OAuth2 keys)  | its own subdomain, separate auth realm  | behind login → `noindex`; a non-Kratos (Hydra) realm must not share the apex session cookie |
 
 The public docs portal is **anonymous — no login** ([ADR-0009](0009-api-gateway.md)); only *credential management* is
@@ -206,26 +206,45 @@ authenticated, on the separate dashboard origin above. This is a **deferred, ext
 projects (the default) have exactly the product and ops tiers; a project shipping a public API adds this external tier,
 scoped by the same two axes.
 
-### The API endpoint origin
+### The API endpoint path: flat `/api/<resource>`, service topology hidden
 
-The service API stays at `<host>/api/<svc>/*` — a path, not its own origin — and that holds **even for a public/partner
-API**. The origin-isolation argument that puts ops dashboards on `*.ops.<host>` does **not** carry over to a JSON API:
-there is no DOM, JS, or browser storage to isolate, so a separate origin protects nothing an API has. The reasons a
-subdomain *sounds* right mostly evaporate here:
+The service API is exposed as a **flat resource namespace on one shared prefix — `<host>/api/<resource>`** (e.g.
+`/api/products`, `/api/orders`, `/api/charges`), **not** per-service (`/api/<svc>/...`). The URL names the *resource*,
+not the service that happens to own it today. This is the Stripe/GitHub facade: a caller sees one coherent API surface,
+and which service serves a route is an internal detail that can change (a resource can move between services, or a service
+split in two) **without breaking a single URL**. The edge maps each resource prefix to its backing service; the mapping
+is infrastructure, invisible to consumers. Specs already declare resource-noun paths (`/products`, `/charges`), so the
+service segment was only ever leaking topology.
+
+**Collision governance.** One flat namespace means two services cannot both own `/api/orders`. That is a *feature*, not a
+limitation — a name collision is a genuine domain-modelling conflict — and it is enforced, not left to chance: a CI lint
+fails if two `x-audience`-exposed specs claim the same top-level resource prefix. The edge route table (per-resource
+`PathPrefix`, [ADR-0009](0009-api-gateway.md)) is the single registry of who owns what.
+
+**East-west endpoints are not on this surface.** Internal service-to-service endpoints (`x-audience: cluster`, by
+convention on a `/cluster/*` path — e.g. `orgs`'s `/cluster/identity-created`) bypass the edge entirely
+([ADR-0006](0006-temporal.md), [ADR-0009](0009-api-gateway.md)) and are reached in-cluster, gated by Cilium NetworkPolicy —
+they are never `/api/<resource>` edge routes, and appear in neither docs portal.
+
+A **path, not its own origin** — and that holds **even for a public/partner API**. The origin-isolation argument that puts
+ops dashboards on `*.ops.<host>` does **not** carry over to a JSON API: there is no DOM, JS, or browser storage to isolate,
+so a separate origin protects nothing an API has. The reasons a subdomain *sounds* right mostly evaporate here:
 
 - **CORS is a cost, not a benefit.** Same-origin `<host>/api` needs none; a subdomain would manufacture a cross-origin
   problem. (A third-party's own browser app needs CORS to call us regardless of where our API sits.)
-- **WAF and rate-limits are path-scoped already.** Traefik attaches middleware per `PathPrefix` router — the per-service
-  `/api/<svc>` IngressRoutes already do ([ADR-0009](0009-api-gateway.md)).
+- **WAF and rate-limits are path-scoped already.** Traefik attaches middleware per `PathPrefix` router — the per-resource
+  `/api/<resource>` IngressRoutes do ([ADR-0009](0009-api-gateway.md)).
 - **Infra separation already exists.** The edge routes `/api/*` to service pods and `/` to the frontend; a subdomain adds
   nothing until traffic is routed to genuinely different edge/CDN infrastructure.
-- **Versioning is a path (`/v1`), not a host.** Auth realm is a path-scoped Oathkeeper rule (session *and* JWT on the same
-  `/api` prefix), not a host.
+- **Versioning is not in the URL.** The default API is single-live-version ([ADR-0022](0022-api-lifecycle.md)), so there is
+  no version segment at all; when external consumers force online versioning on, the version rides an `Api-Version` header,
+  not the path — which is *why* the flat resource URL stays stable across versions. Auth realm is a path-scoped Oathkeeper
+  rule (session *and* JWT on the same `/api` prefix), not a host.
 
 A distinct origin is warranted in only two narrow cases, neither the template default: **hard credential isolation** —
 guaranteeing the app session cookie never reaches the API — which requires a **separate registrable domain**, not merely a
 subdomain (a parent-scoped `Domain=<host>` cookie is sent to `api.<host>` too); or **separate edge/CDN infrastructure at
-scale**. Absent those, the public API is another `<host>/api/<svc>` route, distinguished from the internal one by its
+scale**. Absent those, the public API is another `<host>/api/<resource>` route, distinguished from the internal one by its
 `x-audience: public` contract ([ADR-0008](0008-api-contracts.md)) and Hydra-JWT auth, not by its origin.
 
 ## Consequences
@@ -275,10 +294,16 @@ scale**. Absent those, the public API is another `<host>/api/<svc>` route, disti
   distinct trust boundary (third-party code or a separate auth realm), never merely because a surface is public.
 - The public API docs portal is anonymous; only credential management (Hydra keys) is authenticated, on its own origin
   ([ADR-0009](0009-api-gateway.md)).
-- The service API stays on the path `<host>/api/<svc>/*`, **including the public/partner API** — a JSON API has no
-  DOM/storage to origin-isolate, and CORS/WAF/rate-limits/versioning are all path-scoped. The public API is a
-  `<host>/api/<svc>` route distinguished by its `x-audience: public` contract ([ADR-0008](0008-api-contracts.md)) and
-  Hydra-JWT auth, not by its origin. A distinct origin is used only for **hard credential isolation** (which needs a
+- The service API is a **flat resource namespace** on the path `<host>/api/<resource>` (`/api/products`, `/api/orders`,
+  …), never per-service (`/api/<svc>/...`) — the URL names the resource, and which service serves it is a hidden,
+  movable edge-routing detail. A CI lint fails if two `x-audience`-exposed specs claim the same top-level resource
+  prefix; the edge route table is the ownership registry. East-west endpoints (`x-audience: cluster`, e.g. `/cluster/*`) bypass the edge and
+  are not on this surface.
+- The path holds **including the public/partner API** — a JSON API has no DOM/storage to origin-isolate, and
+  CORS/WAF/rate-limits are path-scoped; the API is not versioned in the URL at all (single-live-version by default, an
+  `Api-Version` header when online versioning is flagged on — [ADR-0022](0022-api-lifecycle.md)). The public API is a
+  `<host>/api/<resource>` route distinguished by its `x-audience: public` contract ([ADR-0008](0008-api-contracts.md))
+  and Hydra-JWT auth, not by its origin. A distinct origin is used only for **hard credential isolation** (which needs a
   *separate registrable domain*, since a `Domain=<host>` cookie reaches `api.<host>`) or **separate edge/CDN
   infrastructure at scale** — never for CORS/WAF, which do not require it.
 - Ops-tier hostnames are `{concept}.ops.<host>`, lowercase, matching `^[a-z][a-z0-9-]*$`
