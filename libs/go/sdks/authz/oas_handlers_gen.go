@@ -37,14 +37,14 @@ func (c *codeRecorder) Unwrap() http.ResponseWriter {
 //
 // Ops-tier authorization decision for Oathkeeper's remote_json authorizer.
 //
-// POST /internal/authorize
+// POST /authorize
 func (s *Server) handleAuthorizeRequest(args [0]string, argsEscaped bool, w http.ResponseWriter, r *http.Request) {
 	statusWriter := &codeRecorder{ResponseWriter: w}
 	w = statusWriter
 	otelAttrs := []attribute.KeyValue{
 		otelogen.OperationID("authorize"),
 		semconv.HTTPRequestMethodKey.String("POST"),
-		semconv.HTTPRouteKey.String("/internal/authorize"),
+		semconv.HTTPRouteKey.String("/authorize"),
 	}
 	// Add attributes from config.
 	otelAttrs = append(otelAttrs, s.cfg.Attributes...)
@@ -191,14 +191,14 @@ func (s *Server) handleAuthorizeRequest(args [0]string, argsEscaped bool, w http
 //
 // Create an operator identity and grant the operator role.
 //
-// POST /admin/operators
+// POST /operators
 func (s *Server) handleCreateOperatorRequest(args [0]string, argsEscaped bool, w http.ResponseWriter, r *http.Request) {
 	statusWriter := &codeRecorder{ResponseWriter: w}
 	w = statusWriter
 	otelAttrs := []attribute.KeyValue{
 		otelogen.OperationID("createOperator"),
 		semconv.HTTPRequestMethodKey.String("POST"),
-		semconv.HTTPRouteKey.String("/admin/operators"),
+		semconv.HTTPRouteKey.String("/operators"),
 	}
 	// Add attributes from config.
 	otelAttrs = append(otelAttrs, s.cfg.Attributes...)

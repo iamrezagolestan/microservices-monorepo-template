@@ -345,14 +345,14 @@ func (s *Server) handleGetOrgRequest(args [1]string, argsEscaped bool, w http.Re
 //
 // Kratos post-registration webhook. Creates a personal org for the new identity.
 //
-// POST /cluster/identity-created
+// POST /identity-created
 func (s *Server) handleOnIdentityCreatedRequest(args [0]string, argsEscaped bool, w http.ResponseWriter, r *http.Request) {
 	statusWriter := &codeRecorder{ResponseWriter: w}
 	w = statusWriter
 	otelAttrs := []attribute.KeyValue{
 		otelogen.OperationID("onIdentityCreated"),
 		semconv.HTTPRequestMethodKey.String("POST"),
-		semconv.HTTPRouteKey.String("/cluster/identity-created"),
+		semconv.HTTPRouteKey.String("/identity-created"),
 	}
 	// Add attributes from config.
 	otelAttrs = append(otelAttrs, s.cfg.Attributes...)

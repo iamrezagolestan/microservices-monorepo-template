@@ -11,10 +11,10 @@ import (
 )
 
 var (
-	rn3AllowedHeaders = map[string]string{
+	rn1AllowedHeaders = map[string]string{
 		"POST": "Content-Type",
 	}
-	rn1AllowedHeaders = map[string]string{
+	rn3AllowedHeaders = map[string]string{
 		"POST": "Content-Type",
 	}
 )
@@ -69,34 +69,9 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				break
 			}
 			switch elem[0] {
-			case 'a': // Prefix: "admin/operators"
+			case 'a': // Prefix: "authorize"
 
-				if l := len("admin/operators"); len(elem) >= l && elem[0:l] == "admin/operators" {
-					elem = elem[l:]
-				} else {
-					break
-				}
-
-				if len(elem) == 0 {
-					// Leaf node.
-					switch r.Method {
-					case "POST":
-						s.handleCreateOperatorRequest([0]string{}, elemIsEscaped, w, r)
-					default:
-						s.notAllowed(w, r, notAllowedParams{
-							allowedMethods: "POST",
-							allowedHeaders: rn3AllowedHeaders,
-							acceptPost:     "application/json",
-							acceptPatch:    "",
-						})
-					}
-
-					return
-				}
-
-			case 'i': // Prefix: "internal/authorize"
-
-				if l := len("internal/authorize"); len(elem) >= l && elem[0:l] == "internal/authorize" {
+				if l := len("authorize"); len(elem) >= l && elem[0:l] == "authorize" {
 					elem = elem[l:]
 				} else {
 					break
@@ -111,6 +86,31 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 						s.notAllowed(w, r, notAllowedParams{
 							allowedMethods: "POST",
 							allowedHeaders: rn1AllowedHeaders,
+							acceptPost:     "application/json",
+							acceptPatch:    "",
+						})
+					}
+
+					return
+				}
+
+			case 'o': // Prefix: "operators"
+
+				if l := len("operators"); len(elem) >= l && elem[0:l] == "operators" {
+					elem = elem[l:]
+				} else {
+					break
+				}
+
+				if len(elem) == 0 {
+					// Leaf node.
+					switch r.Method {
+					case "POST":
+						s.handleCreateOperatorRequest([0]string{}, elemIsEscaped, w, r)
+					default:
+						s.notAllowed(w, r, notAllowedParams{
+							allowedMethods: "POST",
+							allowedHeaders: rn3AllowedHeaders,
 							acceptPost:     "application/json",
 							acceptPatch:    "",
 						})
@@ -219,34 +219,9 @@ func (s *Server) FindPath(method string, u *url.URL) (r Route, _ bool) {
 				break
 			}
 			switch elem[0] {
-			case 'a': // Prefix: "admin/operators"
+			case 'a': // Prefix: "authorize"
 
-				if l := len("admin/operators"); len(elem) >= l && elem[0:l] == "admin/operators" {
-					elem = elem[l:]
-				} else {
-					break
-				}
-
-				if len(elem) == 0 {
-					// Leaf node.
-					switch method {
-					case "POST":
-						r.name = CreateOperatorOperation
-						r.summary = ""
-						r.operationID = "createOperator"
-						r.operationGroup = ""
-						r.pathPattern = "/admin/operators"
-						r.args = args
-						r.count = 0
-						return r, true
-					default:
-						return
-					}
-				}
-
-			case 'i': // Prefix: "internal/authorize"
-
-				if l := len("internal/authorize"); len(elem) >= l && elem[0:l] == "internal/authorize" {
+				if l := len("authorize"); len(elem) >= l && elem[0:l] == "authorize" {
 					elem = elem[l:]
 				} else {
 					break
@@ -260,7 +235,32 @@ func (s *Server) FindPath(method string, u *url.URL) (r Route, _ bool) {
 						r.summary = ""
 						r.operationID = "authorize"
 						r.operationGroup = ""
-						r.pathPattern = "/internal/authorize"
+						r.pathPattern = "/authorize"
+						r.args = args
+						r.count = 0
+						return r, true
+					default:
+						return
+					}
+				}
+
+			case 'o': // Prefix: "operators"
+
+				if l := len("operators"); len(elem) >= l && elem[0:l] == "operators" {
+					elem = elem[l:]
+				} else {
+					break
+				}
+
+				if len(elem) == 0 {
+					// Leaf node.
+					switch method {
+					case "POST":
+						r.name = CreateOperatorOperation
+						r.summary = ""
+						r.operationID = "createOperator"
+						r.operationGroup = ""
+						r.pathPattern = "/operators"
 						r.args = args
 						r.count = 0
 						return r, true

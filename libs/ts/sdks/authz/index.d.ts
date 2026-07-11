@@ -4,7 +4,7 @@
  */
 
 export interface paths {
-    "/internal/authorize": {
+    "/authorize": {
         parameters: {
             query?: never;
             header?: never;
@@ -21,7 +21,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/operators": {
+    "/operators": {
         parameters: {
             query?: never;
             header?: never;

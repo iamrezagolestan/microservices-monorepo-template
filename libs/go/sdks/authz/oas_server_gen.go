@@ -12,13 +12,13 @@ type Handler interface {
 	//
 	// Ops-tier authorization decision for Oathkeeper's remote_json authorizer.
 	//
-	// POST /internal/authorize
+	// POST /authorize
 	Authorize(ctx context.Context, req *AuthorizeRequest) (AuthorizeRes, error)
 	// CreateOperator implements createOperator operation.
 	//
 	// Create an operator identity and grant the operator role.
 	//
-	// POST /admin/operators
+	// POST /operators
 	CreateOperator(ctx context.Context, req *OperatorInput) (*Operator, error)
 	// NewError creates *ErrorStatusCode from error returned by handler.
 	//

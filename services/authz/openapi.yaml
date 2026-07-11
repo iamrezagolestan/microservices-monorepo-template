@@ -3,7 +3,7 @@ info: { title: authz, version: 0.1.0, description: Ops-tier edge authorizer and 
 servers: [{ url: / }]   # east-west control-plane service; no /api edge route (ADR-0009)
 tags: [{ name: authorize }, { name: operators }]
 paths:
-  /internal/authorize:
+  /authorize:
     post:
       operationId: authorize
       # Ops-tier decision for Oathkeeper's remote_json authorizer: 200 = allow,
@@ -22,7 +22,7 @@ paths:
           description: Denied.
           content: { application/problem+json: { schema: { $ref: "#/components/schemas/Problem" } } }
         default: { $ref: "#/components/responses/Error" }
-  /admin/operators:
+  /operators:
     post:
       operationId: createOperator
       # Generated admin page target (ADR-0012): a control-plane action, not CRUD.

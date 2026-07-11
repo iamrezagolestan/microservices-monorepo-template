@@ -17,7 +17,7 @@ var _ Handler = UnimplementedHandler{}
 //
 // Ops-tier authorization decision for Oathkeeper's remote_json authorizer.
 //
-// POST /internal/authorize
+// POST /authorize
 func (UnimplementedHandler) Authorize(ctx context.Context, req *AuthorizeRequest) (r AuthorizeRes, _ error) {
 	return r, ht.ErrNotImplemented
 }
@@ -26,7 +26,7 @@ func (UnimplementedHandler) Authorize(ctx context.Context, req *AuthorizeRequest
 //
 // Create an operator identity and grant the operator role.
 //
-// POST /admin/operators
+// POST /operators
 func (UnimplementedHandler) CreateOperator(ctx context.Context, req *OperatorInput) (r *Operator, _ error) {
 	return r, ht.ErrNotImplemented
 }

@@ -31,13 +31,13 @@ type Invoker interface {
 	//
 	// Ops-tier authorization decision for Oathkeeper's remote_json authorizer.
 	//
-	// POST /internal/authorize
+	// POST /authorize
 	Authorize(ctx context.Context, request *AuthorizeRequest) (AuthorizeRes, error)
 	// CreateOperator invokes createOperator operation.
 	//
 	// Create an operator identity and grant the operator role.
 	//
-	// POST /admin/operators
+	// POST /operators
 	CreateOperator(ctx context.Context, request *OperatorInput) (*Operator, error)
 }
 
@@ -84,7 +84,7 @@ func (c *Client) requestURL(ctx context.Context) *url.URL {
 //
 // Ops-tier authorization decision for Oathkeeper's remote_json authorizer.
 //
-// POST /internal/authorize
+// POST /authorize
 func (c *Client) Authorize(ctx context.Context, request *AuthorizeRequest) (AuthorizeRes, error) {
 	res, err := c.sendAuthorize(ctx, request)
 	return res, err
@@ -94,7 +94,7 @@ func (c *Client) sendAuthorize(ctx context.Context, request *AuthorizeRequest) (
 	otelAttrs := []attribute.KeyValue{
 		otelogen.OperationID("authorize"),
 		semconv.HTTPRequestMethodKey.String("POST"),
-		semconv.URLTemplateKey.String("/internal/authorize"),
+		semconv.URLTemplateKey.String("/authorize"),
 	}
 	otelAttrs = append(otelAttrs, c.cfg.Attributes...)
 
@@ -128,7 +128,7 @@ func (c *Client) sendAuthorize(ctx context.Context, request *AuthorizeRequest) (
 	stage = "BuildURL"
 	u := uri.Clone(c.requestURL(ctx))
 	var pathParts [1]string
-	pathParts[0] = "/internal/authorize"
+	pathParts[0] = "/authorize"
 	uri.AddPathParts(u, pathParts[:]...)
 
 	stage = "EncodeRequest"
@@ -167,7 +167,7 @@ func (c *Client) sendAuthorize(ctx context.Context, request *AuthorizeRequest) (
 //
 // Create an operator identity and grant the operator role.
 //
-// POST /admin/operators
+// POST /operators
 func (c *Client) CreateOperator(ctx context.Context, request *OperatorInput) (*Operator, error) {
 	res, err := c.sendCreateOperator(ctx, request)
 	return res, err
@@ -177,7 +177,7 @@ func (c *Client) sendCreateOperator(ctx context.Context, request *OperatorInput)
 	otelAttrs := []attribute.KeyValue{
 		otelogen.OperationID("createOperator"),
 		semconv.HTTPRequestMethodKey.String("POST"),
-		semconv.URLTemplateKey.String("/admin/operators"),
+		semconv.URLTemplateKey.String("/operators"),
 	}
 	otelAttrs = append(otelAttrs, c.cfg.Attributes...)
 
@@ -211,7 +211,7 @@ func (c *Client) sendCreateOperator(ctx context.Context, request *OperatorInput)
 	stage = "BuildURL"
 	u := uri.Clone(c.requestURL(ctx))
 	var pathParts [1]string
-	pathParts[0] = "/admin/operators"
+	pathParts[0] = "/operators"
 	uri.AddPathParts(u, pathParts[:]...)
 
 	stage = "EncodeRequest"

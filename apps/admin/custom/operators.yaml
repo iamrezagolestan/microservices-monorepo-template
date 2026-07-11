@@ -10,7 +10,7 @@ requests:
       email: { _state: email }
       password: { _state: password }
     properties:
-      url: /admin/operators
+      url: /operators
       method: post
       data:
         email: { _payload: email }

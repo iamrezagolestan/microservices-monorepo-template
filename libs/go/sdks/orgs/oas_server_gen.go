@@ -24,7 +24,7 @@ type Handler interface {
 	//
 	// Kratos post-registration webhook. Creates a personal org for the new identity.
 	//
-	// POST /cluster/identity-created
+	// POST /identity-created
 	OnIdentityCreated(ctx context.Context, req *OnIdentityCreatedReq) error
 	// NewError creates *ErrorStatusCode from error returned by handler.
 	//

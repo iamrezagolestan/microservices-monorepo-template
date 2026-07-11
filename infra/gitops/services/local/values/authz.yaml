@@ -19,7 +19,7 @@ secrets:    { envFrom: [spicedb-creds] }
 # Traefik→server-port), so it must be turned off here. Two legitimate callers
 # of the server port: Oathkeeper's remote_json authorizer (every gated
 # dashboard request), and the Lowdefy admin console's server-side "authz-admin"
-# connection (apps/admin/lowdefy.yaml), which POSTs to /admin/operators
+# connection (apps/admin/lowdefy.yaml), which POSTs to /operators
 # directly — an already-authenticated backend-to-backend admin call, not
 # routed back through the edge/Oathkeeper.
 networkPolicy:
