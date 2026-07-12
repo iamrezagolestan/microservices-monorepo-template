@@ -26,7 +26,7 @@ import (
 const serviceName = "orders"
 
 type Handlers struct {
-	q                *store.Queries
+	q                store.Querier
 	tc               client.Client
 	checkoutsStarted metric.Int64Counter
 }

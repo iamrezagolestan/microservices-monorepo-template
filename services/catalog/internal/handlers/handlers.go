@@ -22,7 +22,7 @@ import (
 )
 
 type Handlers struct {
-	q               *store.Queries
+	q               store.Querier
 	checker         authz.Checker
 	productsCreated metric.Int64Counter
 }
