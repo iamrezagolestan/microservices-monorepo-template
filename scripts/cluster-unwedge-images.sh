@@ -53,6 +53,13 @@ docker_pull() {
   for attempt in 1 2 3; do
     if out=$(docker pull "$ref" 2>&1); then return 0; fi
     printf '%s\n' "$out" | tail -1
+    # "manifest unknown"/"not found" isn't a proxy stall — the image simply was
+    # never built+pushed to the registry (e.g. a new service/worker missing from
+    # cluster-full.sh's build loop). Retrying against the proxy can't conjure it,
+    # so bail immediately with a distinct code so the caller can say so plainly.
+    if printf '%s' "$out" | grep -qiE 'manifest unknown|manifest .* not found|not found: manifest'; then
+      return 2
+    fi
     # A stale ~/.docker/config.json entry for a PUBLIC registry fails an anonymous
     # pull with "denied"; one logout of that host clears it (we only pull public
     # images here).
@@ -67,11 +74,19 @@ docker_pull() {
 
 # One unreachable image must not abort the batch: import everything that does pull,
 # collect the ones that don't, and fail loudly at the end so nothing is swallowed.
+# `missing` is kept separate from `failed`: a not-found image is a build/config gap
+# (the wrong diagnosis for this tool), not a proxy stall — re-running won't help.
 failed=()
+missing=()
 for img in "${stuck[@]}"; do
   echo "  · $img"
   # Pull by the full, digest-pinned ref so we fetch exactly the bytes the pod wants.
-  if ! docker_pull "$img"; then
+  docker_pull "$img"; rc=$?
+  if [ "$rc" = 2 ]; then
+    echo "    ✗ $img not found in registry — never built/pushed (not a proxy issue)"
+    missing+=("$img")
+    continue
+  elif [ "$rc" != 0 ]; then
     echo "    ✗ could not pull $img — skipping"
     failed+=("$img")
     continue
@@ -115,10 +130,17 @@ k get pods -A -o json \
       k -n "$ns" delete pod "$pod" --wait=false
     done
 
-imported=$(( ${#stuck[@]} - ${#failed[@]} ))
+imported=$(( ${#stuck[@]} - ${#failed[@]} - ${#missing[@]} ))
 echo "✓ imported ${imported}/${#stuck[@]} image(s); pods will re-pull locally. Re-run if more wedge."
+if [ "${#missing[@]}" -gt 0 ]; then
+  echo "✗ ${#missing[@]} image(s) not found in the registry — never built/pushed."
+  echo "  This is NOT a proxy stall; re-running won't help. Build the image (usually a"
+  echo "  service/worker missing from cluster-full.sh's build loop) and push it:"
+  printf '    · %s\n' "${missing[@]}"
+fi
 if [ "${#failed[@]}" -gt 0 ]; then
   echo "✗ ${#failed[@]} image(s) could not be pulled (proxy still choking) — re-run to retry:"
   printf '    · %s\n' "${failed[@]}"
-  exit 1
 fi
+[ "$(( ${#missing[@]} + ${#failed[@]} ))" -gt 0 ] && exit 1
+exit 0
