@@ -79,4 +79,33 @@ test.describe("admin ops dashboard", () => {
       });
     });
   });
+
+  // The generated resource + action pages (tools/admin-gen). Behind the AAL2
+  // operator session each must paint: a page-specific control (a grid header from
+  // the response schema, or an action's submit button) proves the Lowdefy page
+  // rendered rather than redirecting to login or stalling on an empty shell.
+  test.describe("generated pages render", () => {
+    test.use({ storageState: OPERATOR_STATE });
+
+    const pages: Array<{ path: string; control: string; role: "button" | "text" }> = [
+      { path: "/products", control: "Price cents", role: "text" }, // CRUD grid header
+      { path: "/orgs", control: "Create", role: "button" }, // CRUD create form
+      { path: "/orders", control: "Total cents", role: "text" }, // list-only grid header
+      { path: "/charges", control: "Amount cents", role: "text" }, // list-only grid header
+      { path: "/refundCharge", control: "Refund charge", role: "button" }, // action form
+      { path: "/cancelOrder", control: "Cancel order", role: "button" }, // action form
+    ];
+
+    for (const p of pages) {
+      test(`${p.path} paints @smoke`, async ({ page }) => {
+        await page.goto(`${opsURL("admin")}${p.path}`);
+        await expect(page).not.toHaveURL(/\/auth\/login/);
+        const control =
+          p.role === "button"
+            ? page.getByRole("button", { name: p.control })
+            : page.getByText(p.control).first();
+        await expect(control).toBeVisible({ timeout: 30_000 });
+      });
+    }
+  });
 });
