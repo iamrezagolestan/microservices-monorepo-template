@@ -4,7 +4,7 @@
  */
 
 export interface paths {
-    "/orgs": {
+    "/authorize": {
         parameters: {
             query?: never;
             header?: never;
@@ -13,32 +13,15 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Create an organization. */
-        post: operations["createOrg"];
+        /** @description Ops-tier authorization decision for Oathkeeper's remote_json authorizer. */
+        post: operations["authorize"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/orgs/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description Fetch an organization by id. */
-        get: operations["getOrg"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/identity-created": {
+    "/operators": {
         parameters: {
             query?: never;
             header?: never;
@@ -47,8 +30,8 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Kratos post-registration webhook. Creates a personal org for the new identity. */
-        post: operations["onIdentityCreated"];
+        /** @description Create an operator identity and grant the operator role. */
+        post: operations["createOperator"];
         delete?: never;
         options?: never;
         head?: never;
@@ -67,15 +50,26 @@ export interface components {
                 [key: string]: unknown;
             };
         };
-        /** @description An organization. */
-        Org: {
-            /** Format: uuid */
-            id: string;
-            name: string;
+        /** @description The remote_json payload Oathkeeper POSTs per ops-dashboard request. */
+        AuthorizeRequest: {
+            /** @description Kratos identity id; empty for anonymous. */
+            subject: string;
+            /** @description Ops dashboard slug such as o11y or network. */
+            tool: string;
+            /** @description authenticator_assurance_level from the session. */
+            aal: string;
+            /** @description The operator identity trait; "true" when set. */
+            operator: string;
         };
-        /** @description Request body to create an organization. */
-        OrgInput: {
-            name: string;
+        /** @description Request body to create an operator. */
+        OperatorInput: {
+            email: string;
+            password: string;
+        };
+        /** @description A created operator. */
+        Operator: {
+            id: string;
+            email: string;
         };
     };
     responses: {
@@ -96,79 +90,61 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    createOrg: {
+    authorize: {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** @description The organization to create. */
+        /** @description The decision request forwarded by Oathkeeper. */
         requestBody: {
             content: {
-                "application/json": components["schemas"]["OrgInput"];
+                "application/json": components["schemas"]["AuthorizeRequest"];
             };
         };
         responses: {
-            /** @description Created */
-            201: {
+            /** @description Allowed. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Denied. */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Org"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             default: components["responses"]["Error"];
         };
     };
-    getOrg: {
+    createOperator: {
         parameters: {
             query?: never;
             header?: never;
-            path: {
-                /** @description Organization id. */
-                id: string;
-            };
+            path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        /** @description The operator to create. */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OperatorInput"];
+            };
+        };
         responses: {
-            /** @description OK */
+            /** @description Created */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Org"];
+                    "application/json": components["schemas"]["Operator"];
                 };
-            };
-            default: components["responses"]["Error"];
-        };
-    };
-    onIdentityCreated: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description The newly created identity. */
-        requestBody: {
-            content: {
-                "application/json": {
-                    identity_id?: string;
-                    email?: string;
-                };
-            };
-        };
-        responses: {
-            /** @description Ack */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
             };
             default: components["responses"]["Error"];
         };

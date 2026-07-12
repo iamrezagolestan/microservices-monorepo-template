@@ -367,24 +367,6 @@
           }
         }
       },
-      "ProductInput": {
-        "type": "object",
-        "description": "Request body to create a product.",
-        "required": [
-          "name",
-          "price_cents"
-        ],
-        "properties": {
-          "name": {
-            "type": "string",
-            "minLength": 1
-          },
-          "price_cents": {
-            "type": "integer",
-            "minimum": 0
-          }
-        }
-      },
       "WorkflowHandle": {
         "type": "object",
         "description": "Handle to an async Temporal workflow run.",

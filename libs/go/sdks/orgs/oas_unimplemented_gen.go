@@ -35,7 +35,7 @@ func (UnimplementedHandler) GetOrg(ctx context.Context, params GetOrgParams) (r 
 //
 // Kratos post-registration webhook. Creates a personal org for the new identity.
 //
-// POST /cluster/identity-created
+// POST /identity-created
 func (UnimplementedHandler) OnIdentityCreated(ctx context.Context, req *OnIdentityCreatedReq) error {
 	return ht.ErrNotImplemented
 }

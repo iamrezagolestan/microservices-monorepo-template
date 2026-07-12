@@ -51,6 +51,16 @@ envelope='.openapi = "3.1.0"
   | .servers = [{"url": "/api"}]
   | .tags = ([.paths[][].tags // [] | .[]] | unique | map({"name": .}))'
 drop_empty_paths='del(.paths.* | select(tag == "!!map" and length == 0))'
+# Drop component schemas no longer referenced by any surviving path once the
+# audience filter has removed operations. Without this, an all-`cluster` service
+# (e.g. authz) whose operations are all filtered out would still leak its request/
+# response schemas into the merged components — its paths are gone but its schemas
+# orphan. `$refs` is every `$ref` remaining in the document (paths and the schemas
+# themselves, so schema-to-schema references keep their targets); a schema absent
+# from that set is unreachable and pruned. Shared schemas (Problem, WorkflowHandle)
+# stay because surviving responses still reference them.
+prune_orphan_schemas='([.. | select(tag == "!!map" and has("$ref")) | .["$ref"]]) as $refs
+  | .components.schemas |= with_entries(.key as $k | select($refs | any_c(. == "#/components/schemas/" + $k)))'
 
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
@@ -70,13 +80,13 @@ mkdir -p "$out_dir"
 echo "→ dev portal projection (audience >= internal)"
 yq ea -o=json "${merge}
   | del(.paths.*.* | select(tag == \"!!map\" and .x-audience == \"cluster\"))
-  | ${drop_empty_paths} | ${envelope} | ${strip_ext}" \
+  | ${drop_empty_paths} | ${prune_orphan_schemas} | ${envelope} | ${strip_ext}" \
   "${resolved[@]}" >"$out_dir/internal.json"
 
 echo "→ public docs projection (audience == public)"
 yq ea -o=json "${merge}
   | del(.paths.*.* | select(tag == \"!!map\" and .x-audience != \"public\"))
-  | ${drop_empty_paths} | ${envelope} | ${strip_ext}" \
+  | ${drop_empty_paths} | ${prune_orphan_schemas} | ${envelope} | ${strip_ext}" \
   "${resolved[@]}" >"$out_dir/public.json"
 
 # Belt-and-suspenders: fail loudly if any x- extension survived into the output, so
