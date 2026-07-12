@@ -275,11 +275,27 @@ func (d *doc) appendForm(pg *page, f formSpec) {
 	}
 	pg.Requests = append(pg.Requests, req)
 
-	onClick := []any{map[string]any{"id": f.reqID + "Click", "type": "Request", "params": f.reqID}}
+	// The SetState runs only if the Request above resolved — a failed request throws
+	// and halts the onClick chain — so it doubles as the success signal.
+	doneState := f.prefix + "done"
+	onClick := []any{
+		map[string]any{"id": f.reqID + "Click", "type": "Request", "params": f.reqID},
+		map[string]any{"id": f.reqID + "Done", "type": "SetState", "params": map[string]any{doneState: true}},
+	}
 	submit := block{ID: f.prefix + "submit", Type: typeButton}
 	submit.Properties = map[string]any{"title": f.button}
 	submit.Events = map[string]any{"onClick": onClick}
 	pg.Blocks = append(pg.Blocks, submit)
+
+	// A confirmation hidden until the request resolves: operator feedback and the
+	// e2e acceptance signal (ADR-0018).
+	success := block{ID: f.prefix + "success", Type: typeTitle}
+	success.Properties = map[string]any{
+		"content": f.button + " succeeded",
+		"level":   5,
+		"visible": map[string]any{stateKey: doneState},
+	}
+	pg.Blocks = append(pg.Blocks, success)
 }
 
 func input(state, label, typ string) block {

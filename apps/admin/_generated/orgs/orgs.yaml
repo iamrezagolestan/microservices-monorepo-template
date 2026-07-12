@@ -80,6 +80,17 @@ blocks:
         - id: createClick
           params: create
           type: Request
+        - id: createDone
+          params:
+            create_done: true
+          type: SetState
+  - id: create_success
+    type: Title
+    properties:
+      content: Create succeeded
+      level: 5
+      visible:
+        _state: create_done
   - id: edit_heading
     type: Title
     properties:
@@ -102,6 +113,17 @@ blocks:
         - id: updateClick
           params: update
           type: Request
+        - id: updateDone
+          params:
+            edit_done: true
+          type: SetState
+  - id: edit_success
+    type: Title
+    properties:
+      content: Save succeeded
+      level: 5
+      visible:
+        _state: edit_done
   - id: delete_heading
     type: Title
     properties:
@@ -120,3 +142,14 @@ blocks:
         - id: removeClick
           params: remove
           type: Request
+        - id: removeDone
+          params:
+            delete_done: true
+          type: SetState
+  - id: delete_success
+    type: Title
+    properties:
+      content: Delete succeeded
+      level: 5
+      visible:
+        _state: delete_done

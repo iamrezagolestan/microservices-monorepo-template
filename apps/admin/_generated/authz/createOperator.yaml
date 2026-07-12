@@ -39,3 +39,14 @@ blocks:
         - id: runClick
           params: run
           type: Request
+        - id: runDone
+          params:
+            done: true
+          type: SetState
+  - id: success
+    type: Title
+    properties:
+      content: Create operator succeeded
+      level: 5
+      visible:
+        _state: done
