@@ -34,6 +34,29 @@ paths:
       responses:
         "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Charge" } } } }
         default: { $ref: "#/components/responses/Error" }
+  /charges/{id}/refund:
+    post:
+      operationId: refundCharge
+      # Operator action (ADR-0012): the future admin-gen emits this as an action
+      # button/form, not a CRUD page (`x-admin: action`). Edge-reachable first-party
+      # but kept out of the public docs (`internal`, ADR-0008 audience ladder) —
+      # refunding is an operator action, not a public self-serve op.
+      x-admin: action
+      x-audience: internal
+      description: Refund a settled charge. Starts the Refund workflow (ADR-0006).
+      tags: [charges]
+      parameters: [{ name: id, in: path, required: true, description: Id of the charge to refund., schema: { type: string, format: uuid } }]
+      requestBody:
+        required: true
+        description: The refund request.
+        content: { application/json: { schema: { $ref: "#/components/schemas/RefundInput" } } }
+      responses:
+        "202":
+          description: Refund accepted
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WorkflowHandle" }
+        default: { $ref: "#/components/responses/Error" }
 components:
   responses:
     Error:
@@ -66,6 +89,12 @@ components:
       properties:
         order_id:     { type: string, format: uuid }
         amount_cents: { type: integer, minimum: 1 }
+    RefundInput:
+      type: object
+      description: Request body to refund a charge.
+      required: [reason]
+      properties:
+        reason: { type: string, minLength: 1 }
     Charge:
       type: object
       description: A payment charge against an order.

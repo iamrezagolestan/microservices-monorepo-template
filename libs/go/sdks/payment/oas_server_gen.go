@@ -21,6 +21,12 @@ type Handler interface {
 	//
 	// GET /charges/{id}
 	GetCharge(ctx context.Context, params GetChargeParams) (*Charge, error)
+	// RefundCharge implements refundCharge operation.
+	//
+	// Refund a settled charge. Starts the Refund workflow (ADR-0006).
+	//
+	// POST /charges/{id}/refund
+	RefundCharge(ctx context.Context, req *RefundInput, params RefundChargeParams) (*WorkflowHandle, error)
 	// NewError creates *ErrorStatusCode from error returned by handler.
 	//
 	// Used for common default response.

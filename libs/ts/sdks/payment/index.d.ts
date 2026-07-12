@@ -41,6 +41,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/charges/{id}/refund": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Refund a settled charge. Starts the Refund workflow (ADR-0006). */
+        post: operations["refundCharge"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -70,6 +87,10 @@ export interface components {
             /** Format: uuid */
             order_id: string;
             amount_cents: number;
+        };
+        /** @description Request body to refund a charge. */
+        RefundInput: {
+            reason: string;
         };
         /** @description A payment charge against an order. */
         Charge: {
@@ -148,6 +169,35 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Charge"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    refundCharge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Id of the charge to refund. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** @description The refund request. */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RefundInput"];
+            };
+        };
+        responses: {
+            /** @description Refund accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowHandle"];
                 };
             };
             default: components["responses"]["Error"];

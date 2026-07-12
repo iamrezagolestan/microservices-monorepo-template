@@ -59,7 +59,8 @@ func (h *Handlers) CreateCharge(
 	// Idempotency lookup before anything else (ADR-0006).
 	existing, err := h.q.GetByIdempotencyKey(ctx, params.IdempotencyKey)
 	if err == nil {
-		return handle(uuid.UUID(existing.ID.Bytes).String()), nil
+		id := uuid.UUID(existing.ID.Bytes).String()
+		return handle("charge-"+id, id), nil
 	}
 	if !errors.Is(err, pgx.ErrNoRows) {
 		return nil, apierr.Internal(err.Error())
@@ -95,7 +96,42 @@ func (h *Handlers) CreateCharge(
 		return nil, apierr.Internal(err.Error())
 	}
 	h.chargesCreated.Add(ctx, 1)
-	return handle(id), nil
+	return handle("charge-"+id, id), nil
+}
+
+func (h *Handlers) RefundCharge(
+	ctx context.Context,
+	req *payment.RefundInput,
+	params payment.RefundChargeParams,
+) (*payment.WorkflowHandle, error) {
+	ctx, span := observability.StartSpan(ctx, "payment.RefundCharge")
+	defer span.End()
+
+	row, err := h.q.GetCharge(ctx, pgtype.UUID{Bytes: params.ID, Valid: true})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, apierr.NotFound("charge")
+	}
+	if err != nil {
+		return nil, apierr.Internal(err.Error())
+	}
+	if row.Status != "settled" {
+		return nil, apierr.Conflict("only settled charges can be refunded")
+	}
+
+	id := params.ID.String()
+	_, err = h.tc.ExecuteWorkflow(
+		ctx,
+		client.StartWorkflowOptions{
+			ID:        "refund-" + id,
+			TaskQueue: serviceName + "-queue",
+		},
+		workflows.Refund,
+		workflows.RefundInput{ChargeID: id, Reason: req.Reason},
+	)
+	if err != nil {
+		return nil, apierr.Internal(err.Error())
+	}
+	return handle("refund-"+id, id), nil
 }
 
 func (h *Handlers) GetCharge(ctx context.Context, params payment.GetChargeParams) (*payment.Charge, error) {
@@ -118,12 +154,12 @@ func (h *Handlers) GetCharge(ctx context.Context, params payment.GetChargeParams
 	}, nil
 }
 
-func handle(id string) *payment.WorkflowHandle {
+func handle(workflowID, chargeID string) *payment.WorkflowHandle {
 	return &payment.WorkflowHandle{
-		ID:        "charge-" + id,
-		RunID:     id,
+		ID:        workflowID,
+		RunID:     chargeID,
 		Status:    payment.WorkflowHandleStatusRunning,
-		ResultURL: payment.NewOptURI(url.URL{Path: "/api/charges/" + id}),
+		ResultURL: payment.NewOptURI(url.URL{Path: "/api/charges/" + chargeID}),
 	}
 }
 
