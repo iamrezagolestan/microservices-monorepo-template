@@ -5,8 +5,20 @@ image:
   repository: k3d-registry.localhost:5000/orgs-server
   tag: local            # local registry (CI stand-in); prod uses a git SHA (ADR-0002)
   pullPolicy: Always    # re-pull the rebuilt :local on a cluster:full re-run
-worker:  { enabled: false }
+worker:
+  enabled: true            # RegisterUser dual-write (ADR-0006/0010)
+  image:
+    repository: k3d-registry.localhost:5000/orgs-worker
+    tag: local
 server:  { replicas: 1 }
 ingress: { enabled: true, host: dev.localtest.me, resources: [orgs] }
 otel:    { deployEnv: local }
-secrets: { envFrom: [orgs-db] }
+# Kratos calls /identity-created east-west on the server port (ADR-0010); the
+# edge (allowFromGateway) only covers Traefik → /api/orgs, so allow Kratos too.
+networkPolicy: { allowFrom: [kratos] }
+secrets: { envFrom: [orgs-db, spicedb-creds] }
+env:
+  # Write authz (ADR-0010): the worker grants org admin via the shared SpiceDB
+  # Granter. Blank preshared key falls back to spicedb-creds.preshared_key (envFrom).
+  SPICEDB_ENDPOINT: "spicedb.platform.svc.cluster.local:50051"
+  SPICEDB_PRESHARED_KEY: ""

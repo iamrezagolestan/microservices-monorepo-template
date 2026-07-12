@@ -19,6 +19,7 @@ import (
 	"github.com/tabmadi/microservices-monorepo-template/libs/go/httpmw"
 	"github.com/tabmadi/microservices-monorepo-template/libs/go/observability"
 	orgs "github.com/tabmadi/microservices-monorepo-template/libs/go/sdks/orgs"
+	"github.com/tabmadi/microservices-monorepo-template/libs/go/temporalmw"
 	"github.com/tabmadi/microservices-monorepo-template/services/orgs/internal/handlers"
 )
 
@@ -45,7 +46,15 @@ func run() error {
 	db := dbmw.MustOpen(ctx, os.Getenv("DATABASE_URL"))
 	defer db.Close()
 
-	api, err := orgs.NewServer(handlers.New(db))
+	// The webhook handler only enqueues the RegisterUser workflow; the worker
+	// (cmd/worker) runs it. SpiceDB is dialled there, not here.
+	tc, err := temporalmw.NewClient(serviceName)
+	if err != nil {
+		return fmt.Errorf("temporal: %w", err)
+	}
+	defer tc.Close()
+
+	api, err := orgs.NewServer(handlers.New(db, tc))
 	if err != nil {
 		return fmt.Errorf("ogen server: %w", err)
 	}
