@@ -32,6 +32,15 @@ func (UnimplementedHandler) GetCharge(ctx context.Context, params GetChargeParam
 	return r, ht.ErrNotImplemented
 }
 
+// ListCharges implements listCharges operation.
+//
+// List all charges.
+//
+// GET /charges
+func (UnimplementedHandler) ListCharges(ctx context.Context) (r []Charge, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
 // RefundCharge implements refundCharge operation.
 //
 // Refund a settled charge. Starts the Refund workflow (ADR-0006).

@@ -102,6 +102,61 @@ func (h *Handlers) GetOrder(ctx context.Context, params orders.GetOrderParams) (
 	}, nil
 }
 
+func (h *Handlers) ListOrders(ctx context.Context) ([]orders.Order, error) {
+	rows, err := h.q.ListOrders(ctx)
+	if err != nil {
+		return nil, apierr.Internal(err.Error())
+	}
+	out := make([]orders.Order, 0, len(rows))
+	for _, r := range rows {
+		o := orders.Order{
+			ID:         r.ID.Bytes,
+			ProductID:  r.ProductID.Bytes,
+			Quantity:   int(r.Quantity),
+			TotalCents: int(r.TotalCents),
+			Status:     orders.OrderStatus(r.Status),
+		}
+		out = append(out, o)
+	}
+	return out, nil
+}
+
+func (h *Handlers) CancelOrder(ctx context.Context, params orders.CancelOrderParams) (*orders.WorkflowHandle, error) {
+	ctx, span := observability.StartSpan(ctx, "orders.CancelOrder")
+	defer span.End()
+
+	row, err := h.q.GetOrder(ctx, pgtype.UUID{Bytes: params.ID, Valid: true})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, apierr.NotFound("order")
+	}
+	if err != nil {
+		return nil, apierr.Internal(err.Error())
+	}
+	if row.Status == "cancelled" || row.Status == "failed" {
+		return nil, apierr.Conflict("order is not cancellable")
+	}
+
+	id := params.ID.String()
+	_, err = h.tc.ExecuteWorkflow(
+		ctx,
+		client.StartWorkflowOptions{
+			ID:        "cancel-order-" + id,
+			TaskQueue: serviceName + "-queue",
+		},
+		workflows.CancelOrder,
+		workflows.CancelInput{OrderID: id},
+	)
+	if err != nil {
+		return nil, apierr.Internal(err.Error())
+	}
+	return &orders.WorkflowHandle{
+		ID:        "cancel-order-" + id,
+		RunID:     id,
+		Status:    orders.WorkflowHandleStatusRunning,
+		ResultURL: orders.NewOptURI(url.URL{Path: "/api/orders/" + id}),
+	}, nil
+}
+
 // NewError maps a handler error onto the generated RFC 7807 response.
 func (h *Handlers) NewError(_ context.Context, err error) *orders.ErrorStatusCode {
 	e, ok := apierr.As(err)

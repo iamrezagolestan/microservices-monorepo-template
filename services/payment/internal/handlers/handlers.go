@@ -134,6 +134,24 @@ func (h *Handlers) RefundCharge(
 	return handle("refund-"+id, id), nil
 }
 
+func (h *Handlers) ListCharges(ctx context.Context) ([]payment.Charge, error) {
+	rows, err := h.q.ListCharges(ctx)
+	if err != nil {
+		return nil, apierr.Internal(err.Error())
+	}
+	out := make([]payment.Charge, 0, len(rows))
+	for _, r := range rows {
+		c := payment.Charge{
+			ID:          r.ID.Bytes,
+			OrderID:     r.OrderID.Bytes,
+			AmountCents: int(r.AmountCents),
+			Status:      payment.ChargeStatus(r.Status),
+		}
+		out = append(out, c)
+	}
+	return out, nil
+}
+
 func (h *Handlers) GetCharge(ctx context.Context, params payment.GetChargeParams) (*payment.Charge, error) {
 	id, err := uuid.Parse(params.ID)
 	if err != nil {

@@ -68,11 +68,13 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 			if len(elem) == 0 {
 				switch r.Method {
+				case "GET":
+					s.handleListChargesRequest([0]string{}, elemIsEscaped, w, r)
 				case "POST":
 					s.handleCreateChargeRequest([0]string{}, elemIsEscaped, w, r)
 				default:
 					s.notAllowed(w, r, notAllowedParams{
-						allowedMethods: "POST",
+						allowedMethods: "GET,POST",
 						allowedHeaders: rn1AllowedHeaders,
 						acceptPost:     "application/json",
 						acceptPatch:    "",
@@ -244,6 +246,15 @@ func (s *Server) FindPath(method string, u *url.URL) (r Route, _ bool) {
 
 			if len(elem) == 0 {
 				switch method {
+				case "GET":
+					r.name = ListChargesOperation
+					r.summary = ""
+					r.operationID = "listCharges"
+					r.operationGroup = ""
+					r.pathPattern = "/charges"
+					r.args = args
+					r.count = 0
+					return r, true
 				case "POST":
 					r.name = CreateChargeOperation
 					r.summary = ""

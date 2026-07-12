@@ -11,7 +11,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** @description List all charges. */
+        get: operations["listCharges"];
         put?: never;
         /**
          * @description Starts the Charge Temporal workflow. Idempotent on Idempotency-Key header.
@@ -121,6 +122,27 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    listCharges: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The charge list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Charge"][];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     createCharge: {
         parameters: {
             query?: never;

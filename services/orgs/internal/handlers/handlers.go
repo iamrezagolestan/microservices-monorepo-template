@@ -81,6 +81,46 @@ func (h *Handlers) OnIdentityCreated(ctx context.Context, req *orgs.OnIdentityCr
 	return nil
 }
 
+func (h *Handlers) ListOrgs(ctx context.Context) ([]orgs.Org, error) {
+	rows, err := h.q.ListOrgs(ctx)
+	if err != nil {
+		return nil, apierr.Internal(err.Error())
+	}
+	out := make([]orgs.Org, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, orgs.Org{ID: r.ID.Bytes, Name: r.Name})
+	}
+	return out, nil
+}
+
+func (h *Handlers) UpdateOrg(ctx context.Context, req *orgs.OrgInput, params orgs.UpdateOrgParams) (*orgs.Org, error) {
+	if req.Name == "" {
+		return nil, apierr.BadRequest("name required")
+	}
+	row, err := h.q.UpdateOrg(
+		ctx,
+		store.UpdateOrgParams{
+			ID:   pgtype.UUID{Bytes: params.ID, Valid: true},
+			Name: req.Name,
+		},
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, apierr.NotFound("org")
+	}
+	if err != nil {
+		return nil, apierr.Internal(err.Error())
+	}
+	return &orgs.Org{ID: row.ID.Bytes, Name: row.Name}, nil
+}
+
+func (h *Handlers) DeleteOrg(ctx context.Context, params orgs.DeleteOrgParams) error {
+	err := h.q.DeleteOrg(ctx, pgtype.UUID{Bytes: params.ID, Valid: true})
+	if err != nil {
+		return apierr.Internal(err.Error())
+	}
+	return nil
+}
+
 // NewError maps a handler error onto the generated RFC 7807 response.
 func (h *Handlers) NewError(_ context.Context, err error) *orgs.ErrorStatusCode {
 	e, ok := apierr.As(err)

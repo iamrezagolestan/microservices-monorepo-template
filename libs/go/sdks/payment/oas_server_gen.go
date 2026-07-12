@@ -21,6 +21,12 @@ type Handler interface {
 	//
 	// GET /charges/{id}
 	GetCharge(ctx context.Context, params GetChargeParams) (*Charge, error)
+	// ListCharges implements listCharges operation.
+	//
+	// List all charges.
+	//
+	// GET /charges
+	ListCharges(ctx context.Context) ([]Charge, error)
 	// RefundCharge implements refundCharge operation.
 	//
 	// Refund a settled charge. Starts the Refund workflow (ADR-0006).

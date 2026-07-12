@@ -1,9 +1,21 @@
 openapi: 3.1.0
 info: { title: payment, version: 0.1.0, description: Payment charge and settlement service., x-audience: public }
 servers: [{ url: /api }]   # flat resource namespace (ADR-0017); paths are globally unique
-tags: [{ name: charges }]
+# `x-admin: crud` marks the resource group the admin generator (ADR-0012, tools/admin-gen)
+# scaffolds pages for. Charges are workflow-created and immutable, so the surface
+# is list/detail (read) plus the `refund` action below — no edit/delete.
+tags: [{ name: charges, x-admin: crud }]
 paths:
   /charges:
+    get:
+      operationId: listCharges
+      # Listing every charge is a back-office view, kept out of public docs (ADR-0008).
+      x-audience: internal
+      description: List all charges.
+      tags: [charges]
+      responses:
+        "200": { description: The charge list, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Charge" } } } } }
+        default: { $ref: "#/components/responses/Error" }
     post:
       operationId: createCharge
       tags: [charges]

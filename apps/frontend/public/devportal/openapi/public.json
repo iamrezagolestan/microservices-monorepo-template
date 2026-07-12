@@ -446,7 +446,8 @@
             "enum": [
               "pending",
               "confirmed",
-              "failed"
+              "failed",
+              "cancelled"
             ]
           }
         }

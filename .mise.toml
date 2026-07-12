@@ -139,10 +139,16 @@ run = "bash scripts/db-migrate.sh"
 # No gateway codegen — the edge (Traefik + Oathkeeper) does not consume the
 # OpenAPI spec (ADR-0009). Generators: ogen + openapi-typescript (SDKs), sqlc
 # (queries), and the devportal spec projections rendered by Scalar (ADR-0008).
-depends = ["gen:openapi", "gen:openapi-public", "gen:sqlc"]
+depends = ["gen:openapi", "gen:openapi-public", "gen:sqlc", "gen:admin"]
 
 [tasks."gen:openapi"]
 run = "bash scripts/gen-openapi.sh"
+
+[tasks."gen:admin"]
+# Scaffold the Lowdefy admin pages from the OpenAPI specs (ADR-0012). Depends on
+# gen:openapi so it reads specs that have already passed a generation cycle.
+depends = ["gen:openapi"]
+run = "bash scripts/gen-admin.sh"
 
 [tasks."gen:openapi-public"]
 # Filtered OpenAPI projections for the Scalar developer portals (ADR-0008/0009/0014).
