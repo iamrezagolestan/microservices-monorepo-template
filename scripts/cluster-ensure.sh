@@ -23,7 +23,7 @@
 set -euo pipefail
 
 CLUSTER="${CLUSTER:-platform}"
-REGISTRY="registry.localhost"   # container becomes k3d-${REGISTRY}, host k3d-registry.localhost
+REGISTRY="registry.localhost" # container becomes k3d-${REGISTRY}, host k3d-registry.localhost
 
 if ! k3d registry list | awk '{print $1}' | grep -qx "k3d-${REGISTRY}"; then
   echo "→ creating k3d registry 'k3d-${REGISTRY}:5000'"
@@ -55,6 +55,13 @@ if ! k3d cluster list | awk '{print $1}' | grep -qx "$CLUSTER"; then
   # rate limiter. Its default (5 qps / 10 burst) exists to spare PUBLIC registries;
   # against our OWN local registry it just throttles cold/mass reschedules into a
   # "pull QPS exceeded" storm that adds minutes of backoff. Create-time only.
+  #
+  # eviction-hard pinned at 5% free (both filesystems): a developer disk often sits
+  # near-full, and kubelet's stock disk-pressure threshold (taints ~10-15% free)
+  # then evicts the WHOLE platform over a few spare GB. Pinning it low keeps pods
+  # put until the disk is genuinely almost-full — and pins it so a recreate (or a
+  # distro whose default differs from k3s') can't silently raise it. Explicit set,
+  # so inode-based eviction is intentionally out of scope here.
   k3d cluster create "$CLUSTER" \
     --servers 1 --agents 0 \
     --port "8080:80@loadbalancer" --port "8443:443@loadbalancer" \
@@ -62,6 +69,7 @@ if ! k3d cluster list | awk '{print $1}' | grep -qx "$CLUSTER"; then
     --k3s-arg '--disable-network-policy@server:*' \
     --k3s-arg '--kubelet-arg=registry-qps=0@server:*' \
     --k3s-arg '--kubelet-arg=registry-burst=0@server:*' \
+    --k3s-arg '--kubelet-arg=eviction-hard=imagefs.available<2%,nodefs.available<2%@server:*' \
     --registry-use "k3d-${REGISTRY}:5000" \
     ${proxy_flags[@]+"${proxy_flags[@]}"}
 else
