@@ -24,10 +24,13 @@ type RegisterInput struct {
 // failed SpiceDB write is retried, and an exhausted workflow surfaces rather
 // than silently leaving the app DB and the authz store divergent.
 func RegisterUser(ctx workflow.Context, in RegisterInput) error {
-	ctx = workflow.WithActivityOptions(ctx, workflow.ActivityOptions{
-		StartToCloseTimeout: 30 * time.Second,
-		RetryPolicy:         &temporal.RetryPolicy{InitialInterval: time.Second, MaximumAttempts: 5},
-	})
+	ctx = workflow.WithActivityOptions(
+		ctx,
+		workflow.ActivityOptions{
+			StartToCloseTimeout: 30 * time.Second,
+			RetryPolicy:         &temporal.RetryPolicy{InitialInterval: time.Second, MaximumAttempts: 5},
+		},
+	)
 
 	var orgID string
 	err := workflow.ExecuteActivity(ctx, "CreatePersonalOrgActivity", in.IdentityID, in.Email).Get(ctx, &orgID)
