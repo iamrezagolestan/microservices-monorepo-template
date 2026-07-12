@@ -100,7 +100,7 @@ for svc in authz catalog orders orgs payment; do
   build_push "${svc}-server" "services/${svc}/Dockerfile" . \
     --build-arg SERVICE="${svc}" --build-arg APP_CMD=server "${BUILD_ID[@]}"
 done
-for svc in orders payment; do
+for svc in orders orgs payment; do
   build_push "${svc}-worker" "services/${svc}/Dockerfile" . \
     --build-arg SERVICE="${svc}" --build-arg APP_CMD=worker "${BUILD_ID[@]}"
 done
