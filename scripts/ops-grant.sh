@@ -32,8 +32,13 @@ k() { kubectl "${ctx_args[@]}" -n "$NS" "$@"; }
 
 # Cleanup must be armed before backgrounding anything, or a failure in between
 # (e.g. the secret read) would orphan a port-forward.
-kpf=""; spf=""
+kpf=""
+spf=""
 trap 'kill "$kpf" "$spf" 2>/dev/null || true' EXIT
+
+# Reap stale port-forwards from a prior run whose cleanup trap didn't fire (e.g.
+# mise/bash killed abruptly), else the new ones fail to bind 4434/50051.
+pkill -f 'kubectl.*port-forward svc/(ory-kratos-admin|spicedb)' 2>/dev/null || true
 
 # 1. Resolve the Kratos identity id from the email via the admin API.
 k port-forward svc/ory-kratos-admin 4434:80 >/dev/null &
@@ -44,8 +49,8 @@ k port-forward svc/spicedb 50051:50051 >/dev/null &
 spf=$!
 sleep 4
 
-id="$(curl -fsS "http://localhost:4434/admin/identities?credentials_identifier=${email}" \
-  | jq -r '.[0].id // ""')"
+id="$(curl -fsS "http://localhost:4434/admin/identities?credentials_identifier=${email}" |
+  jq -r '.[0].id // ""')"
 if [ -z "$id" ]; then
   echo "no Kratos identity for ${email} — they must register first" >&2
   exit 1
@@ -56,7 +61,8 @@ fi
 # below only feeds the optional fine gate, OPS_FINE_GRAINED). Setting group:operator
 # without the trait grants nothing, so set the trait here too. The gate additionally
 # requires AAL2, which the operator enrols themselves.
-op_val=true; [ "$action" = "delete" ] && op_val=false
+op_val=true
+[ "$action" = "delete" ] && op_val=false
 curl -fsS -X PATCH "http://localhost:4434/admin/identities/${id}" \
   -H 'Content-Type: application/json' \
   -d "[{\"op\":\"add\",\"path\":\"/traits/operator\",\"value\":${op_val}}]" >/dev/null
@@ -64,6 +70,7 @@ curl -fsS -X PATCH "http://localhost:4434/admin/identities/${id}" \
 zed relationship "$action" group:operator member "user:${id}" \
   --endpoint 127.0.0.1:50051 --insecure --token "$sk"
 
-verb="granted"; [ "$action" = "delete" ] && verb="revoked"
+verb="granted"
+[ "$action" = "delete" ] && verb="revoked"
 echo "✓ ${verb} operator trait + group:operator for ${email} (user:${id})"
 [ "$action" = "touch" ] && echo "  → they must have AAL2 (a second factor) enrolled; re-login if already signed in."
