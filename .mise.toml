@@ -52,6 +52,11 @@ cocogitto = "7.0.0"
 act = "0.2.89"
 golangci-lint = "2.12.2"
 rumdl = "0.2.18"
+# Shell scripts are first-class here (all glue is bash, ADR-0002) — shellcheck
+# lints, shfmt (mvdan/sh) formats. Wired into lint:shell / format:shell and the
+# pre-commit hook so a scripts/ edit gets the same gate as Go/TS/Markdown.
+"aqua:koalaman/shellcheck" = "0.11.0"
+"aqua:mvdan/sh" = "3.13.1"
 
 [env]
 GOFLAGS = "-mod=readonly"
@@ -134,10 +139,16 @@ run = "bash scripts/db-migrate.sh"
 # No gateway codegen — the edge (Traefik + Oathkeeper) does not consume the
 # OpenAPI spec (ADR-0009). Generators: ogen + openapi-typescript (SDKs), sqlc
 # (queries), and the devportal spec projections rendered by Scalar (ADR-0008).
-depends = ["gen:openapi", "gen:openapi-public", "gen:sqlc"]
+depends = ["gen:openapi", "gen:openapi-public", "gen:sqlc", "gen:admin"]
 
 [tasks."gen:openapi"]
 run = "bash scripts/gen-openapi.sh"
+
+[tasks."gen:admin"]
+# Scaffold the Lowdefy admin pages from the OpenAPI specs (ADR-0012). Depends on
+# gen:openapi so it reads specs that have already passed a generation cycle.
+depends = ["gen:openapi"]
+run = "bash scripts/gen-admin.sh"
 
 [tasks."gen:openapi-public"]
 # Filtered OpenAPI projections for the Scalar developer portals (ADR-0008/0009/0014).
@@ -155,7 +166,7 @@ mise run gen
 
 # ── Format ────────────────────────────────────────────────────────────────────
 [tasks.format]
-depends = ["format:go", "format:ts", "format:md"]
+depends = ["format:go", "format:ts", "format:md", "format:shell"]
 
 [tasks."format:go"]
 run = "golangci-lint fmt ./..."
@@ -167,9 +178,14 @@ run = "biome format --write ."
 # rumdl is the only Markdown formatter — never the IDE's.
 run = "rumdl fmt ."
 
+[tasks."format:shell"]
+# shfmt (mvdan/sh) is the shell formatter. -i 2 matches the repo's 2-space scripts;
+# no arg list = format every tracked *.sh in place.
+run = "git ls-files -z '*.sh' | xargs -0 shfmt -w -i 2"
+
 # ── Lint ──────────────────────────────────────────────────────────────────────
 [tasks.lint]
-depends = ["lint:go", "lint:gostyle", "lint:ts", "lint:sql", "lint:openapi", "lint:api-audience", "lint:floating-tags", "lint:md", "lint:node-scope", "lint:auth-inline", "lint:authz", "lint:log-vocab"]
+depends = ["lint:go", "lint:gostyle", "lint:ts", "lint:sql", "lint:openapi", "lint:api-audience", "lint:floating-tags", "lint:md", "lint:shell", "lint:node-scope", "lint:auth-inline", "lint:authz", "lint:log-vocab"]
 
 [tasks."lint:go"]
 run = "golangci-lint run ./..."
@@ -198,6 +214,11 @@ run = "bash scripts/lint-floating-tags.sh"
 
 [tasks."lint:md"]
 run = "rumdl check ."
+
+[tasks."lint:shell"]
+# shellcheck over every tracked *.sh (ADR-0002). All glue here is bash, so it gets
+# the same static analysis Go/TS do.
+run = "bash scripts/lint-shell.sh"
 
 [tasks."lint:log-vocab"]
 # Human-output vocabulary gate (ADR-0019): scripts use →/✓/✗/⚠ via scripts/lib/log.sh,

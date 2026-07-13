@@ -22,7 +22,7 @@ import (
 )
 
 type Handlers struct {
-	q               *store.Queries
+	q               store.Querier
 	checker         authz.Checker
 	productsCreated metric.Int64Counter
 }
@@ -64,21 +64,10 @@ func (h *Handlers) CreateProduct(ctx context.Context, req *catalog.ProductInput)
 	ctx, span := observability.StartSpan(ctx, "catalog.CreateProduct")
 	defer span.End()
 
-	// Writing the global catalog is a first-party back-office action (x-audience:
-	// internal, ADR-0008): authorize via the shared SpiceDB Checker (ADR-0010) — the
-	// caller must be an operator. Reads (List/Get) stay open; only writes are gated.
-	principal, _ := authmw.FromContext(ctx)
-	if !principal.Authenticated() {
-		return nil, apierr.Unauthorized()
-	}
-	allowed, err := h.checker.Allowed(ctx, principal.Subject(), "member", "group:operator")
+	err := h.requireOperator(ctx, "creating products")
 	if err != nil {
-		return nil, apierr.Internal(err.Error())
+		return nil, err
 	}
-	if !allowed {
-		return nil, apierr.Forbidden("creating products requires operator")
-	}
-
 	if req.Name == "" || req.PriceCents < 0 || req.PriceCents > math.MaxInt32 {
 		return nil, apierr.BadRequest("name and price_cents required")
 	}
@@ -90,6 +79,53 @@ func (h *Handlers) CreateProduct(ctx context.Context, req *catalog.ProductInput)
 	return &catalog.Product{ID: row.ID.Bytes, Name: row.Name, PriceCents: int(row.PriceCents)}, nil
 }
 
+func (h *Handlers) UpdateProduct(
+	ctx context.Context,
+	req *catalog.ProductInput,
+	params catalog.UpdateProductParams,
+) (*catalog.Product, error) {
+	ctx, span := observability.StartSpan(ctx, "catalog.UpdateProduct")
+	defer span.End()
+
+	err := h.requireOperator(ctx, "updating products")
+	if err != nil {
+		return nil, err
+	}
+	if req.Name == "" || req.PriceCents < 0 || req.PriceCents > math.MaxInt32 {
+		return nil, apierr.BadRequest("name and price_cents required")
+	}
+	row, err := h.q.UpdateProduct(
+		ctx,
+		store.UpdateProductParams{
+			ID:         pgtype.UUID{Bytes: params.ID, Valid: true},
+			Name:       req.Name,
+			PriceCents: int32(req.PriceCents),
+		},
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, apierr.NotFound("product")
+	}
+	if err != nil {
+		return nil, apierr.Internal(err.Error())
+	}
+	return &catalog.Product{ID: row.ID.Bytes, Name: row.Name, PriceCents: int(row.PriceCents)}, nil
+}
+
+func (h *Handlers) DeleteProduct(ctx context.Context, params catalog.DeleteProductParams) error {
+	ctx, span := observability.StartSpan(ctx, "catalog.DeleteProduct")
+	defer span.End()
+
+	err := h.requireOperator(ctx, "deleting products")
+	if err != nil {
+		return err
+	}
+	err = h.q.DeleteProduct(ctx, pgtype.UUID{Bytes: params.ID, Valid: true})
+	if err != nil {
+		return apierr.Internal(err.Error())
+	}
+	return nil
+}
+
 // NewError maps a handler error onto the generated RFC 7807 response.
 func (h *Handlers) NewError(_ context.Context, err error) *catalog.ErrorStatusCode {
 	e, ok := apierr.As(err)
@@ -97,4 +133,22 @@ func (h *Handlers) NewError(_ context.Context, err error) *catalog.ErrorStatusCo
 		return &catalog.ErrorStatusCode{StatusCode: e.Status, Response: catalog.Problem{Code: e.Code, Message: e.Message}}
 	}
 	return &catalog.ErrorStatusCode{StatusCode: 500, Response: catalog.Problem{Code: "internal", Message: err.Error()}}
+}
+
+// requireOperator gates a write on the shared SpiceDB Checker (ADR-0010): the
+// caller must be an authenticated operator. Reads (List/Get) stay open; only
+// writes to the global catalog are gated (x-audience: internal, ADR-0008).
+func (h *Handlers) requireOperator(ctx context.Context, action string) error {
+	principal, _ := authmw.FromContext(ctx)
+	if !principal.Authenticated() {
+		return apierr.Unauthorized()
+	}
+	allowed, err := h.checker.Allowed(ctx, principal.Subject(), "member", "group:operator")
+	if err != nil {
+		return apierr.Internal(err.Error())
+	}
+	if !allowed {
+		return apierr.Forbidden(action + " requires operator")
+	}
+	return nil
 }

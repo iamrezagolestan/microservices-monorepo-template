@@ -20,16 +20,18 @@ if h -n kube-system status cilium >/dev/null 2>&1 \
   exit 0
 fi
 
-SERVER_IP="$(k get node -o jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}')"
-echo "→ installing Cilium (apiserver ${SERVER_IP}:6443)"
+# k8sServiceHost stays 127.0.0.1 (chart default in values.yaml): the agent runs
+# hostNetwork on the node, and k3d serves the API at loopback there. Do NOT pin it
+# to the node's Docker InternalIP — k3d reshuffles that IP between the serverlb and
+# server-0 containers on every stop/start, so a pinned InternalIP points the agent at
+# the wrong container and the CNI never starts (connection refused to :6443).
+echo "→ installing Cilium (apiserver 127.0.0.1:6443)"
 helm dependency update infra/helm/platform/cilium >/dev/null
 
 # Local runs the chart as-is, including WireGuard transparent encryption (ADR-0003)
 # for east-west PII posture — same datapath as prod, so no local/prod parity gap.
 h upgrade --install cilium infra/helm/platform/cilium -n kube-system \
   --set cilium.kubeProxyReplacement=false \
-  --set cilium.k8sServiceHost="${SERVER_IP}" \
-  --set cilium.k8sServicePort=6443 \
   --set cilium.operator.replicas=1 \
   --timeout 5m
 

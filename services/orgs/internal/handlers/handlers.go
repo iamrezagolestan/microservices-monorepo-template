@@ -10,18 +10,24 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"go.temporal.io/sdk/client"
 
 	"github.com/tabmadi/microservices-monorepo-template/libs/go/apierr"
 	orgs "github.com/tabmadi/microservices-monorepo-template/libs/go/sdks/orgs"
 	"github.com/tabmadi/microservices-monorepo-template/services/orgs/internal/store"
+	"github.com/tabmadi/microservices-monorepo-template/services/orgs/internal/workflows"
 )
 
+const serviceName = "orgs"
+
 type Handlers struct {
-	db *pgxpool.Pool
-	q  *store.Queries
+	q  store.Querier
+	tc client.Client
 }
 
-func New(db *pgxpool.Pool) *Handlers { return &Handlers{db: db, q: store.New(db)} }
+func New(db *pgxpool.Pool, tc client.Client) *Handlers {
+	return &Handlers{q: store.New(db), tc: tc}
+}
 
 var _ orgs.Handler = (*Handlers)(nil)
 
@@ -47,8 +53,12 @@ func (h *Handlers) GetOrg(ctx context.Context, params orgs.GetOrgParams) (*orgs.
 	return &orgs.Org{ID: row.ID.Bytes, Name: row.Name}, nil
 }
 
-// OnIdentityCreated is the Kratos post-registration webhook (ADR-0010): create
-// a personal org for the new identity and insert the user as its admin.
+// OnIdentityCreated is the Kratos post-registration webhook (ADR-0010/0006). It
+// starts the RegisterUser workflow rather than writing directly: creating the
+// personal org spans the orgs DB and the SpiceDB owner tuple (an authz-relevant
+// mutation), so it must run as a Temporal dual-write, never a bare DB write. The
+// workflow ID is derived from the identity, so a duplicate webhook delivery is a
+// no-op (Temporal rejects the duplicate ID).
 func (h *Handlers) OnIdentityCreated(ctx context.Context, req *orgs.OnIdentityCreatedReq) error {
 	identityID, ok := req.IdentityID.Get()
 	if !ok || identityID == "" {
@@ -56,22 +66,55 @@ func (h *Handlers) OnIdentityCreated(ctx context.Context, req *orgs.OnIdentityCr
 	}
 	email, _ := req.Email.Get()
 
-	tx, err := h.db.Begin(ctx)
+	_, err := h.tc.ExecuteWorkflow(
+		ctx,
+		client.StartWorkflowOptions{
+			ID:        "register-user-" + identityID,
+			TaskQueue: serviceName + "-queue",
+		},
+		workflows.RegisterUser,
+		workflows.RegisterInput{IdentityID: identityID, Email: email},
+	)
 	if err != nil {
 		return apierr.Internal(err.Error())
 	}
-	defer func() { _ = tx.Rollback(ctx) }()
+	return nil
+}
 
-	qtx := h.q.WithTx(tx)
-	org, err := qtx.CreateOrg(ctx, email)
+func (h *Handlers) ListOrgs(ctx context.Context) ([]orgs.Org, error) {
+	rows, err := h.q.ListOrgs(ctx)
 	if err != nil {
-		return apierr.Internal(err.Error())
+		return nil, apierr.Internal(err.Error())
 	}
-	err = qtx.AddMember(ctx, store.AddMemberParams{OrgID: org.ID, UserID: identityID, Role: "admin"})
+	out := make([]orgs.Org, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, orgs.Org{ID: r.ID.Bytes, Name: r.Name})
+	}
+	return out, nil
+}
+
+func (h *Handlers) UpdateOrg(ctx context.Context, req *orgs.OrgInput, params orgs.UpdateOrgParams) (*orgs.Org, error) {
+	if req.Name == "" {
+		return nil, apierr.BadRequest("name required")
+	}
+	row, err := h.q.UpdateOrg(
+		ctx,
+		store.UpdateOrgParams{
+			ID:   pgtype.UUID{Bytes: params.ID, Valid: true},
+			Name: req.Name,
+		},
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, apierr.NotFound("org")
+	}
 	if err != nil {
-		return apierr.Internal(err.Error())
+		return nil, apierr.Internal(err.Error())
 	}
-	err = tx.Commit(ctx)
+	return &orgs.Org{ID: row.ID.Bytes, Name: row.Name}, nil
+}
+
+func (h *Handlers) DeleteOrg(ctx context.Context, params orgs.DeleteOrgParams) error {
+	err := h.q.DeleteOrg(ctx, pgtype.UUID{Bytes: params.ID, Valid: true})
 	if err != nil {
 		return apierr.Internal(err.Error())
 	}

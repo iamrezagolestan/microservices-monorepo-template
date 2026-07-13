@@ -2,7 +2,19 @@ name: orgs
 image:
   repository: ghcr.io/tabmadi/microservices-monorepo-template/orgs-server
   tag: "0000000000000000000000000000000000000000"
-worker: { enabled: false }
+worker:
+  enabled: true            # RegisterUser dual-write (ADR-0006/0010)
+  image:
+    repository: ghcr.io/tabmadi/microservices-monorepo-template/orgs-worker
+    tag: "0000000000000000000000000000000000000000"
 server:  { replicas: 1 }
 ingress: { enabled: true, host: dev.example.com, resources: [orgs] }
-secrets: { envFrom: [orgs-db-creds] }
+# Kratos calls /identity-created east-west on the server port (ADR-0010); the
+# edge (allowFromGateway) only covers Traefik → /api/orgs, so allow Kratos too.
+networkPolicy: { allowFrom: [kratos] }
+secrets: { envFrom: [orgs-db-creds, spicedb-creds] }
+env:
+  # Write authz (ADR-0010): the worker grants org admin via the shared SpiceDB
+  # Granter. Blank preshared key falls back to spicedb-creds.preshared_key (envFrom).
+  SPICEDB_ENDPOINT: "spicedb.platform.svc.cluster.local:50051"
+  SPICEDB_PRESHARED_KEY: ""

@@ -9,7 +9,19 @@ blocks:
       content: |
         # Platform admin
 
+        Pages below are generated from the service OpenAPI specs by
+        `tools/admin-gen` (ADR-0012). This landing page is hand-written — the
+        kind of cross-service view the generator does not produce.
+
+        **Resources**
+
         - [Products](/products)
+        - [Organizations](/orgs)
         - [Orders](/orders)
-        - [Refund tool](/refund-tool)
-        - [Operators](/operators)
+        - [Charges](/charges)
+
+        **Actions**
+
+        - [Refund charge](/refundCharge)
+        - [Cancel order](/cancelOrder)
+        - [Create operator](/createOperator)

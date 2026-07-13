@@ -12,7 +12,7 @@ import { OPERATOR_STATE, opsURL } from "../fixtures/env";
 import { portForward } from "../fixtures/kube";
 
 const CONSOLE = `${opsURL("admin")}/`;
-const CONSOLE_OPERATORS = `${opsURL("admin")}/operators`;
+const CONSOLE_CREATE_OPERATOR = `${opsURL("admin")}/createOperator`;
 const TEST_OPERATOR_EMAIL = "new-op@e2e.localtest.me";
 
 test.describe("admin ops dashboard", () => {
@@ -41,9 +41,10 @@ test.describe("admin ops dashboard", () => {
     });
   });
 
-  // Operator management: the Lowdefy "Operators" page creates a Kratos identity
-  // and grants group:operator membership in SpiceDB via server-side API calls.
-  test.describe("add operator", () => {
+  // Operator management: the generated createOperator page creates a Kratos
+  // identity and grants group:operator membership in SpiceDB via server-side API
+  // calls (authz POST /operators).
+  test.describe("create operator", () => {
     test.use({ storageState: OPERATOR_STATE });
 
     test.afterAll(async () => {
@@ -63,18 +64,48 @@ test.describe("admin ops dashboard", () => {
       }
     });
 
-    test("operators page renders and form submits @smoke", async ({ page }) => {
-      await page.goto(CONSOLE_OPERATORS);
+    test("createOperator page renders and form submits @smoke", async ({ page }) => {
+      await page.goto(CONSOLE_CREATE_OPERATOR);
       // Wait for the page to paint — the submit button signals the form rendered.
-      await page.getByRole("button", { name: "Add operator" }).waitFor({ timeout: 30_000 });
+      await page.getByRole("button", { name: "Create operator" }).waitFor({ timeout: 30_000 });
       // antd Form.Item lowercases labels in the rendered HTML; use case-insensitive match.
       await page.getByLabel(/email/i).fill(TEST_OPERATOR_EMAIL);
       await page.getByLabel(/password/i).fill("NewOp-e2e-Sessi0n!");
-      await page.getByRole("button", { name: "Add operator" }).click();
-      // SetState success:true makes the successMsg Title (h5) block visible.
-      await expect(page.getByRole("heading", { name: "Operator added" })).toBeVisible({
+      await page.getByRole("button", { name: "Create operator" }).click();
+      // The onClick SetState runs only if the request resolved, revealing the
+      // generated success Title (h5) — the admin-gen confirmation block.
+      await expect(page.getByRole("heading", { name: "Create operator succeeded" })).toBeVisible({
         timeout: 20_000,
       });
     });
+  });
+
+  // The generated resource + action pages (tools/admin-gen). Behind the AAL2
+  // operator session each must paint: a page-specific control (a grid header from
+  // the response schema, or an action's submit button) proves the Lowdefy page
+  // rendered rather than redirecting to login or stalling on an empty shell.
+  test.describe("generated pages render", () => {
+    test.use({ storageState: OPERATOR_STATE });
+
+    const pages: Array<{ path: string; control: string; role: "button" | "text" }> = [
+      { path: "/products", control: "Price cents", role: "text" }, // CRUD grid header
+      { path: "/orgs", control: "Create", role: "button" }, // CRUD create form
+      { path: "/orders", control: "Total cents", role: "text" }, // list-only grid header
+      { path: "/charges", control: "Amount cents", role: "text" }, // list-only grid header
+      { path: "/refundCharge", control: "Refund charge", role: "button" }, // action form
+      { path: "/cancelOrder", control: "Cancel order", role: "button" }, // action form
+    ];
+
+    for (const p of pages) {
+      test(`${p.path} paints @smoke`, async ({ page }) => {
+        await page.goto(`${opsURL("admin")}${p.path}`);
+        await expect(page).not.toHaveURL(/\/auth\/login/);
+        const control =
+          p.role === "button"
+            ? page.getByRole("button", { name: p.control })
+            : page.getByText(p.control).first();
+        await expect(control).toBeVisible({ timeout: 30_000 });
+      });
+    }
   });
 });

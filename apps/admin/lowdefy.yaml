@@ -23,6 +23,9 @@ config:
   # (Oathkeeper: AAL2 operator holding dashboard:admin#view, ADR-0012/0017).
   # Pages are public to Lowdefy; only authorized operators ever reach this origin.
 
+# One REST connection per service, id == service name so the generated pages
+# (tools/admin-gen, ADR-0012) resolve their connectionId directly. Pages call the
+# service in-cluster, bypassing the /api edge; auth is enforced upstream (ADR-0012).
 connections:
   - id: catalog
     type: AxiosHttp
@@ -32,18 +35,20 @@ connections:
     type: AxiosHttp
     properties:
       baseURL: http://orders-server.platform.svc.cluster.local
+  - id: orgs
+    type: AxiosHttp
+    properties:
+      baseURL: http://orgs-server.platform.svc.cluster.local
   - id: payment
     type: AxiosHttp
     properties:
       baseURL: http://payment-server.platform.svc.cluster.local
-  - id: authz-admin
+  - id: authz
     type: AxiosHttp
     properties:
       baseURL: http://authz-server.platform.svc.cluster.local
 
+# The page index is generated: _generated/pages.yaml lists the hand-written pages
+# (pages/, custom/) first, then every page tools/admin-gen scaffolds from the specs.
 pages:
-  - _ref: pages/dashboard.yaml
-  - _ref: custom/catalog/products.yaml
-  - _ref: custom/orders/orders.yaml
-  - _ref: custom/refund-tool.yaml
-  - _ref: custom/operators.yaml
+  _ref: _generated/pages.yaml
