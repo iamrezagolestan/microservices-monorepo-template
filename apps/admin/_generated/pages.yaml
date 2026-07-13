@@ -2,8 +2,12 @@
 - _ref: pages/dashboard.yaml
 - _ref: _generated/authz/createOperator.yaml
 - _ref: _generated/catalog/products.yaml
+- _ref: _generated/catalog/products_new.yaml
+- _ref: _generated/catalog/products_edit.yaml
 - _ref: _generated/orders/orders.yaml
 - _ref: _generated/orders/cancelOrder.yaml
 - _ref: _generated/orgs/orgs.yaml
+- _ref: _generated/orgs/orgs_new.yaml
+- _ref: _generated/orgs/orgs_edit.yaml
 - _ref: _generated/payment/charges.yaml
 - _ref: _generated/payment/refundCharge.yaml

@@ -15,7 +15,8 @@ ingress: { enabled: true, host: dev.localtest.me, resources: [orgs] }
 otel:    { deployEnv: local }
 # Kratos calls /identity-created east-west on the server port (ADR-0010); the
 # edge (allowFromGateway) only covers Traefik → /api/orgs, so allow Kratos too.
-networkPolicy: { allowFrom: [kratos] }
+# The Lowdefy admin console (apps/admin) also calls orgs server-side (ADR-0012).
+networkPolicy: { allowFrom: [kratos, lowdefy] }
 secrets: { envFrom: [orgs-db, spicedb-creds] }
 env:
   # Write authz (ADR-0010): the worker grants org admin via the shared SpiceDB

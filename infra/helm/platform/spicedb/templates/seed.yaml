@@ -14,6 +14,7 @@ metadata:
     # tracked ConfigMap makes any grant change mutate a tracked resource → OutOfSync
     # → auto-sync → the Sync hook fires. The schema already drifts via data below.
     seed.spicedb/dashboards-checksum: {{ .Values.seed.dashboards | toJson | sha256sum }}
+    seed.spicedb/service-operators-checksum: {{ .Values.seed.serviceOperators | toJson | sha256sum }}
 data:
   schema.zed: |
 {{ .Values.seed.schema | indent 4 }}
@@ -67,6 +68,25 @@ spec:
             - dashboard:{{ . }}
             - viewer
             - group:operator#member
+            - --endpoint=spicedb.platform.svc.cluster.local:50051
+            - --insecure
+            - --token=$(SPICEDB_KEY)
+          env:
+            - name: SPICEDB_KEY
+              valueFrom:
+                secretKeyRef: { name: {{ $.Values.existingSecret }}, key: preshared_key }
+        {{- end }}
+        {{- range .Values.seed.serviceOperators }}
+        # Service-account operator (ADR-0012): grant group:operator#member so the
+        # identity the admin console asserts passes each service's write-gate.
+        - name: grant-sa-{{ . }}
+          image: "{{ $.Values.seed.image }}"
+          args:
+            - relationship
+            - touch
+            - group:operator
+            - member
+            - user:{{ . }}
             - --endpoint=spicedb.platform.svc.cluster.local:50051
             - --insecure
             - --token=$(SPICEDB_KEY)

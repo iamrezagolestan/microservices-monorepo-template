@@ -2,6 +2,14 @@
 // the other ops tools: gated at the edge (unauthenticated / AAL1 / AAL2 operator
 // holding dashboard:admin#view), then the Lowdefy app paints behind a real AAL2
 // session.
+//
+// Beyond "paints", the products suite drives a full create → list → edit → delete
+// round-trip through the generated Django-admin pages. That exercise is deliberate:
+// the console reaches each service east-west (bypassing the /api edge), so it only
+// works when the service NetworkPolicy admits the lowdefy pod and the grid binds the
+// response body (`_request: list.data`). A paint-only check (a static grid header is
+// visible) passes even when the grid is empty because the request timed out — the
+// exact regression this suite now guards against.
 import { expect, test } from "@playwright/test";
 import {
   expectAal1Forbidden,
@@ -41,6 +49,52 @@ test.describe("admin ops dashboard", () => {
     });
   });
 
+  // The products resource wired to a live catalog service: a full CRUD round-trip
+  // through the generated changelist / add / edit pages. This is the data gauge —
+  // if the console cannot reach catalog, or the grid binds the HTTP envelope instead
+  // of its body, the created row never appears and the test fails.
+  test.describe("products CRUD", () => {
+    test.use({ storageState: OPERATOR_STATE });
+
+    test("create, list, edit and delete a product @smoke", async ({ page }) => {
+      const name = `e2e-widget-${Date.now()}`;
+      const renamed = `${name}-v2`;
+      const admin = opsURL("admin");
+
+      // Add: the standalone create page (Django "add" form). On success it redirects
+      // to the changelist, where the new row is the confirmation — the assertion an
+      // empty grid (the NetworkPolicy / `.data` / write-auth bugs) would fail.
+      await page.goto(`${admin}/products_new`);
+      await page.getByLabel(/^name$/i).fill(name);
+      await page.getByLabel(/price/i).fill("4200");
+      await page.getByRole("button", { name: "Create", exact: true }).click();
+      await expect(page).toHaveURL(/\/products$/, { timeout: 20_000 });
+      await expect(page.getByText(name)).toBeVisible({ timeout: 30_000 });
+
+      // Row-click opens the change page, prefilled from GET /products/{id}.
+      await page.getByText(name).click();
+      await expect(page).toHaveURL(/products_edit\?id=/, { timeout: 15_000 });
+      await expect(page.getByLabel(/^name$/i)).toHaveValue(name, { timeout: 20_000 });
+
+      // Edit and save; the success toast confirms the PUT resolved.
+      await page.getByLabel(/^name$/i).fill(renamed);
+      await page.getByRole("button", { name: "Save", exact: true }).click();
+      await expect(page.getByText("Saved changes")).toBeVisible({ timeout: 20_000 });
+
+      // The changelist reflects the edit: renamed present, original gone.
+      await page.goto(`${admin}/products`);
+      await expect(page.getByText(renamed)).toBeVisible({ timeout: 30_000 });
+      await expect(page.getByText(name, { exact: true })).toHaveCount(0);
+
+      // Delete from the change page redirects to the changelist, row removed.
+      await page.getByText(renamed).click();
+      await expect(page).toHaveURL(/products_edit\?id=/, { timeout: 15_000 });
+      await page.getByRole("button", { name: "Delete", exact: true }).click();
+      await expect(page).toHaveURL(/\/products$/, { timeout: 15_000 });
+      await expect(page.getByText(renamed)).toHaveCount(0);
+    });
+  });
+
   // Operator management: the generated createOperator page creates a Kratos
   // identity and grants group:operator membership in SpiceDB via server-side API
   // calls (authz POST /operators).
@@ -73,23 +127,23 @@ test.describe("admin ops dashboard", () => {
       await page.getByLabel(/password/i).fill("NewOp-e2e-Sessi0n!");
       await page.getByRole("button", { name: "Create operator" }).click();
       // The onClick SetState runs only if the request resolved, revealing the
-      // generated success Title (h5) — the admin-gen confirmation block.
-      await expect(page.getByRole("heading", { name: "Create operator succeeded" })).toBeVisible({
+      // generated success Alert — the admin-gen confirmation block.
+      await expect(page.getByText(/Create operator succeeded/)).toBeVisible({
         timeout: 20_000,
       });
     });
   });
 
-  // The generated resource + action pages (tools/admin-gen). Behind the AAL2
-  // operator session each must paint: a page-specific control (a grid header from
-  // the response schema, or an action's submit button) proves the Lowdefy page
+  // The remaining generated pages (tools/admin-gen). Behind the AAL2 operator
+  // session each must paint a page-specific control — proof the Lowdefy page
   // rendered rather than redirecting to login or stalling on an empty shell.
   test.describe("generated pages render", () => {
     test.use({ storageState: OPERATOR_STATE });
 
     const pages: Array<{ path: string; control: string; role: "button" | "text" }> = [
-      { path: "/products", control: "Price cents", role: "text" }, // CRUD grid header
-      { path: "/orgs", control: "Create", role: "button" }, // CRUD create form
+      { path: "/products", control: "Add product", role: "button" }, // changelist add
+      { path: "/products_new", control: "Create", role: "button" }, // add form
+      { path: "/orgs", control: "Add org", role: "button" }, // changelist add
       { path: "/orders", control: "Total cents", role: "text" }, // list-only grid header
       { path: "/charges", control: "Amount cents", role: "text" }, // list-only grid header
       { path: "/refundCharge", control: "Refund charge", role: "button" }, // action form

@@ -26,27 +26,46 @@ config:
 # One REST connection per service, id == service name so the generated pages
 # (tools/admin-gen, ADR-0012) resolve their connectionId directly. Pages call the
 # service in-cluster, bypassing the /api edge; auth is enforced upstream (ADR-0012).
+#
+# Identity for writes: a service's write handlers gate on an operator identity
+# (authmw X-User-Id → SpiceDB group:operator, ADR-0009/0010). Lowdefy has no
+# server operator to relay the operator's inbound X-User-Id, so the console asserts
+# a fixed service-account identity `user:admin-console`, which the SpiceDB seed
+# grants group:operator#member (infra/helm/platform/spicedb). This is the ADR-0009
+# header-trust model: only the console can reach these server ports (NetworkPolicy
+# allowFrom: [lowdefy]), so only it can assert this header. Reads ignore identity.
 connections:
   - id: catalog
     type: AxiosHttp
     properties:
       baseURL: http://catalog-server.platform.svc.cluster.local
+      headers: { X-User-Id: admin-console }
   - id: orders
     type: AxiosHttp
     properties:
       baseURL: http://orders-server.platform.svc.cluster.local
+      headers: { X-User-Id: admin-console }
   - id: orgs
     type: AxiosHttp
     properties:
       baseURL: http://orgs-server.platform.svc.cluster.local
+      headers: { X-User-Id: admin-console }
   - id: payment
     type: AxiosHttp
     properties:
       baseURL: http://payment-server.platform.svc.cluster.local
+      headers: { X-User-Id: admin-console }
   - id: authz
     type: AxiosHttp
     properties:
       baseURL: http://authz-server.platform.svc.cluster.local
+      headers: { X-User-Id: admin-console }
+
+# The nav is generated: _generated/menu.yaml is one `default` menu grouping every
+# resource and action page by service, rendered in the PageSiderMenu left sider
+# across the whole console (tools/admin-gen, ADR-0012).
+menus:
+  _ref: _generated/menu.yaml
 
 # The page index is generated: _generated/pages.yaml lists the hand-written pages
 # (pages/, custom/) first, then every page tools/admin-gen scaffolds from the specs.

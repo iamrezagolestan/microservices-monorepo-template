@@ -12,10 +12,10 @@ func TestPathToURL(t *testing.T) {
 		want any
 	}{
 		{"/products", "/products"},
-		{"/products/{id}", map[string]any{"_string_concat": []any{
+		{"/products/{id}", map[string]any{"_string.concat": []any{
 			"/products/", map[string]any{"_payload": "id"},
 		}}},
-		{"/charges/{id}/refund", map[string]any{"_string_concat": []any{
+		{"/charges/{id}/refund", map[string]any{"_string.concat": []any{
 			"/charges/", map[string]any{"_payload": "id"}, "/refund",
 		}}},
 	}
@@ -41,6 +41,12 @@ func TestLabels(t *testing.T) {
 	if got := humanize("createOperator"); got != "Create operator" {
 		t.Errorf("humanize = %q", got)
 	}
+	if got := singular("products"); got != "product" {
+		t.Errorf("singular = %q", got)
+	}
+	if got := singular("orgs"); got != "org" {
+		t.Errorf("singular = %q", got)
+	}
 }
 
 func newOp(method, path string, respCodes []string, pathParams ...string) op {
@@ -62,10 +68,11 @@ func TestClassify(t *testing.T) {
 
 	r := &resource{name: "products"}
 	r.classify(newOp("get", "/products", nil))
+	r.classify(newOp("get", "/products/{id}", nil, "id"))
 	r.classify(newOp("post", "/products", []string{"201"}))
 	r.classify(newOp("put", "/products/{id}", nil, "id"))
 	r.classify(newOp("delete", "/products/{id}", nil, "id"))
-	if r.list == nil || r.create == nil || r.update == nil || r.remove == nil {
+	if r.list == nil || r.get == nil || r.create == nil || r.update == nil || r.remove == nil {
 		t.Fatalf("full CRUD not classified: %+v", r)
 	}
 
