@@ -34,11 +34,12 @@ paths:
       # page, no add page.
       description: List identities (product users and operators) from Kratos, paginated.
       tags: [identities]
-      # Pagination is forwarded to Kratos admin (page/per_page). The generated
-      # changelist also paginates client-side in the grid; for identity counts beyond
-      # one Kratos page, raise per_page or wire the grid to re-request by page.
+      # per_page caps the Kratos admin page (page_size); the generated changelist
+      # paginates client-side in the grid within that window. No page offset: this
+      # Kratos uses keyset pagination where `page` is an opaque page-token, not a
+      # 1-based number, so forwarding a numeric page returns an empty set. For counts
+      # beyond one page, raise per_page (or wire the grid to keyset page_token).
       parameters:
-        - { name: page, in: query, required: false, description: 1-based page number., schema: { type: integer, minimum: 1, default: 1 } }
         - { name: per_page, in: query, required: false, description: Page size., schema: { type: integer, minimum: 1, maximum: 1000, default: 250 } }
       responses:
         "200":

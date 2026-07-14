@@ -17,6 +17,7 @@ import {
   expectUnauthenticatedDenied,
 } from "../fixtures/dashboard";
 import { OPERATOR_STATE, opsURL } from "../fixtures/env";
+import { OPERATOR, USER } from "../fixtures/identities";
 import { portForward } from "../fixtures/kube";
 
 const CONSOLE = `${opsURL("admin")}/`;
@@ -92,6 +93,55 @@ test.describe("admin ops dashboard", () => {
       await page.getByRole("button", { name: "Delete", exact: true }).click();
       await expect(page).toHaveURL(/\/products$/, { timeout: 15_000 });
       await expect(page.getByText(renamed)).toHaveCount(0);
+    });
+  });
+
+  // The identities resource wired to Kratos through authz: the changelist and edit
+  // page (ADR-0012). Unlike products, the rows come from Kratos admin (GET
+  // /admin/identities) via authz — a path that only works when authz can reach the
+  // Kratos admin API (network-policies/30-ory.yaml) and the deployed authz image
+  // actually serves /identities. A paint-only check would pass on an empty grid; this
+  // asserts the seeded bootstrap identities are present — the exact "I open Identities
+  // and see nothing" regression — then edits one to exercise the PUT write path
+  // (authz gates writes on the console's operator X-User-Id → SpiceDB group:operator).
+  test.describe("identities", () => {
+    test.use({ storageState: OPERATOR_STATE });
+
+    test("list shows seeded identities and an edit round-trips @smoke", async ({ page }) => {
+      const admin = opsURL("admin");
+
+      // Changelist: the seeded operator and product user must both appear. An empty
+      // grid — a stale authz image without /identities, a blocked Kratos admin call,
+      // or the grid binding the HTTP envelope instead of `list.data` — fails here.
+      await page.goto(`${admin}/identities`);
+      await expect(page).not.toHaveURL(/\/auth\/login/);
+      await expect(page.getByText(OPERATOR.email)).toBeVisible({ timeout: 30_000 });
+      await expect(page.getByText(USER.email)).toBeVisible({ timeout: 30_000 });
+
+      // Row-click opens the change page, prefilled from GET /identities/{id}.
+      await page.getByText(OPERATOR.email).first().click();
+      await expect(page).toHaveURL(/identities_edit\?id=/, { timeout: 15_000 });
+      const nameField = page.getByLabel(/^name$/i);
+      await expect(nameField).toBeVisible({ timeout: 20_000 });
+      const original = await nameField.inputValue();
+      const renamed = `e2e-op-${Date.now()}`;
+
+      // Edit the name and save; the success toast confirms the PUT resolved — proof
+      // the operator identity header and SpiceDB grant let the write through.
+      await nameField.fill(renamed);
+      await page.getByRole("button", { name: "Save", exact: true }).click();
+      await expect(page.getByText("Saved changes")).toBeVisible({ timeout: 20_000 });
+
+      // The changelist reflects the edit (the write actually persisted to Kratos).
+      await page.goto(`${admin}/identities`);
+      await expect(page.getByText(renamed)).toBeVisible({ timeout: 30_000 });
+
+      // Revert so the shared operator identity is unchanged and the run is idempotent.
+      await page.getByText(OPERATOR.email).first().click();
+      await expect(page).toHaveURL(/identities_edit\?id=/, { timeout: 15_000 });
+      await page.getByLabel(/^name$/i).fill(original);
+      await page.getByRole("button", { name: "Save", exact: true }).click();
+      await expect(page.getByText("Saved changes")).toBeVisible({ timeout: 20_000 });
     });
   });
 

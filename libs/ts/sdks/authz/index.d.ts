@@ -173,8 +173,6 @@ export interface operations {
     listIdentities: {
         parameters: {
             query?: {
-                /** @description 1-based page number. */
-                page?: number;
                 /** @description Page size. */
                 per_page?: number;
             };

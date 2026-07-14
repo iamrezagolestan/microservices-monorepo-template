@@ -595,10 +595,6 @@ func (s *Server) handleListIdentitiesRequest(args [0]string, argsEscaped bool, w
 			RawBody:          rawBody,
 			Params: middleware.Parameters{
 				{
-					Name: "page",
-					In:   "query",
-				}: params.Page,
-				{
 					Name: "per_page",
 					In:   "query",
 				}: params.PerPage,

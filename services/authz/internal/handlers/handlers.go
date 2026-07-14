@@ -111,7 +111,7 @@ func (h *Handlers) CreateOperator(ctx context.Context, req *authzsdk.OperatorInp
 func (h *Handlers) ListIdentities(
 	ctx context.Context, params authzsdk.ListIdentitiesParams,
 ) ([]authzsdk.Identity, error) {
-	ids, err := h.listKratosIdentities(ctx, params.Page.Or(0), params.PerPage.Or(0))
+	ids, err := h.listKratosIdentities(ctx, params.PerPage.Or(0))
 	if err != nil {
 		h.log.Error("list kratos identities", "err", err)
 		return nil, apierr.Internal("failed to list identities")
@@ -250,14 +250,13 @@ func (k *kratosIdentity) flatten() authzsdk.Identity {
 	return id
 }
 
-// listKratosIdentities pages through GET /admin/identities and flattens each
-// identity's traits. Zero page/perPage lets Kratos apply its own defaults.
-func (h *Handlers) listKratosIdentities(ctx context.Context, page, perPage int) ([]authzsdk.Identity, error) {
+// listKratosIdentities reads GET /admin/identities and flattens each identity's
+// traits. Only per_page (page_size) is forwarded — this Kratos paginates by keyset,
+// where `page` is an opaque token, not a 1-based offset; a numeric page returns an
+// empty set. Zero perPage lets Kratos apply its own default.
+func (h *Handlers) listKratosIdentities(ctx context.Context, perPage int) ([]authzsdk.Identity, error) {
 	u := h.kratosAdmin + "/admin/identities"
 	q := url.Values{}
-	if page > 0 {
-		q.Set("page", strconv.Itoa(page))
-	}
 	if perPage > 0 {
 		q.Set("per_page", strconv.Itoa(perPage))
 	}
