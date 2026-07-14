@@ -55,9 +55,13 @@ test.describe("self-service registration", () => {
   });
 
   test("registering a new identity creates its personal org @smoke", async ({ browser, page }) => {
-    // Sign up from a clean, anonymous context — the way a human would, with no
-    // operator session leaking in from storageState.
-    const anon = await browser.newContext({ ignoreHTTPSErrors: true });
+    // Sign up from a clean, anonymous context — the way a human would. `storageState:
+    // undefined` is load-bearing, not decoration: browser.newContext() INHERITS the
+    // describe-level test.use({ storageState }), so without the override this context
+    // carries the operator's ory_kratos_session, and Kratos bounces an already
+    // authenticated visitor off the registration flow to the landing page — the form
+    // never renders and the failure reads as a missing field.
+    const anon = await browser.newContext({ ignoreHTTPSErrors: true, storageState: undefined });
     try {
       await register(await anon.newPage(), EMAIL, PASSWORD);
     } finally {

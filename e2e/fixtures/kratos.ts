@@ -53,11 +53,16 @@ export async function passwordLogin(page: Page, email: string, password: string)
   await waitForSession(page);
 }
 
-// register completes a self-service registration (password method) through the
-// rendered form. This is the ONLY path that fires the registration `after`
-// web_hook (infra/auth/kratos/values.yaml) — identities created through the Kratos
-// admin API (fixtures/bootstrap.ts, scripts/ops-grant.sh) skip self-service flows
-// entirely, so they never get a personal org.
+// register completes a self-service registration through the rendered form. This is
+// the ONLY path that fires the registration `after` web_hook
+// (infra/auth/kratos/values.yaml) — identities created through the Kratos admin API
+// (fixtures/bootstrap.ts, scripts/ops-grant.sh) skip self-service flows entirely, so
+// they never get a personal org.
+//
+// Registration is TWO-STEP: the first screen carries the identity traits and a
+// `profile` submit, and emits no password node at all; only after it does Kratos
+// render the credential screen (traits ride along as hidden nodes). Driving it as a
+// single form silently hangs on a password field that is not there yet.
 //
 // No `session` hook is configured after registration, so this does NOT leave an
 // authenticated session; it only proves the identity was created.
@@ -65,6 +70,9 @@ export async function register(page: Page, email: string, password: string): Pro
   await gotoFlow(page, init("registration"));
   await page.locator('input[name="traits.email"]').waitFor({ state: "visible", timeout: 20_000 });
   await page.fill('input[name="traits.email"]', email);
+  await page.click(submitFor("profile"));
+
+  await page.locator('input[name="password"]').waitFor({ state: "visible", timeout: 20_000 });
   await page.fill('input[name="password"]', password);
   await page.click(submitFor("password"));
   // Kratos re-renders the register form with the message on any failure — including
