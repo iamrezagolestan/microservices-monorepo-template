@@ -20,6 +20,12 @@ type Handler interface {
 	//
 	// POST /operators
 	CreateOperator(ctx context.Context, req *OperatorInput) (*Operator, error)
+	// ListIdentities implements listIdentities operation.
+	//
+	// List all identities (product users and operators) from Kratos.
+	//
+	// GET /identities
+	ListIdentities(ctx context.Context) ([]Identity, error)
 	// NewError creates *ErrorStatusCode from error returned by handler.
 	//
 	// Used for common default response.

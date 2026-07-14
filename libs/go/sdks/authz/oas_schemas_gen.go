@@ -96,6 +96,55 @@ func (s *ErrorStatusCode) SetResponse(val Problem) {
 	s.Response = val
 }
 
+// A Kratos identity, flattened from its traits for the admin changelist.
+// Ref: #/components/schemas/Identity
+type Identity struct {
+	ID       string    `json:"id"`
+	Email    string    `json:"email"`
+	Name     OptString `json:"name"`
+	Operator OptBool   `json:"operator"`
+}
+
+// GetID returns the value of ID.
+func (s *Identity) GetID() string {
+	return s.ID
+}
+
+// GetEmail returns the value of Email.
+func (s *Identity) GetEmail() string {
+	return s.Email
+}
+
+// GetName returns the value of Name.
+func (s *Identity) GetName() OptString {
+	return s.Name
+}
+
+// GetOperator returns the value of Operator.
+func (s *Identity) GetOperator() OptBool {
+	return s.Operator
+}
+
+// SetID sets the value of ID.
+func (s *Identity) SetID(val string) {
+	s.ID = val
+}
+
+// SetEmail sets the value of Email.
+func (s *Identity) SetEmail(val string) {
+	s.Email = val
+}
+
+// SetName sets the value of Name.
+func (s *Identity) SetName(val OptString) {
+	s.Name = val
+}
+
+// SetOperator sets the value of Operator.
+func (s *Identity) SetOperator(val OptBool) {
+	s.Operator = val
+}
+
 // A created operator.
 // Ref: #/components/schemas/Operator
 type Operator struct {
@@ -150,6 +199,52 @@ func (s *OperatorInput) SetPassword(val string) {
 	s.Password = val
 }
 
+// NewOptBool returns new OptBool with value set to v.
+func NewOptBool(v bool) OptBool {
+	return OptBool{
+		Value: v,
+		Set:   true,
+	}
+}
+
+// OptBool is optional bool.
+type OptBool struct {
+	Value bool
+	Set   bool
+}
+
+// IsSet returns true if OptBool was set.
+func (o OptBool) IsSet() bool { return o.Set }
+
+// Reset unsets value.
+func (o *OptBool) Reset() {
+	var v bool
+	o.Value = v
+	o.Set = false
+}
+
+// SetTo sets value to v.
+func (o *OptBool) SetTo(v bool) {
+	o.Set = true
+	o.Value = v
+}
+
+// Get returns value and boolean that denotes whether value was set.
+func (o OptBool) Get() (v bool, ok bool) {
+	if !o.Set {
+		return v, false
+	}
+	return o.Value, true
+}
+
+// Or returns value if set, or given parameter if does not.
+func (o OptBool) Or(d bool) bool {
+	if v, ok := o.Get(); ok {
+		return v
+	}
+	return d
+}
+
 // NewOptProblemDetails returns new OptProblemDetails with value set to v.
 func NewOptProblemDetails(v ProblemDetails) OptProblemDetails {
 	return OptProblemDetails{
@@ -190,6 +285,52 @@ func (o OptProblemDetails) Get() (v ProblemDetails, ok bool) {
 
 // Or returns value if set, or given parameter if does not.
 func (o OptProblemDetails) Or(d ProblemDetails) ProblemDetails {
+	if v, ok := o.Get(); ok {
+		return v
+	}
+	return d
+}
+
+// NewOptString returns new OptString with value set to v.
+func NewOptString(v string) OptString {
+	return OptString{
+		Value: v,
+		Set:   true,
+	}
+}
+
+// OptString is optional string.
+type OptString struct {
+	Value string
+	Set   bool
+}
+
+// IsSet returns true if OptString was set.
+func (o OptString) IsSet() bool { return o.Set }
+
+// Reset unsets value.
+func (o *OptString) Reset() {
+	var v string
+	o.Value = v
+	o.Set = false
+}
+
+// SetTo sets value to v.
+func (o *OptString) SetTo(v string) {
+	o.Set = true
+	o.Value = v
+}
+
+// Get returns value and boolean that denotes whether value was set.
+func (o OptString) Get() (v string, ok bool) {
+	if !o.Set {
+		return v, false
+	}
+	return o.Value, true
+}
+
+// Or returns value if set, or given parameter if does not.
+func (o OptString) Or(d string) string {
 	if v, ok := o.Get(); ok {
 		return v
 	}

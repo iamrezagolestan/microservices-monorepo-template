@@ -8,4 +8,5 @@ type OperationName = string
 const (
 	AuthorizeOperation      OperationName = "Authorize"
 	CreateOperatorOperation OperationName = "CreateOperator"
+	ListIdentitiesOperation OperationName = "ListIdentities"
 )

@@ -94,6 +94,31 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 
+			case 'i': // Prefix: "identities"
+
+				if l := len("identities"); len(elem) >= l && elem[0:l] == "identities" {
+					elem = elem[l:]
+				} else {
+					break
+				}
+
+				if len(elem) == 0 {
+					// Leaf node.
+					switch r.Method {
+					case "GET":
+						s.handleListIdentitiesRequest([0]string{}, elemIsEscaped, w, r)
+					default:
+						s.notAllowed(w, r, notAllowedParams{
+							allowedMethods: "GET",
+							allowedHeaders: nil,
+							acceptPost:     "",
+							acceptPatch:    "",
+						})
+					}
+
+					return
+				}
+
 			case 'o': // Prefix: "operators"
 
 				if l := len("operators"); len(elem) >= l && elem[0:l] == "operators" {
@@ -236,6 +261,31 @@ func (s *Server) FindPath(method string, u *url.URL) (r Route, _ bool) {
 						r.operationID = "authorize"
 						r.operationGroup = ""
 						r.pathPattern = "/authorize"
+						r.args = args
+						r.count = 0
+						return r, true
+					default:
+						return
+					}
+				}
+
+			case 'i': // Prefix: "identities"
+
+				if l := len("identities"); len(elem) >= l && elem[0:l] == "identities" {
+					elem = elem[l:]
+				} else {
+					break
+				}
+
+				if len(elem) == 0 {
+					// Leaf node.
+					switch method {
+					case "GET":
+						r.name = ListIdentitiesOperation
+						r.summary = ""
+						r.operationID = "listIdentities"
+						r.operationGroup = ""
+						r.pathPattern = "/identities"
 						r.args = args
 						r.count = 0
 						return r, true

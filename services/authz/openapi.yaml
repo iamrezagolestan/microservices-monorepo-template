@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info: { title: authz, version: 0.1.0, description: Ops-tier edge authorizer and operator admin (ADR-0010/0012/0017)., x-audience: cluster }
 servers: [{ url: / }]   # east-west control-plane service; no /api edge route (ADR-0009)
-tags: [{ name: authorize }, { name: operators }]
+tags: [{ name: authorize }, { name: operators }, { name: identities, x-admin: crud }]
 paths:
   /authorize:
     post:
@@ -21,6 +21,21 @@ paths:
         "403":
           description: Denied.
           content: { application/problem+json: { schema: { $ref: "#/components/schemas/Problem" } } }
+        default: { $ref: "#/components/responses/Error" }
+  /identities:
+    get:
+      operationId: listIdentities
+      # Read-only changelist target (ADR-0012): the console's Users page. The list is
+      # served from Kratos admin (GET /admin/identities), which only authz may reach
+      # (network-policies/30-ory.yaml) — the console fetches it through here, never
+      # directly. No add/edit ops under this tag, so admin-gen emits a list page only;
+      # operator creation stays the dedicated createOperator action.
+      description: List all identities (product users and operators) from Kratos.
+      tags: [identities]
+      responses:
+        "200":
+          description: The identities.
+          content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Identity" } } } }
         default: { $ref: "#/components/responses/Error" }
   /operators:
     post:
@@ -75,3 +90,12 @@ components:
       properties:
         id:    { type: string }
         email: { type: string }
+    Identity:
+      type: object
+      description: A Kratos identity, flattened from its traits for the admin changelist.
+      required: [id, email]
+      properties:
+        id:       { type: string }
+        email:    { type: string }
+        name:     { type: string }
+        operator: { type: boolean }

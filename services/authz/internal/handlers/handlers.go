@@ -101,6 +101,19 @@ func (h *Handlers) CreateOperator(ctx context.Context, req *authzsdk.OperatorInp
 	return &authzsdk.Operator{ID: id, Email: req.Email}, nil
 }
 
+// ListIdentities returns every Kratos identity (product users and operators),
+// flattened from traits — the console's read-only Users changelist (ADR-0012).
+// Only authz may reach the Kratos admin API (network-policies/30-ory.yaml), so the
+// console fetches this list through here rather than talking to Kratos directly.
+func (h *Handlers) ListIdentities(ctx context.Context) ([]authzsdk.Identity, error) {
+	ids, err := h.listKratosIdentities(ctx)
+	if err != nil {
+		h.log.Error("list kratos identities", "err", err)
+		return nil, apierr.Internal("failed to list identities")
+	}
+	return ids, nil
+}
+
 // NewError maps a handler error onto the generated RFC 7807 default response.
 func (h *Handlers) NewError(_ context.Context, err error) *authzsdk.ErrorStatusCode {
 	e, ok := apierr.As(err)
@@ -168,6 +181,56 @@ type kratosAddress struct {
 	Via      string `json:"via"`
 	Verified bool   `json:"verified"`
 	Status   string `json:"status"`
+}
+
+// listKratosIdentities pages through GET /admin/identities and flattens each
+// identity's traits into the admin-facing Identity shape.
+func (h *Handlers) listKratosIdentities(ctx context.Context) ([]authzsdk.Identity, error) {
+	req, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodGet,
+		h.kratosAdmin+"/admin/identities",
+		nil,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("build request: %w", err)
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("call kratos: %w", err)
+	}
+	defer func() {
+		closeErr := resp.Body.Close()
+		if closeErr != nil {
+			h.log.Error("close kratos response body", "err", closeErr)
+		}
+	}()
+	if resp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("kratos %d: %s", resp.StatusCode, b)
+	}
+	var raw []struct {
+		ID     string `json:"id"`
+		Traits struct {
+			Email    string `json:"email"`
+			Name     string `json:"name"`
+			Operator bool   `json:"operator"`
+		} `json:"traits"`
+	}
+	err = json.NewDecoder(resp.Body).Decode(&raw)
+	if err != nil {
+		return nil, fmt.Errorf("decode kratos response: %w", err)
+	}
+	out := make([]authzsdk.Identity, 0, len(raw))
+	for _, r := range raw {
+		id := authzsdk.Identity{ID: r.ID, Email: r.Traits.Email}
+		if r.Traits.Name != "" {
+			id.Name = authzsdk.NewOptString(r.Traits.Name)
+		}
+		id.Operator = authzsdk.NewOptBool(r.Traits.Operator)
+		out = append(out, id)
+	}
+	return out, nil
 }
 
 func (h *Handlers) createKratosIdentity(ctx context.Context, email, password string) (string, error) {

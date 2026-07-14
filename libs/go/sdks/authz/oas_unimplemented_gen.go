@@ -31,6 +31,15 @@ func (UnimplementedHandler) CreateOperator(ctx context.Context, req *OperatorInp
 	return r, ht.ErrNotImplemented
 }
 
+// ListIdentities implements listIdentities operation.
+//
+// List all identities (product users and operators) from Kratos.
+//
+// GET /identities
+func (UnimplementedHandler) ListIdentities(ctx context.Context) (r []Identity, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
 // NewError creates *ErrorStatusCode from error returned by handler.
 //
 // Used for common default response.

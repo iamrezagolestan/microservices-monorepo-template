@@ -11,6 +11,11 @@
       properties:
         title: Authz
       links:
+        - id: link_identities
+          type: MenuLink
+          pageId: identities
+          properties:
+            title: Identities
         - id: link_createOperator
           type: MenuLink
           pageId: createOperator
