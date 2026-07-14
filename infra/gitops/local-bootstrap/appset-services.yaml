@@ -6,12 +6,13 @@
 # The frontend is intentionally absent locally: it runs as a host process and is
 # wired through the frontend-dev EndpointSlice (the imperative tail of cluster:full).
 #
-# sync-wave "25" holds this back until local-platform + local-secrets (both wave
-# "0") and local-gateway (wave "5") are all Synced+Healthy — the same
-# CNI-stability/middleware/DB-credential dependencies as prod, plus the
-# per-service Secrets that local-secrets's sops-operator materialises. Without
-# this, service pods raced Cilium/CoreDNS warm-up and the local registry on
-# every `cluster:full` after a `cluster:stop`, landing in CrashLoopBackOff.
+# sync-wave "5" holds this back until the whole local-platform tier (base "0",
+# data "2", core "3"), local-secrets ("1"), and local-gateway ("4") are all
+# Synced+Healthy — the same CNI-stability/middleware/DB-credential dependencies as
+# prod, plus the per-service Secrets that local-secrets's sops-operator
+# materialises. Without this, service pods raced Cilium/CoreDNS warm-up and the
+# local registry on every `cluster:full` after a `cluster:stop`, landing in
+# CrashLoopBackOff.
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
@@ -21,7 +22,7 @@ metadata:
     env: local
     app.kubernetes.io/part-of: services
   annotations:
-    argocd.argoproj.io/sync-wave: "25"
+    argocd.argoproj.io/sync-wave: "5"
 spec:
   goTemplate: true
   goTemplateOptions: ["missingkey=error"]

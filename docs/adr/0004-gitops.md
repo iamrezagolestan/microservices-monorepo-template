@@ -71,10 +71,23 @@ Adding a new service is: create the service folder ([ADR-0002](0002-monorepo.md)
 
 ### Fan-out: ApplicationSet per environment
 
-Two ApplicationSets per environment:
+The platform tier is split into three dependency layers, each its own ApplicationSet, plus a services set — four ApplicationSets per environment. They are ordered by sync-wave on the root app-of-apps:
 
-1. **Platform ApplicationSet** — list generator over `infra/helm/platform/*`, all charts at one sync-wave (no CRD-before-consumer split within the tier yet — a follow-up). The ApplicationSet itself sits at wave `0` so later waves (gateway, secrets, services) block until every platform component it generates is actually Synced+Healthy — the default ApplicationSet health only reflects successful templating, so a custom health check on the `ApplicationSet` kind (`infra/helm/platform/argocd/values.yaml`) walks `.status.resources` to make that gate real.
-2. **Services ApplicationSet** — git-directory generator over `infra/gitops/services/<env>/values/*.yaml`. One Application per service per environment, created and deleted automatically as files are added and removed. Sits at a later sync-wave than platform and gateway (and, locally, secrets) so service pods aren't created until their platform-tier dependencies (Postgres/Temporal/SpiceDB, CNI/CoreDNS stability, DB credentials) are actually up — see `infra/gitops/{bootstrap,local-bootstrap}/appset-*.yaml` for the exact wave numbers.
+| Wave | Set / App | Components | Depends on |
+| ---- | --------- | ---------- | ---------- |
+| `-10` | AppProjects | per-env `AppProject`s | — |
+| `0` | `platform-base` | sops-operator, cert-manager, network-policies (+ cilium, argocd in prod) | — |
+| `1` | secrets *(local only)* | the `SopsSecret` CR | base (operator + CRD up) |
+| `2` | `platform-data` | postgres, minio | secrets (creds decrypted) |
+| `3` | `platform-core` | observability *(tempo/loki)*, ory, temporal, spicedb, pgweb, headlamp, lowdefy | data (live Postgres, MinIO buckets) |
+| `4` | gateway | Traefik middlewares + cross-cutting IngressRoutes | core |
+| `5` | services | one Application per service (git-directory generator over `infra/gitops/services/<env>/values/*.yaml`) | gateway |
+
+`cilium`/`argocd` are in the prod base tier but excluded locally, where `cluster:full` installs them imperatively (a CNI must exist before any pod; Argo cannot install itself).
+
+**Why three sets and not per-chart sync-waves within one set:** sync-waves on the Applications a single ApplicationSet generates are *inert*. Those Applications are created by the ApplicationSet controller, not synced as a parent's resources, so ArgoCD never sequences them among themselves — it applies them all concurrently. Ordering exists only at the granularity of a root-app-of-apps child, so each tier must be its own set.
+
+**What makes the waves real gates:** the default ApplicationSet health only reflects successful templating, so a custom health check on the `ApplicationSet` kind (`infra/helm/platform/argocd/values.yaml`) walks `.status.resources` and reports Progressing until every generated Application is Synced+Healthy — so wave 3 blocks until every wave-0/1/2 component is actually up. A companion health check on the CNPG `Cluster` kind makes the data→core gate honest (otherwise ArgoCD reports the unknown CRD Healthy the instant it applies, and core would start against a not-yet-ready Postgres). Charts *within* a tier are still applied concurrently and must tolerate that.
 
 A new service appears in dev the moment its `dev/values/<svc>.yaml` lands in `master`. No ArgoCD config changes required to onboard a service. This is the property that makes 100 services tractable for an 8-engineer team.
 
@@ -187,13 +200,12 @@ bootstrap — the CNI (Cilium) and ArgoCD itself; everything else is Argo-manage
 
 - `infra/helm/platform/argocd/` chart values (HA in prod, single-replica in dev/staging).
 - `infra/helm/service/` shared backend service chart.
-- `infra/gitops/bootstrap/root-application.yaml` and both ApplicationSets.
+- `infra/gitops/bootstrap/root-application.yaml`, the three platform ApplicationSets (base/data/core), and the services ApplicationSet.
 - `tools/promote/` Go program: open the values-bump PR for dev + staging (on merge) and for prod (on release tag).
 - `.github/workflows/promote-on-merge.yml` for dev + staging value bumps on `master` merge.
 - `.github/workflows/promote-on-release.yml` for prod value bump + GitHub Release on tag push.
 - `helm template` snapshot tests in CI; `helm lint` and `kubeconform` on the chart.
 - `docs/gitops/runbook.md` covering sync failures, drift, rollback, and fresh-cluster bootstrap.
-- Per-chart sync-waves within the platform ApplicationSet (CRDs → operators → instances) — today every platform chart shares one wave; they only need to tolerate concurrent apply with each other, not with services (which sits at a later wave, see "Fan-out" above).
 
 ## Rules
 

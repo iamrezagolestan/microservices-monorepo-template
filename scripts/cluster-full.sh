@@ -72,16 +72,17 @@ k -n "$NS" create configmap grafana-dashboards \
 #     (ADR-0016). Must run before step 4 so images exist before Argo creates pods.
 #     Build args mirror scripts/service-deploy.sh.
 REG="k3d-registry.localhost:5000"
-build_push() {  # <image-name> <dockerfile> <context> [extra docker build args…]
-  local name="$1" dockerfile="$2" context="$3"; shift 3
+build_push() { # <image-name> <dockerfile> <context> [extra docker build args…]
+  local name="$1" dockerfile="$2" context="$3"
+  shift 3
   # Behind a slow proxy, buildkit's fetch of the Dockerfile frontend + base images
   # (docker.io) trips TLS-handshake timeouts intermittently; the layers it did get
   # are cached, so a retry rides over the transient failure. Fails loudly if all
   # attempts miss — same explicit retry the unwedge script uses for host pulls.
   local attempt
   for attempt in 1 2 3; do
-    if docker build -t "${REG}/${name}:local" -f "$dockerfile" "$@" "$context" \
-        && docker push "${REG}/${name}:local"; then
+    if docker build -t "${REG}/${name}:local" -f "$dockerfile" "$@" "$context" &&
+      docker push "${REG}/${name}:local"; then
       return 0
     fi
     echo "    (build/push of ${name} attempt ${attempt} failed — retrying)"
@@ -94,7 +95,7 @@ echo "→ building + pushing repo images to ${REG}"
 # so /version and the X-App-Version header report exactly what this run deployed.
 REV="$(git rev-parse --short=12 HEAD 2>/dev/null || echo unknown)"
 git diff --quiet 2>/dev/null || REV="${REV}-dirty"
-BUILD_ID=(--build-arg "GIT_SHA=${REV}" --build-arg BUILD_VERSION=local \
+BUILD_ID=(--build-arg "GIT_SHA=${REV}" --build-arg BUILD_VERSION=local
   --build-arg "BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)")
 for svc in authz catalog orders orgs payment; do
   build_push "${svc}-server" "services/${svc}/Dockerfile" . \
@@ -114,8 +115,8 @@ k apply -f infra/gitops/local-bootstrap/root-application.yaml
 #    foreground, streams per-resource sync/health as it changes, and exits
 #    non-zero with the offending resource the moment a sync operation fails
 #    (no silent wait to the timeout). Two phases because apps are generated
-#    asynchronously: first the root app (its AppProject + 2 child apps + 2
-#    appsets), then
+#    asynchronously: first the root app (its AppProject + 2 child apps [secrets,
+#    gateway] + 4 appsets [platform-base/data/core, services]), then
 #    every app the appsets produced. Appset generation lags appset sync, so the
 #    set is re-listed until stable.
 echo "→ waiting for ArgoCD to converge (this is a full platform; first run is slow)…"
@@ -132,7 +133,8 @@ kubectl --kubeconfig "$AC_KUBECONFIG" config set-context --current --namespace a
 # first thing to suspect: terminate the wedged operation and force a fresh one
 # (which recomputes the plan against current git) before giving up for real.
 wait_apps() {
-  local timeout="$1"; shift
+  local timeout="$1"
+  shift
   if ac app wait "$@" --sync --health --operation --timeout "$timeout"; then
     return 0
   fi
