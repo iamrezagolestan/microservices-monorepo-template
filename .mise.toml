@@ -126,6 +126,21 @@ run = "bash scripts/cluster-unwedge-images.sh"
 # automatically only when CLUSTER_PRELOAD=1.
 run = "bash scripts/cluster-preload-images.sh"
 
+[tasks."argo:pause"]
+# Open a live-patch window: ArgoCD selfHeal reverts any direct edit to a synced
+# resource within seconds, so scale the application-controller to 0 before
+# kubectl-patching / helm-upgrading the cluster by hand (e.g. validating a values
+# or NetworkPolicy fix before it lands on master). The cluster keeps running —
+# only reconciliation stops. ALWAYS pair with argo:resume; a paused controller
+# means the cluster silently stops tracking master.
+run = "kubectl --context k3d-${CLUSTER:-platform} -n argocd scale statefulset/argocd-application-controller --replicas=0"
+
+[tasks."argo:resume"]
+# Close the live-patch window and hand the cluster back to GitOps. Anything patched
+# live that is not committed to master is reverted on the next sync — that is the
+# point: push first, then resume, or lose the change.
+run = "kubectl --context k3d-${CLUSTER:-platform} -n argocd scale statefulset/argocd-application-controller --replicas=1"
+
 [tasks."dev:forward"]
 # Port-forward the inner-loop deps so a natively-run service can reach them.
 # Long-running — use a separate terminal. See docs/dev-loop.md.
