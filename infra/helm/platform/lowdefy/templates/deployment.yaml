@@ -12,7 +12,7 @@ spec:
     spec:
       containers:
         - name: lowdefy
-          image: "{{ .Values.lowdefy.image.repository }}:{{ .Values.lowdefy.image.tag }}"
+          image: {{ include "lowdefy.image" . | quote }}
           imagePullPolicy: {{ .Values.lowdefy.image.pullPolicy }}
           ports: [{ name: http, containerPort: 3000 }]
           env:

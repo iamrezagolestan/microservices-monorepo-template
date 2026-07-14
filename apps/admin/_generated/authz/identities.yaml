@@ -21,6 +21,10 @@ blocks:
     properties:
       content: Identities
       level: 3
+  - id: hint
+    type: Paragraph
+    properties:
+      content: Click a row to edit.
   - id: identities_card
     type: Card
     properties:
@@ -38,5 +42,16 @@ blocks:
               headerName: Name
             - field: operator
               headerName: Operator
+          pagination: true
+          paginationPageSize: 20
           rowData:
             _request: list.data
+        events:
+          onRowClick:
+            - id: openRow
+              params:
+                pageId: identities_edit
+                urlQuery:
+                  id:
+                    _event: row.id
+              type: Link

@@ -25,17 +25,51 @@ paths:
   /identities:
     get:
       operationId: listIdentities
-      # Read-only changelist target (ADR-0012): the console's Users page. The list is
-      # served from Kratos admin (GET /admin/identities), which only authz may reach
+      # Changelist target (ADR-0012): the console's Users page. The list is served from
+      # Kratos admin (GET /admin/identities), which only authz may reach
       # (network-policies/30-ory.yaml) — the console fetches it through here, never
-      # directly. No add/edit ops under this tag, so admin-gen emits a list page only;
-      # operator creation stays the dedicated createOperator action.
-      description: List all identities (product users and operators) from Kratos.
+      # directly. Adding a create op here would scaffold an "add user" page; we don't
+      # want that (operator creation stays the dedicated createOperator action), so the
+      # tag exposes list + get + update only → admin-gen emits a changelist + an edit
+      # page, no add page.
+      description: List identities (product users and operators) from Kratos, paginated.
       tags: [identities]
+      # Pagination is forwarded to Kratos admin (page/per_page). The generated
+      # changelist also paginates client-side in the grid; for identity counts beyond
+      # one Kratos page, raise per_page or wire the grid to re-request by page.
+      parameters:
+        - { name: page, in: query, required: false, description: 1-based page number., schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: per_page, in: query, required: false, description: Page size., schema: { type: integer, minimum: 1, maximum: 1000, default: 250 } }
       responses:
         "200":
           description: The identities.
           content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Identity" } } } }
+        default: { $ref: "#/components/responses/Error" }
+  /identities/{id}:
+    get:
+      operationId: getIdentity
+      # Prefills the console's edit form (admin-gen loads GET /{id} on mount).
+      description: Fetch one identity by id.
+      tags: [identities]
+      parameters:
+        - { name: id, in: path, required: true, description: The id of the identity to fetch., schema: { type: string } }
+      responses:
+        "200": { description: The identity., content: { application/json: { schema: { $ref: "#/components/schemas/Identity" } } } }
+        default: { $ref: "#/components/responses/Error" }
+    put:
+      operationId: updateIdentity
+      # Edit target (ADR-0012): the console's per-row change page. Updates the editable
+      # traits only; email is the login identifier and is intentionally not editable.
+      description: Update an identity's editable traits.
+      tags: [identities]
+      parameters:
+        - { name: id, in: path, required: true, description: The id of the identity to update., schema: { type: string } }
+      requestBody:
+        required: true
+        description: The traits to change.
+        content: { application/json: { schema: { $ref: "#/components/schemas/IdentityUpdate" } } }
+      responses:
+        "200": { description: The updated identity., content: { application/json: { schema: { $ref: "#/components/schemas/Identity" } } } }
         default: { $ref: "#/components/responses/Error" }
   /operators:
     post:
@@ -97,5 +131,11 @@ components:
       properties:
         id:       { type: string }
         email:    { type: string }
+        name:     { type: string }
+        operator: { type: boolean }
+    IdentityUpdate:
+      type: object
+      description: The editable traits of an identity. Email is the login identifier and is not editable here.
+      properties:
         name:     { type: string }
         operator: { type: boolean }

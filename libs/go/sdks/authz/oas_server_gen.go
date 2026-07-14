@@ -20,12 +20,24 @@ type Handler interface {
 	//
 	// POST /operators
 	CreateOperator(ctx context.Context, req *OperatorInput) (*Operator, error)
+	// GetIdentity implements getIdentity operation.
+	//
+	// Fetch one identity by id.
+	//
+	// GET /identities/{id}
+	GetIdentity(ctx context.Context, params GetIdentityParams) (*Identity, error)
 	// ListIdentities implements listIdentities operation.
 	//
-	// List all identities (product users and operators) from Kratos.
+	// List identities (product users and operators) from Kratos, paginated.
 	//
 	// GET /identities
-	ListIdentities(ctx context.Context) ([]Identity, error)
+	ListIdentities(ctx context.Context, params ListIdentitiesParams) ([]Identity, error)
+	// UpdateIdentity implements updateIdentity operation.
+	//
+	// Update an identity's editable traits.
+	//
+	// PUT /identities/{id}
+	UpdateIdentity(ctx context.Context, req *IdentityUpdate, params UpdateIdentityParams) (*Identity, error)
 	// NewError creates *ErrorStatusCode from error returned by handler.
 	//
 	// Used for common default response.

@@ -64,6 +64,9 @@ jobs:
             pin "$path" ".image"
             pin "$path" ".worker.image"
           done
+          # The admin console is the one repo-built platform image (lowdefy chart,
+          # ADR-0012); pin it by digest the same way, at its platform overlay path.
+          pin "infra/gitops/platform/prod/values.yaml" ".lowdefy.image"
 
       - uses: peter-evans/create-pull-request@v7
         with:

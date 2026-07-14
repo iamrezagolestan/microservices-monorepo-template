@@ -40,5 +40,7 @@ blocks:
               headerName: Total cents
             - field: status
               headerName: Status
+          pagination: true
+          paginationPageSize: 20
           rowData:
             _request: list.data

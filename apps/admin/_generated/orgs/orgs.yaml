@@ -52,6 +52,8 @@ blocks:
               headerName: Id
             - field: name
               headerName: Name
+          pagination: true
+          paginationPageSize: 20
           rowData:
             _request: list.data
         events:

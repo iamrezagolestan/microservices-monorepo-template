@@ -145,6 +145,33 @@ func (s *Identity) SetOperator(val OptBool) {
 	s.Operator = val
 }
 
+// The editable traits of an identity. Email is the login identifier and is not editable here.
+// Ref: #/components/schemas/IdentityUpdate
+type IdentityUpdate struct {
+	Name     OptString `json:"name"`
+	Operator OptBool   `json:"operator"`
+}
+
+// GetName returns the value of Name.
+func (s *IdentityUpdate) GetName() OptString {
+	return s.Name
+}
+
+// GetOperator returns the value of Operator.
+func (s *IdentityUpdate) GetOperator() OptBool {
+	return s.Operator
+}
+
+// SetName sets the value of Name.
+func (s *IdentityUpdate) SetName(val OptString) {
+	s.Name = val
+}
+
+// SetOperator sets the value of Operator.
+func (s *IdentityUpdate) SetOperator(val OptBool) {
+	s.Operator = val
+}
+
 // A created operator.
 // Ref: #/components/schemas/Operator
 type Operator struct {
@@ -239,6 +266,52 @@ func (o OptBool) Get() (v bool, ok bool) {
 
 // Or returns value if set, or given parameter if does not.
 func (o OptBool) Or(d bool) bool {
+	if v, ok := o.Get(); ok {
+		return v
+	}
+	return d
+}
+
+// NewOptInt returns new OptInt with value set to v.
+func NewOptInt(v int) OptInt {
+	return OptInt{
+		Value: v,
+		Set:   true,
+	}
+}
+
+// OptInt is optional int.
+type OptInt struct {
+	Value int
+	Set   bool
+}
+
+// IsSet returns true if OptInt was set.
+func (o OptInt) IsSet() bool { return o.Set }
+
+// Reset unsets value.
+func (o *OptInt) Reset() {
+	var v int
+	o.Value = v
+	o.Set = false
+}
+
+// SetTo sets value to v.
+func (o *OptInt) SetTo(v int) {
+	o.Set = true
+	o.Value = v
+}
+
+// Get returns value and boolean that denotes whether value was set.
+func (o OptInt) Get() (v int, ok bool) {
+	if !o.Set {
+		return v, false
+	}
+	return o.Value, true
+}
+
+// Or returns value if set, or given parameter if does not.
+func (o OptInt) Or(d int) int {
 	if v, ok := o.Get(); ok {
 		return v
 	}

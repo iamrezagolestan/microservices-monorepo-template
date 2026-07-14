@@ -54,6 +54,8 @@ blocks:
               headerName: Name
             - field: price_cents
               headerName: Price cents
+          pagination: true
+          paginationPageSize: 20
           rowData:
             _request: list.data
         events:

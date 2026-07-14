@@ -47,6 +47,9 @@ func TestLabels(t *testing.T) {
 	if got := singular("orgs"); got != "org" {
 		t.Errorf("singular = %q", got)
 	}
+	if got := singular("identities"); got != "identity" {
+		t.Errorf("singular(identities) = %q, want identity", got)
+	}
 }
 
 func newOp(method, path string, respCodes []string, pathParams ...string) op {

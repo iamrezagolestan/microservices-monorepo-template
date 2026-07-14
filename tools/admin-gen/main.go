@@ -65,6 +65,9 @@ const (
 	crudMarker   = "crud"
 	actionMarker = "action"
 
+	// listPageSize is the changelist grid's client-side page size (Django-style).
+	listPageSize = 20
+
 	menuFile = "menu.yaml"
 
 	// Lowdefy action + menu type strings and the map keys used across page blocks.
@@ -290,6 +293,11 @@ func (d *doc) writeListPage(svc string, r *resource, hasEdit bool) (string, erro
 	table.Properties = map[string]any{
 		"rowData":    map[string]any{requestKey: "list.data"},
 		"columnDefs": d.columnDefs(r.list.responseSchema()),
+		// Every changelist paginates, like Django admin. AgGrid paginates the loaded
+		// page client-side; the list request itself is a single server page (services
+		// that support it accept page/per_page — see authz listIdentities).
+		"pagination":         true,
+		"paginationPageSize": listPageSize,
 	}
 	if hasEdit {
 		// Django's changelist: click a row to open its change page. The AgGrid
@@ -909,9 +917,13 @@ func title(s string) string {
 	return strings.ToUpper(s[:1]) + s[1:]
 }
 
-// singular strips a trailing plural "s" for per-record labels ("products" ->
-// "product"). Good enough for the demo resource nouns (products, orders, orgs).
+// singular turns a plural resource noun into its per-record label: "identities" ->
+// "identity" ("ies" -> "y"), "products" -> "product" (drop trailing "s"). Good
+// enough for the demo resource nouns; not a full inflector.
 func singular(s string) string {
+	if strings.HasSuffix(s, "ies") && len(s) > 3 {
+		return s[:len(s)-3] + "y"
+	}
 	if strings.HasSuffix(s, "s") && len(s) > 1 {
 		return s[:len(s)-1]
 	}

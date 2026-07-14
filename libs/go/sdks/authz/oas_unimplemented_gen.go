@@ -31,12 +31,30 @@ func (UnimplementedHandler) CreateOperator(ctx context.Context, req *OperatorInp
 	return r, ht.ErrNotImplemented
 }
 
+// GetIdentity implements getIdentity operation.
+//
+// Fetch one identity by id.
+//
+// GET /identities/{id}
+func (UnimplementedHandler) GetIdentity(ctx context.Context, params GetIdentityParams) (r *Identity, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
 // ListIdentities implements listIdentities operation.
 //
-// List all identities (product users and operators) from Kratos.
+// List identities (product users and operators) from Kratos, paginated.
 //
 // GET /identities
-func (UnimplementedHandler) ListIdentities(ctx context.Context) (r []Identity, _ error) {
+func (UnimplementedHandler) ListIdentities(ctx context.Context, params ListIdentitiesParams) (r []Identity, _ error) {
+	return r, ht.ErrNotImplemented
+}
+
+// UpdateIdentity implements updateIdentity operation.
+//
+// Update an identity's editable traits.
+//
+// PUT /identities/{id}
+func (UnimplementedHandler) UpdateIdentity(ctx context.Context, req *IdentityUpdate, params UpdateIdentityParams) (r *Identity, _ error) {
 	return r, ht.ErrNotImplemented
 }
 

@@ -11,6 +11,11 @@ ARG NODE_VERSION=22
 ARG LOWDEFY_VERSION=5.4.0
 FROM node:${NODE_VERSION}-alpine
 ARG LOWDEFY_VERSION
+# Build identity (ADR-0013): the commit SHA, recorded as the standard OCI revision
+# label so the image reports exactly what was built (the same SERVICE_VERSION build
+# arg the frontend takes, so one apps matrix builds both).
+ARG SERVICE_VERSION=dev
+LABEL org.opencontainers.image.revision="${SERVICE_VERSION}"
 WORKDIR /app
 # corepack provides the pnpm that Lowdefy requires at build and start. pnpm 10+
 # hard-fails (ERR_PNPM_IGNORED_BUILDS) when a dependency's build script is blocked;

@@ -290,7 +290,9 @@ run = "helm --kube-context k3d-${CLUSTER:-platform} uninstall -n platform"
 
 [tasks."platform:deploy"]
 # One-shot working-tree overlay of a platform chart (rare infra iteration).
-#   mise run platform:deploy -- <chart>
+#   mise run platform:deploy -- <chart>     # e.g. ory, observability, lowdefy
+# For lowdefy (the admin console) this also rebuilds the baked image, since its
+# YAML pages are compiled in at build time.
 run = "bash scripts/platform-deploy.sh"
 
 # ── Auth, ops & secrets ───────────────────────────────────────────────────────
