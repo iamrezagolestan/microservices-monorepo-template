@@ -12,4 +12,10 @@ ingress: { enabled: true, host: dev.example.com, resources: [charges] }
 # The Lowdefy admin console (apps/admin) calls payment server-side, east-west on
 # the server port, bypassing the /api edge (ADR-0012).
 networkPolicy: { allowFrom: [lowdefy] }
-secrets: { envFrom: [payment-db-creds, payment-temporal-creds] }
+secrets: { envFrom: [payment-db-creds, payment-temporal-creds, spicedb-creds] }
+env:
+  # Write authz (ADR-0010): the server gates the operator-only refund via the shared
+  # Checker. Blank preshared key falls back to spicedb-creds.preshared_key (envFrom),
+  # as catalog and the authz service do.
+  SPICEDB_ENDPOINT: "spicedb.platform.svc.cluster.local:50051"
+  SPICEDB_PRESHARED_KEY: ""

@@ -12,7 +12,12 @@ ingress: { enabled: true, host: dev.example.com, resources: [orders] }
 # The Lowdefy admin console (apps/admin) calls orders server-side, east-west on
 # the server port, bypassing the /api edge (ADR-0012).
 networkPolicy: { allowFrom: [lowdefy] }
-secrets: { envFrom: [orders-db-creds] }
+secrets: { envFrom: [orders-db-creds, spicedb-creds] }
 env:
   CATALOG_URL: http://catalog-server.platform.svc.cluster.local
   PAYMENT_URL: http://payment-server.platform.svc.cluster.local
+  # Write authz (ADR-0010): the server gates the operator-only cancel via the shared
+  # Checker. Blank preshared key falls back to spicedb-creds.preshared_key (envFrom),
+  # as catalog and the authz service do.
+  SPICEDB_ENDPOINT: "spicedb.platform.svc.cluster.local:50051"
+  SPICEDB_PRESHARED_KEY: ""

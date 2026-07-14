@@ -53,6 +53,27 @@ export async function passwordLogin(page: Page, email: string, password: string)
   await waitForSession(page);
 }
 
+// register completes a self-service registration (password method) through the
+// rendered form. This is the ONLY path that fires the registration `after`
+// web_hook (infra/auth/kratos/values.yaml) — identities created through the Kratos
+// admin API (fixtures/bootstrap.ts, scripts/ops-grant.sh) skip self-service flows
+// entirely, so they never get a personal org.
+//
+// No `session` hook is configured after registration, so this does NOT leave an
+// authenticated session; it only proves the identity was created.
+export async function register(page: Page, email: string, password: string): Promise<void> {
+  await gotoFlow(page, init("registration"));
+  await page.locator('input[name="traits.email"]').waitFor({ state: "visible", timeout: 20_000 });
+  await page.fill('input[name="traits.email"]', email);
+  await page.fill('input[name="password"]', password);
+  await page.click(submitFor("password"));
+  // Kratos re-renders the register form with the message on any failure — including
+  // a rejected password policy and, because the orgs web_hook is blocking
+  // (`ignore: false`), a failed personal-org enqueue. Leaving the form is therefore
+  // the success signal.
+  await expect(page).not.toHaveURL(/\/auth\/register/, { timeout: 30_000 });
+}
+
 // operatorLogin performs a complete operator login from a fresh context: first
 // factor (password), then — because an operator has TOTP enrolled — the second
 // factor on the same /auth/login flow, answered with the known secret. Ends with

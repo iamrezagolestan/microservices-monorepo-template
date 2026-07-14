@@ -39,7 +39,10 @@ spec:
 ## console (lowdefy) writes relationship grants. The spicedb-seed job writes the
 ## schema + bootstrap grants at bring-up, so it needs 50051 too. Business services
 ## that authorize writes via the shared Checker (ADR-0010) dial it directly too —
-## catalog gates product creation on group:operator.
+## catalog gates product creation on group:operator, orders the cancel, payment the
+## refund, and the orgs worker WRITES the org#admin tuple as leg 2 of the
+## registration dual-write. Every service holding a Checker or Granter must be
+## listed here or it fails closed at the network, not at the authz layer.
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
@@ -54,5 +57,8 @@ spec:
         - matchLabels: { k8s:io.kubernetes.pod.namespace: platform, app.kubernetes.io/name: lowdefy }
         - matchLabels: { k8s:io.kubernetes.pod.namespace: platform, app.kubernetes.io/name: spicedb-seed }
         - matchLabels: { k8s:io.kubernetes.pod.namespace: platform, app.kubernetes.io/name: catalog }
+        - matchLabels: { k8s:io.kubernetes.pod.namespace: platform, app.kubernetes.io/name: orders }
+        - matchLabels: { k8s:io.kubernetes.pod.namespace: platform, app.kubernetes.io/name: payment }
+        - matchLabels: { k8s:io.kubernetes.pod.namespace: platform, app.kubernetes.io/name: orgs }
       toPorts:
         - ports: [{ port: "50051", protocol: TCP }]
