@@ -17,6 +17,8 @@ import (
 	"go.temporal.io/sdk/client"
 
 	"github.com/tabmadi/microservices-monorepo-template/libs/go/apierr"
+	"github.com/tabmadi/microservices-monorepo-template/libs/go/authmw"
+	"github.com/tabmadi/microservices-monorepo-template/libs/go/authz"
 	"github.com/tabmadi/microservices-monorepo-template/libs/go/observability"
 	orders "github.com/tabmadi/microservices-monorepo-template/libs/go/sdks/orders"
 	"github.com/tabmadi/microservices-monorepo-template/services/orders/internal/store"
@@ -28,13 +30,15 @@ const serviceName = "orders"
 type Handlers struct {
 	q                store.Querier
 	tc               client.Client
+	checker          authz.Checker
 	checkoutsStarted metric.Int64Counter
 }
 
-func New(db *pgxpool.Pool, tc client.Client) *Handlers {
+func New(db *pgxpool.Pool, tc client.Client, checker authz.Checker) *Handlers {
 	return &Handlers{
 		q:                store.New(db),
 		tc:               tc,
+		checker:          checker,
 		checkoutsStarted: observability.Counter("orders.checkouts_started"),
 	}
 }
@@ -125,6 +129,10 @@ func (h *Handlers) CancelOrder(ctx context.Context, params orders.CancelOrderPar
 	ctx, span := observability.StartSpan(ctx, "orders.CancelOrder")
 	defer span.End()
 
+	err := h.requireOperator(ctx, "cancelling orders")
+	if err != nil {
+		return nil, err
+	}
 	row, err := h.q.GetOrder(ctx, pgtype.UUID{Bytes: params.ID, Valid: true})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, apierr.NotFound("order")
@@ -164,4 +172,23 @@ func (h *Handlers) NewError(_ context.Context, err error) *orders.ErrorStatusCod
 		return &orders.ErrorStatusCode{StatusCode: e.Status, Response: orders.Problem{Code: e.Code, Message: e.Message}}
 	}
 	return &orders.ErrorStatusCode{StatusCode: 500, Response: orders.Problem{Code: "internal", Message: err.Error()}}
+}
+
+// requireOperator gates a write on the shared SpiceDB Checker (ADR-0010): the
+// caller must be an authenticated operator. Reads (List/Get) and starting a
+// checkout stay open; only the destructive cancel is gated, matching catalog's
+// operator-write policy.
+func (h *Handlers) requireOperator(ctx context.Context, action string) error {
+	principal, _ := authmw.FromContext(ctx)
+	if !principal.Authenticated() {
+		return apierr.Unauthorized()
+	}
+	allowed, err := h.checker.Allowed(ctx, principal.Subject(), "member", "group:operator")
+	if err != nil {
+		return apierr.Internal(err.Error())
+	}
+	if !allowed {
+		return apierr.Forbidden(action + " requires operator")
+	}
+	return nil
 }

@@ -240,10 +240,12 @@ run = "bash scripts/lint-auth-inline.sh"
 # Edge-auth policy gates (ADR-0009/0010/0017):
 #   - SpiceDB schema + assertions (zed validate)
 #   - ops dashboards authorize via remote_json → Checker, never `allow`
+#   - the product /api rule enumerates resources, never a bare /api wildcard
 #   - every forward-auth route strips client identity headers first (anti-spoofing)
 run = """
 bash scripts/validate-spicedb.sh
 bash scripts/lint-authorizer.sh
+bash scripts/lint-api-wildcard.sh
 bash scripts/lint-strip-headers.sh
 """
 

@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/tabmadi/microservices-monorepo-template/libs/go/authmw"
+	"github.com/tabmadi/microservices-monorepo-template/libs/go/authz"
 	"github.com/tabmadi/microservices-monorepo-template/libs/go/dbmw"
 	"github.com/tabmadi/microservices-monorepo-template/libs/go/httpmw"
 	"github.com/tabmadi/microservices-monorepo-template/libs/go/observability"
@@ -47,14 +48,20 @@ func run() error {
 	defer db.Close()
 
 	// The webhook handler only enqueues the RegisterUser workflow; the worker
-	// (cmd/worker) runs it. SpiceDB is dialled there, not here.
+	// (cmd/worker) runs the dual-write. The server still dials SpiceDB for the
+	// operator gate on the Update/Delete org mutations (ADR-0010).
 	tc, err := temporalmw.NewClient(serviceName)
 	if err != nil {
 		return fmt.Errorf("temporal: %w", err)
 	}
 	defer tc.Close()
 
-	api, err := orgs.NewServer(handlers.New(db, tc))
+	checker, err := authz.New()
+	if err != nil {
+		return fmt.Errorf("authz: %w", err)
+	}
+
+	api, err := orgs.NewServer(handlers.New(db, tc, checker))
 	if err != nil {
 		return fmt.Errorf("ogen server: %w", err)
 	}

@@ -13,6 +13,8 @@ import (
 	"go.temporal.io/sdk/client"
 
 	"github.com/tabmadi/microservices-monorepo-template/libs/go/apierr"
+	"github.com/tabmadi/microservices-monorepo-template/libs/go/authmw"
+	"github.com/tabmadi/microservices-monorepo-template/libs/go/authz"
 	orgs "github.com/tabmadi/microservices-monorepo-template/libs/go/sdks/orgs"
 	"github.com/tabmadi/microservices-monorepo-template/services/orgs/internal/store"
 	"github.com/tabmadi/microservices-monorepo-template/services/orgs/internal/workflows"
@@ -21,12 +23,13 @@ import (
 const serviceName = "orgs"
 
 type Handlers struct {
-	q  store.Querier
-	tc client.Client
+	q       store.Querier
+	tc      client.Client
+	checker authz.Checker
 }
 
-func New(db *pgxpool.Pool, tc client.Client) *Handlers {
-	return &Handlers{q: store.New(db), tc: tc}
+func New(db *pgxpool.Pool, tc client.Client, checker authz.Checker) *Handlers {
+	return &Handlers{q: store.New(db), tc: tc, checker: checker}
 }
 
 var _ orgs.Handler = (*Handlers)(nil)
@@ -94,6 +97,10 @@ func (h *Handlers) ListOrgs(ctx context.Context) ([]orgs.Org, error) {
 }
 
 func (h *Handlers) UpdateOrg(ctx context.Context, req *orgs.OrgInput, params orgs.UpdateOrgParams) (*orgs.Org, error) {
+	err := h.requireOperator(ctx, "updating orgs")
+	if err != nil {
+		return nil, err
+	}
 	if req.Name == "" {
 		return nil, apierr.BadRequest("name required")
 	}
@@ -114,7 +121,11 @@ func (h *Handlers) UpdateOrg(ctx context.Context, req *orgs.OrgInput, params org
 }
 
 func (h *Handlers) DeleteOrg(ctx context.Context, params orgs.DeleteOrgParams) error {
-	err := h.q.DeleteOrg(ctx, pgtype.UUID{Bytes: params.ID, Valid: true})
+	err := h.requireOperator(ctx, "deleting orgs")
+	if err != nil {
+		return err
+	}
+	err = h.q.DeleteOrg(ctx, pgtype.UUID{Bytes: params.ID, Valid: true})
 	if err != nil {
 		return apierr.Internal(err.Error())
 	}
@@ -128,4 +139,23 @@ func (h *Handlers) NewError(_ context.Context, err error) *orgs.ErrorStatusCode 
 		return &orgs.ErrorStatusCode{StatusCode: e.Status, Response: orgs.Problem{Code: e.Code, Message: e.Message}}
 	}
 	return &orgs.ErrorStatusCode{StatusCode: 500, Response: orgs.Problem{Code: "internal", Message: err.Error()}}
+}
+
+// requireOperator gates a write on the shared SpiceDB Checker (ADR-0010): the
+// caller must be an authenticated operator. Reads (List/Get) and the
+// registration webhook stay open; only the operator-facing org mutations are
+// gated, matching catalog's operator-write policy.
+func (h *Handlers) requireOperator(ctx context.Context, action string) error {
+	principal, _ := authmw.FromContext(ctx)
+	if !principal.Authenticated() {
+		return apierr.Unauthorized()
+	}
+	allowed, err := h.checker.Allowed(ctx, principal.Subject(), "member", "group:operator")
+	if err != nil {
+		return apierr.Internal(err.Error())
+	}
+	if !allowed {
+		return apierr.Forbidden(action + " requires operator")
+	}
+	return nil
 }

@@ -56,12 +56,17 @@ if ! k3d cluster list | awk '{print $1}' | grep -qx "$CLUSTER"; then
   # against our OWN local registry it just throttles cold/mass reschedules into a
   # "pull QPS exceeded" storm that adds minutes of backoff. Create-time only.
   #
-  # eviction-hard pinned at 5% free (both filesystems): a developer disk often sits
+  # eviction-hard pinned at 2% free (both filesystems): a developer disk often sits
   # near-full, and kubelet's stock disk-pressure threshold (taints ~10-15% free)
   # then evicts the WHOLE platform over a few spare GB. Pinning it low keeps pods
   # put until the disk is genuinely almost-full — and pins it so a recreate (or a
   # distro whose default differs from k3s') can't silently raise it. Explicit set,
   # so inode-based eviction is intentionally out of scope here.
+  #
+  # image-gc-high/low-threshold (85/80% imagefs used) makes kubelet proactively
+  # reclaim unused images once the image filesystem crosses 85% full, down to 80%
+  # — reclaiming stale layers BEFORE the 2% eviction floor is reached, so a dev
+  # disk that fills with old image tags sheds them instead of evicting the platform.
   k3d cluster create "$CLUSTER" \
     --servers 1 --agents 0 \
     --port "8080:80@loadbalancer" --port "8443:443@loadbalancer" \
@@ -70,6 +75,8 @@ if ! k3d cluster list | awk '{print $1}' | grep -qx "$CLUSTER"; then
     --k3s-arg '--kubelet-arg=registry-qps=0@server:*' \
     --k3s-arg '--kubelet-arg=registry-burst=0@server:*' \
     --k3s-arg '--kubelet-arg=eviction-hard=imagefs.available<2%,nodefs.available<2%@server:*' \
+    --k3s-arg '--kubelet-arg=image-gc-high-threshold=85@server:*' \
+    --k3s-arg '--kubelet-arg=image-gc-low-threshold=80@server:*' \
     --registry-use "k3d-${REGISTRY}:5000" \
     ${proxy_flags[@]+"${proxy_flags[@]}"}
 else
