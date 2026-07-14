@@ -136,12 +136,17 @@ test.describe("admin ops dashboard", () => {
       await page.goto(`${admin}/identities`);
       await expect(page.getByText(renamed)).toBeVisible({ timeout: 30_000 });
 
-      // Revert so the shared operator identity is unchanged and the run is idempotent.
-      await page.getByText(OPERATOR.email).first().click();
-      await expect(page).toHaveURL(/identities_edit\?id=/, { timeout: 15_000 });
-      await page.getByLabel(/^name$/i).fill(original);
-      await page.getByRole("button", { name: "Save", exact: true }).click();
-      await expect(page.getByText("Saved changes")).toBeVisible({ timeout: 20_000 });
+      // Revert so the shared operator identity is left as we found it. Only when there
+      // was a name to restore: the form (and Kratos schema) reject an empty name, and
+      // the seeded operator has none — a per-run unique rename left behind is harmless
+      // since every assertion above keys on the email, never the name.
+      if (original) {
+        await page.getByText(OPERATOR.email).first().click();
+        await expect(page).toHaveURL(/identities_edit\?id=/, { timeout: 15_000 });
+        await page.getByLabel(/^name$/i).fill(original);
+        await page.getByRole("button", { name: "Save", exact: true }).click();
+        await expect(page.getByText("Saved changes")).toBeVisible({ timeout: 20_000 });
+      }
     });
   });
 
