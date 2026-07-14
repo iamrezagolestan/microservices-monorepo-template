@@ -314,6 +314,10 @@ run = "bash scripts/secrets-age.sh"
 [tasks."e2e:install"]
 # One-time (and CI) setup: install the e2e workspace deps and the Chromium binary.
 # Node-only island (ADR-0018); npm is bundled with the Node tool above.
+# The browser DOWNLOAD is OS-independent; `--with-deps` is intentionally omitted
+# because it shells out to apt-get (Debian-only) and breaks on Arch/Fedora/macOS.
+# Chromium's runtime libs come from the host (present on desktops; on Ubuntu CI
+# run `playwright install-deps chromium` in the workflow step instead).
 run = """
 npm --prefix e2e ci || npm --prefix e2e install
 npm --prefix e2e run install:browsers
