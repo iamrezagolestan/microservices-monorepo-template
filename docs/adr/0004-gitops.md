@@ -77,7 +77,7 @@ The platform tier is split into three dependency layers, each its own Applicatio
 | ---- | --------- | ---------- | ---------- |
 | `-10` | AppProjects | per-env `AppProject`s | — |
 | `0` | `platform-base` | sops-operator, cert-manager, network-policies (+ cilium, argocd in prod) | — |
-| `1` | secrets *(local only)* | the `SopsSecret` CR | base (operator + CRD up) |
+| `1` | secrets | the per-env `SopsSecret` CR (`secrets` ApplicationSet for dev/staging/prod, `local-secrets` app locally) | base (operator + CRD up) |
 | `2` | `platform-data` | postgres, minio | secrets (creds decrypted) |
 | `3` | `platform-core` | observability *(tempo/loki)*, ory, temporal, spicedb, pgweb, headlamp, lowdefy | data (live Postgres, MinIO buckets) |
 | `4` | gateway | Traefik middlewares + cross-cutting IngressRoutes | core |

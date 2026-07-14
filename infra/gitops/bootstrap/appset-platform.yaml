@@ -22,8 +22,8 @@
 # every wave-0/1 component to actually be up, and so on. Charts WITHIN a tier are
 # still applied concurrently and must tolerate that.
 #
-# Wave ladder (root children): -10 projects · 0 base · 1 secrets (local only) ·
-# 2 data · 3 core · 4 gateway · 5 services.
+# Wave ladder (root children): -10 projects · 0 base · 1 secrets · 2 data ·
+# 3 core · 4 gateway · 5 services.
 #
 # The three sets share an identical template body (the same auth valueFiles /
 # fileParameters wiring as before; non-Ory/SpiceDB charts ignore the extra keys).

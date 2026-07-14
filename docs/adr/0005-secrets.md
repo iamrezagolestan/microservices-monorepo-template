@@ -39,7 +39,7 @@ Every encrypted file in the repo has exactly three classes of recipient, listed 
 2. **Per-cluster key** — one age public key per environment (`dev`, `staging`, `prod`), named in `.sops.yaml` by the `{project}-{env}` form from [ADR-0015](0015-naming-and-identifiers.md). The matching private key lives only in that cluster, as a Kubernetes Secret in the `sops` namespace, materialised at cluster bootstrap by Ansible. The in-cluster operator (below) reads it.
 3. **Ops-recovery key** — a single age public key whose private half is held offline by 2–3 senior engineers. It exists so that a lost cluster key can be recovered without re-encrypting every secret. Used only in disaster recovery.
 
-`.sops.yaml` declares creation rules per path so files under `infra/gitops/<env>/` are encrypted to that environment's cluster key plus engineers plus ops-recovery; files outside an env path are encrypted to engineers plus ops-recovery only.
+`.sops.yaml` declares creation rules per path so files under `infra/gitops/platform/<env>/secrets/` are encrypted to that environment's cluster key plus engineers plus ops-recovery; files outside an env path are encrypted to engineers plus ops-recovery only. Those per-env `SopsSecret` files are delivered to the cluster by the `secrets` ApplicationSet (dev/staging/prod) and the `local-secrets` Application (local), both at sync-wave 1 — after the base-tier sops-operator, before the data tier that consumes the Secrets ([ADR-0004](0004-gitops.md)).
 
 ### In-cluster decryption
 
@@ -56,7 +56,7 @@ Service authors reference secrets by name in the service's Helm values, exactly 
 Engineers run services locally against decrypted secrets via:
 
 ```sh
-sops exec-env infra/gitops/dev/secrets/<svc>.enc.yaml -- mise run -C services/<svc> run
+sops exec-env infra/gitops/platform/dev/secrets/platform.enc.yaml -- mise run -C services/<svc> run
 ```
 
 The wrapper task in each service's `.mise.toml` makes this a single `mise run run` invocation.
