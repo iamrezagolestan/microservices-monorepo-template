@@ -99,15 +99,20 @@ need. Pick tools by training-data density and verifiability — a criterion thes
 curl https://mise.run | sh
 mise install                  # pinned tools from .mise.toml
 mise run setup                # install git hooks
-age-keygen -o ~/.config/sops/age/keys.txt   # SOPS private key (ADR-0005)
+mise run secrets:age          # SOPS private key + your public key to add to .sops.yaml (ADR-0005)
 
 # Local cluster
 mise run cluster:lite         # k3d cluster + local deps (Postgres, Temporal, SpiceDB)
+mise run dev:forward          # port-forward the deps to localhost (leave running)
+mise run db:migrate           # apply each service's migrations
 
-# Inner loop on a single service
+# Inner loop on a single service — native, no image build (docs/dev-loop.md)
 cd services/catalog
+cp .env.example .env
 mise run run                  # http server
-mise run worker               # temporal worker
+
+# Services with a Temporal worker (orders, payment, orgs) also expose:
+mise run worker
 ```
 
 ## Layout

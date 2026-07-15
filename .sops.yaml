@@ -1,6 +1,6 @@
 # SOPS recipient rules (ADR-0005).
 # `name`s are placeholders — replace with real age public keys before use.
-# Engineer keys are added per-PR via `age-keygen` onboarding.
+# Engineer keys are added per-PR via `mise run secrets:age` onboarding.
 
 keys:
   # Engineer keys — one per active engineer.

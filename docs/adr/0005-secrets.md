@@ -51,7 +51,7 @@ Service authors reference secrets by name in the service's Helm values, exactly 
 
 ### Local decryption
 
-`age-keygen` once, after which `mise run cluster:lite` and any `sops decrypt` invocation works without further configuration.
+`mise run secrets:age` once, after which `mise run cluster:lite` and any `sops decrypt` invocation works without further configuration.
 
 Engineers run services locally against decrypted secrets via:
 
@@ -63,7 +63,7 @@ The wrapper task in each service's `.mise.toml` makes this a single `mise run ru
 
 ### Key lifecycle
 
-- **Onboarding:** the new engineer runs `age-keygen`, opens a PR adding the public key to `.sops.yaml`, and runs `sops updatekeys` on all encrypted files. The PR diff is the audit trail.
+- **Onboarding:** the new engineer runs `mise run secrets:age`, opens a PR adding the public key to `.sops.yaml`, and runs `sops updatekeys` on all encrypted files. The PR diff is the audit trail.
 - **Offboarding:** the leaving engineer's public key is removed from `.sops.yaml`, `sops updatekeys` runs on all files, and every secret that engineer had access to is rotated. The rotation is non-optional regardless of departure circumstances; it is the standing policy.
 - **Cluster-key rotation:** a new cluster key pair is generated, the public key is added as an additional recipient to env-scoped files via `sops updatekeys`, the in-cluster Secret is updated, and after one full sync cycle the old key is removed.
 - **Ops-recovery key rotation:** generated fresh annually as part of the security review; old key destroyed.

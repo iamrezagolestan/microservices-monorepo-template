@@ -14,8 +14,13 @@ This file is editor-agnostic. Any IDE that can load a `.env` file and run a Go
 
 ```sh
 mise run setup                       # lefthook hooks
-cp services/catalog/.env.example services/catalog/.env  # only for host-process debugging
+cp services/<svc>/.env.example services/<svc>/.env   # per service you work on
 ```
+
+Every service ships a `.env.example` listing exactly the variables it reads, with
+values already pointing at the port-forwarded deps. Its `.mise.toml` loads `.env`
+(`_.file`), so `mise run run` needs no inline environment. `.env` is gitignored;
+`.env.example` is the tracked contract.
 
 ## Inner loop (native)
 
@@ -23,18 +28,24 @@ cp services/catalog/.env.example services/catalog/.env  # only for host-process 
 mise run cluster:lite  # k3d + a CNI + deps (Postgres, Temporal, SpiceDB)
 mise run dev:forward   # port-forward the deps to localhost (leave running in its own terminal)
 mise run db:migrate    # apply each service's migrations to the local Postgres
-# then run the service natively (any editor/IDE, or go run):
-DATABASE_URL=postgres://dev:dev@localhost:5432/catalog?sslmode=disable \
-  TEMPORAL_HOST_PORT=localhost:7233 SPICEDB_ENDPOINT=localhost:50051 \
-  go run ./services/catalog/cmd/server      # → http://localhost:8080
+
+cd services/catalog
+mise run run           # http server → http://localhost:8080
+mise run worker        # temporal worker (orders, payment, orgs)
 ```
 
 `dev:forward` exposes Postgres (`localhost:5432`), Temporal (`7233` gRPC / `8233`
 UI), and SpiceDB (`50051`) so the host process — and tools like `psql` — can reach
 them. Re-running the service is just re-running the binary; there is nothing to
 rebuild or redeploy. To debug, point your editor's Go run configuration at
-`services/<svc>/cmd/server/main.go` with those env vars set; breakpoints and
-hot-restart work because the service is a plain host process.
+`services/<svc>/cmd/server/main.go` and have it load that service's `.env`;
+breakpoints and hot-restart work because the service is a plain host process.
+
+Every server hardcodes `:8080`, so only one can run natively at a time. To exercise
+a service that calls another (orders → catalog/payment), deploy the callee into the
+cluster with `mise run service:deploy -- catalog` and override `CATALOG_URL` /
+`PAYMENT_URL` in `.env` — their defaults are in-cluster DNS, which a host process
+cannot resolve.
 
 ### Putting a service *in* the cluster (edge/auth/e2e)
 

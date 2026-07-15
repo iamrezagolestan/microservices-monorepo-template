@@ -1,6 +1,11 @@
 # Service-local tasks. These are the standard task names (ADR-0002) that
 # every service exposes.
 
+# Inner-loop config comes from .env (copy .env.example). Absent, tasks still run —
+# the service just falls back to its in-cluster defaults.
+[env]
+_.file = ".env"
+
 [tasks.run]
 description = "Run the HTTP server against the locally port-forwarded deps"
 run = "go run ./cmd/server"
