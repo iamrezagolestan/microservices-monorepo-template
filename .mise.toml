@@ -2,10 +2,9 @@
 # Languages & runtimes
 go = "1.26.4"
 bun = "1.3.14"
-# Test-only escape hatch (ADR-0001/ADR-0018): Node runs the Playwright e2e/visual
-# runner ONLY — Bun cannot drive a browser test runner reliably. Confined to the
-# repo-root e2e/ workspace + CI by `lint:node-scope`; never in a service or app.
-node = "22"
+# node is NOT pinned here — it is an island tool (ADR-0001/ADR-0018). Its consumers
+# are e2e/ (the Playwright runner) and apps/admin (Lowdefy's optional local dev
+# loop), so each pins it in its own config against NODE_VERSION below. See [env].
 
 # Database tooling
 dbmate = "2.33.0"
@@ -30,7 +29,9 @@ cilium-cli = "0.19.4"
 kustomize = "5.8.1"
 terraform = "1.15.6"
 k3d = "5.9.0"
-ansible = "14.0.0"
+# ansible is NOT pinned here — it is an operator-only island, scoped to
+# infra/ansible/.mise.toml so the prod bootstrap tool (and the Python it drags in)
+# never installs for a dev running lint/test/cluster:full. See that file.
 
 # Secrets
 age = "1.3.1"
@@ -61,6 +62,10 @@ rumdl = "0.2.18"
 [env]
 GOFLAGS = "-mod=readonly"
 CGO_ENABLED = "0"
+# Single source for the island Node version. Islands pin `node = "{{env.NODE_VERSION}}"`
+# in their own config rather than repeating the number — root [env] resolves into a
+# nested config's [tools], so there is exactly one place to bump.
+NODE_VERSION = "22"
 
 # Task naming: `group:member`, group = the axis you list/run together (ADR-0002).
 # `activity:target` for fan-out families with an umbrella (gen, lint, format);
@@ -328,30 +333,18 @@ run = "bash scripts/ops-grant.sh"
 run = "bash scripts/secrets-age.sh"
 
 # ── End-to-end tests ──────────────────────────────────────────────────────────
+# Thin delegates into the Node island. The real tasks (and the node pin) live in
+# e2e/.mise.toml, because mise tools flow down a config tree and never up: a task
+# defined here cannot see a tool pinned there. `-C` runs them in e2e/ and
+# auto-installs node on first use, so these stay the entrypoint for humans and CI.
 [tasks."e2e:install"]
-# One-time (and CI) setup: install the e2e workspace deps and the Chromium binary.
-# Node-only island (ADR-0018); npm is bundled with the Node tool above.
-# The browser DOWNLOAD is OS-independent; `--with-deps` is intentionally omitted
-# because it shells out to apt-get (Debian-only) and breaks on Arch/Fedora/macOS.
-# Chromium's runtime libs come from the host (present on desktops; on Ubuntu CI
-# run `playwright install-deps chromium` in the workflow step instead).
-run = """
-npm --prefix e2e ci || npm --prefix e2e install
-npm --prefix e2e run install:browsers
-"""
+run = "mise run -C e2e install"
 
-# The edge (*.localtest.me) must be hit directly, never through a dev HTTPS_PROXY;
-# the in-cluster port-forwards are loopback. Belt-and-suspenders for both cases.
 [tasks.e2e]
-# Full browser acceptance + visual suite against a running cluster:full (ADR-0018).
-# Nightly + pre-release in CI; never part of ci:affected.
-env = { NO_PROXY = "localhost,127.0.0.1,.localtest.me", no_proxy = "localhost,127.0.0.1,.localtest.me" }
-run = "npm --prefix e2e run test"
+run = "mise run -C e2e test"
 
 [tasks."e2e:smoke"]
-# Label-gated per-PR subset: one product golden path + a key dashboard render.
-env = { NO_PROXY = "localhost,127.0.0.1,.localtest.me", no_proxy = "localhost,127.0.0.1,.localtest.me" }
-run = "npm --prefix e2e run test:smoke"
+run = "mise run -C e2e test:smoke"
 
 # ── Maintenance ───────────────────────────────────────────────────────────────
 [tasks.upgrade]

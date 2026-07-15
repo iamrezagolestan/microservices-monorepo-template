@@ -136,8 +136,11 @@ measurable trigger: adopt when built-in baseline diffing no longer scales.
 ### Negative / Risks
 
 - **Node returns** as a sanctioned runtime. Mitigated by hard scoping ([ADR-0001](0001-language-and-runtime.md)):
-  it appears only in the `e2e/` runner and CI, never in a service, image, shipped artifact, or
-  app/lib code. Frontend dev and unit tests stay on Bun.
+  for testing it appears only in the `e2e/` runner and CI, never in a service, app/lib code, or an
+  image built from our own source. It is pinned in `e2e/.mise.toml`, not the root toolchain, so it
+  installs only for a dev who runs the suite. Frontend dev and unit tests stay on Bun. (ADR-0001
+  sanctions one other Node island for the same vendored-tool reason: the Lowdefy admin console,
+  [ADR-0012](0012-internal-admin.md).)
 - **Label-gated smoke means an unlabeled PR gets no full-platform signal until nightly**, so an
   edge/auth/cross-service break can sit in `master` up to ~24h. Accepted as the cost of not paying
   a full bring-up per PR; the mitigation is to label risky PRs.
@@ -166,4 +169,4 @@ measurable trigger: adopt when built-in baseline diffing no longer scales.
 - The full e2e + visual suite runs nightly and pre-release. The smoke suite runs per-PR only when labeled. Neither is part of `ci:affected`.
 - Visual regression gates on committed `toHaveScreenshot` baselines; an intentional UI change updates the baseline in the same PR. Automated rendered-vs-Figma diffing is not a CI gate.
 - E2e provisions a committed deterministic test identity (AAL1 user + AAL2 operator); no test relies on hand-created state.
-- Node is permitted solely as the Playwright e2e/visual runner ([ADR-0001](0001-language-and-runtime.md)); it appears in no service, container image, shipped artifact, or app/library code.
+- Within testing, Node is permitted solely as the Playwright e2e/visual runner ([ADR-0001](0001-language-and-runtime.md)); it appears in no service, app/library code, or image built from our own source. It is pinned in `e2e/.mise.toml` against the root `[env] NODE_VERSION`, never in the root toolchain.
