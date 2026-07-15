@@ -97,7 +97,11 @@ External tools (Go, sqlc, dbmate, helm, kubectl, etc.) are installed via `mise` 
 
 - Tasks are defined in `.mise.toml` files: a root file declares repo-wide tasks; each service has its own with
   service-local tasks.
-- **Standard task names** at every service: `build`, `test`, `lint`, `generate`, `migrate`, `run`, `worker`.
+- **Standard task names** at every service: `build`, `test`, `lint`, `generate`, `migrate`, `server`, `worker`.
+  The two long-running tasks are named for the process type they start, matching `cmd/{server,worker}/`, the
+  `<service>-{server,worker}` images, and the in-cluster DNS names — one vocabulary end to end. (Frontends are not
+  services and keep `run`: they have no worker to be symmetric with, and the task starts a dev server, not a
+  production binary.)
 - **Standard task names** at repo root: `cluster:lite`, `cluster:stop`, `ci:lint`, `ci:test`, `ci:build`, `ci:affected`,
   `e2e`, `e2e:smoke`, `gen`, `db:migrate`. The `e2e` tasks ([ADR-0018](0018-testing-strategy.md)) run against `cluster:full`
   and are deliberately outside `ci:affected` — every e2e crosses service boundaries.
@@ -312,7 +316,7 @@ Each upgrade is its own ADR when triggered.
 - Generated API clients live at `libs/{go,ts}/sdks/<service>/` and are committed.
 - The frontend is one Next.js app at `apps/frontend/`. New frontends require an ADR.
 - Tasks are invoked via `mise run <task>`. The set of task names at each service is
-  `build, test, lint, generate, migrate, run, worker`.
+  `build, test, lint, generate, migrate, server, worker`.
 - Every external tool the repo depends on is pinned to a specific version: developer/CI tools in `.mise.toml`, runtime
   services as explicit `image.tag` in Helm values. Floating tags (`latest`, `stable`, `main`, unpinned majors) are
   forbidden and CI fails on them.

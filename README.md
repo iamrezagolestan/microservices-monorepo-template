@@ -109,7 +109,7 @@ mise run db:migrate           # apply each service's migrations
 # Inner loop on a single service — native, no image build (docs/dev-loop.md)
 cd services/catalog
 cp .env.example .env
-mise run run                  # http server
+mise run server               # http server
 
 # Services with a Temporal worker (orders, payment, orgs) also expose:
 mise run worker

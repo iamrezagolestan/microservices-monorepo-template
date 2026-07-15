@@ -6,7 +6,7 @@
 [env]
 _.file = ".env"
 
-[tasks.run]
+[tasks.server]
 description = "Run the HTTP server against the locally port-forwarded deps"
 run = "go run ./cmd/server"
 

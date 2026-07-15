@@ -56,10 +56,12 @@ Service authors reference secrets by name in the service's Helm values, exactly 
 Engineers run services locally against decrypted secrets via:
 
 ```sh
-sops exec-env infra/gitops/platform/dev/secrets/platform.enc.yaml -- mise run -C services/<svc> run
+sops exec-env infra/gitops/platform/dev/secrets/platform.enc.yaml -- mise run -C services/<svc> server
 ```
 
-The wrapper task in each service's `.mise.toml` makes this a single `mise run run` invocation.
+The lite inner loop needs no decryption: each service's `.env.example` (copied to `.env`, loaded by its
+`.mise.toml`) carries the local dev credentials, so `mise run server` stands alone. Reach for `sops exec-env`
+only when running against a real environment's secrets.
 
 ### Key lifecycle
 

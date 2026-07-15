@@ -19,7 +19,7 @@ cp services/<svc>/.env.example services/<svc>/.env   # per service you work on
 
 Every service ships a `.env.example` listing exactly the variables it reads, with
 values already pointing at the port-forwarded deps. Its `.mise.toml` loads `.env`
-(`_.file`), so `mise run run` needs no inline environment. `.env` is gitignored;
+(`_.file`), so `mise run server` needs no inline environment. `.env` is gitignored;
 `.env.example` is the tracked contract.
 
 ## Inner loop (native)
@@ -30,7 +30,7 @@ mise run dev:forward   # port-forward the deps to localhost (leave running in it
 mise run db:migrate    # apply each service's migrations to the local Postgres
 
 cd services/catalog
-mise run run           # http server → http://localhost:8080
+mise run server        # http server → http://localhost:8080
 mise run worker        # temporal worker (orders, payment, orgs)
 ```
 
