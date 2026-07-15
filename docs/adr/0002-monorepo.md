@@ -82,6 +82,10 @@ open for future partner portals, CLIs, or mobile apps without requiring a layout
 Adding a new application under `apps/` requires its own ADR — `apps/admin/` is the subject of
 [ADR-0012](0012-internal-admin.md).
 
+`services/` stays spelled out (unlike `apps/`, `libs/`, `infra/`): the short forms `svc`/`svc/` already mean
+a Kubernetes Service here (`kubectl … svc/grafana`) and the per-service metavariable in docs (`services/<svc>`),
+so abbreviating the directory would overload the token. Directory names abbreviate only when unambiguous.
+
 `infra/` is a single home for everything not-an-application: infrastructure-as-code (Terraform, Helm, GitOps, Ansible)
 *and* the configuration of the platform services those tools deploy (auth, gateway, observability). One top-level
 directory avoids the recurring "does this belong in infra or ops?" bikeshed.
