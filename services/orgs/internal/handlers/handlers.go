@@ -67,7 +67,6 @@ func (h *Handlers) OnIdentityCreated(ctx context.Context, req *orgs.OnIdentityCr
 	if !ok || identityID == "" {
 		return apierr.BadRequest("identity_id required")
 	}
-	email, _ := req.Email.Get()
 
 	_, err := h.tc.ExecuteWorkflow(
 		ctx,
@@ -76,7 +75,7 @@ func (h *Handlers) OnIdentityCreated(ctx context.Context, req *orgs.OnIdentityCr
 			TaskQueue: serviceName + "-queue",
 		},
 		workflows.RegisterUser,
-		workflows.RegisterInput{IdentityID: identityID, Email: email},
+		workflows.RegisterInput{IdentityID: identityID},
 	)
 	if err != nil {
 		return apierr.Internal(err.Error())

@@ -11,17 +11,14 @@ import (
 	"go.temporal.io/sdk/testsuite"
 )
 
-const (
-	testID    = "id_1"
-	testEmail = "a@example.com"
-)
+const testID = "id_1"
 
 // registerEnv registers stub activities under the names RegisterUser executes, so
 // the test env resolves and mocks them without the real orgs DB / SpiceDB writer.
 func registerEnv(ts *testsuite.WorkflowTestSuite) *testsuite.TestWorkflowEnvironment {
 	env := ts.NewTestWorkflowEnvironment()
 	env.RegisterActivityWithOptions(
-		func(context.Context, string, string) (string, error) { return "", nil },
+		func(context.Context, string) (string, error) { return "", nil },
 		activity.RegisterOptions{Name: "CreatePersonalOrgActivity"},
 	)
 	env.RegisterActivityWithOptions(
@@ -40,12 +37,12 @@ func TestRegisterUserWorkflow(t *testing.T) {
 			t.Parallel()
 			var ts testsuite.WorkflowTestSuite
 			env := registerEnv(&ts)
-			env.OnActivity("CreatePersonalOrgActivity", mock.Anything, testID, testEmail).
+			env.OnActivity("CreatePersonalOrgActivity", mock.Anything, testID).
 				Return("org_1", nil).Once()
 			env.OnActivity("GrantOrgAdminActivity", mock.Anything, "org_1", testID).
 				Return(nil).Once()
 
-			env.ExecuteWorkflow(RegisterUser, RegisterInput{IdentityID: testID, Email: testEmail})
+			env.ExecuteWorkflow(RegisterUser, RegisterInput{IdentityID: testID})
 
 			require.True(t, env.IsWorkflowCompleted())
 			require.NoError(t, env.GetWorkflowError())
@@ -59,10 +56,10 @@ func TestRegisterUserWorkflow(t *testing.T) {
 			t.Parallel()
 			var ts testsuite.WorkflowTestSuite
 			env := registerEnv(&ts)
-			env.OnActivity("CreatePersonalOrgActivity", mock.Anything, mock.Anything, mock.Anything).
+			env.OnActivity("CreatePersonalOrgActivity", mock.Anything, mock.Anything).
 				Return("", errors.New("db down"))
 
-			env.ExecuteWorkflow(RegisterUser, RegisterInput{IdentityID: testID, Email: testEmail})
+			env.ExecuteWorkflow(RegisterUser, RegisterInput{IdentityID: testID})
 
 			require.True(t, env.IsWorkflowCompleted())
 			require.Error(t, env.GetWorkflowError())
@@ -76,12 +73,12 @@ func TestRegisterUserWorkflow(t *testing.T) {
 			t.Parallel()
 			var ts testsuite.WorkflowTestSuite
 			env := registerEnv(&ts)
-			env.OnActivity("CreatePersonalOrgActivity", mock.Anything, mock.Anything, mock.Anything).
+			env.OnActivity("CreatePersonalOrgActivity", mock.Anything, mock.Anything).
 				Return("org_1", nil).Once()
 			env.OnActivity("GrantOrgAdminActivity", mock.Anything, "org_1", testID).
 				Return(errors.New("spicedb down"))
 
-			env.ExecuteWorkflow(RegisterUser, RegisterInput{IdentityID: testID, Email: testEmail})
+			env.ExecuteWorkflow(RegisterUser, RegisterInput{IdentityID: testID})
 
 			require.True(t, env.IsWorkflowCompleted())
 			require.Error(t, env.GetWorkflowError())

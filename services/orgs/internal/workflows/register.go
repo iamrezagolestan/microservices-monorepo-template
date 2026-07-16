@@ -15,7 +15,6 @@ import (
 // /identity-created webhook handler.
 type RegisterInput struct {
 	IdentityID string
-	Email      string
 }
 
 // RegisterUser runs the dual-write (ADR-0010) for a new identity: create the
@@ -33,7 +32,7 @@ func RegisterUser(ctx workflow.Context, in RegisterInput) error {
 	)
 
 	var orgID string
-	err := workflow.ExecuteActivity(ctx, "CreatePersonalOrgActivity", in.IdentityID, in.Email).Get(ctx, &orgID)
+	err := workflow.ExecuteActivity(ctx, "CreatePersonalOrgActivity", in.IdentityID).Get(ctx, &orgID)
 	if err != nil {
 		return fmt.Errorf("register user: create personal org: %w", err)
 	}
