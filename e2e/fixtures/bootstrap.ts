@@ -14,6 +14,10 @@ import { portForward } from "./kube";
 const KRATOS_ADMIN = "http://127.0.0.1:4434";
 const SCHEMA_ID = "user_v1";
 const OPENFGA_PORT = 8080;
+// Local forward port for the OpenFGA HTTP API. NOT 8080: the local k3d cluster maps
+// host 8080 -> the edge loadbalancer (Traefik), so binding 8080 here would collide
+// with the edge and requests would hit Traefik (404) instead of OpenFGA.
+const OPENFGA_LOCAL_PORT = Number(process.env.OPENFGA_LOCAL_PORT ?? 18080);
 // Local/CI cluster:full preshared key (infra secret openfga-creds). Override for a
 // deployed target.
 const OPENFGA_TOKEN = process.env.OPENFGA_TOKEN ?? "localdevkey";
@@ -78,7 +82,7 @@ async function resetIdentity(id: TestIdentity): Promise<string> {
   return createIdentity(id);
 }
 
-const OPENFGA_API = `http://127.0.0.1:${OPENFGA_PORT}`;
+const OPENFGA_API = `http://127.0.0.1:${OPENFGA_LOCAL_PORT}`;
 const fgaHeaders = { authorization: `Bearer ${OPENFGA_TOKEN}`, "content-type": "application/json" };
 
 // Discover the platform store by name (same lookup the services do).
@@ -126,7 +130,7 @@ export async function provision(): Promise<Record<string, string>> {
 
   // Operator membership keyed by the freshly-created Kratos id (the authz subject
   // is `user:<kratos-id>`). The write is idempotent.
-  const openfgaPf = await portForward("openfga", OPENFGA_PORT, OPENFGA_PORT);
+  const openfgaPf = await portForward("openfga", OPENFGA_LOCAL_PORT, OPENFGA_PORT);
   try {
     const sid = await storeId();
     await writeTuple(sid, `user:${ids[OPERATOR.label]}`, "member", "group:operator");

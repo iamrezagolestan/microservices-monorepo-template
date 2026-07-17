@@ -19,10 +19,56 @@ import { portForward } from "../fixtures/kube";
 
 const KRATOS_ADMIN = "http://127.0.0.1:4434";
 
-// Unique per run: Kratos enforces email uniqueness globally, and the personal org is
-// NAMED by the email (activities.CreatePersonalOrgActivity → CreateOrg(email)), so
-// the address doubles as the org's assertable identity.
+// Unique per run: Kratos enforces email uniqueness globally.
 const EMAIL = `signup-${Date.now()}@e2e.localtest.me`;
+
+// The personal org is named generically ("Personal workspace"), NOT by the email:
+// an org is a tenant whose name is shown to every member the user later invites, so
+// an email there would leak PII (activities.CreatePersonalOrgActivity, ADR-0023).
+// The registrant's assertable link to their org is therefore the OpenFGA admin
+// tuple (org:<id>#admin@user:<id>), which is also dual-write leg 2 — the exact seam
+// this test guards. Local forward port 18080 (not 8080: k3d maps host 8080 to the
+// edge); the key is the cluster:full preshared key.
+const PERSONAL_ORG_NAME = "Personal workspace";
+const OPENFGA_LOCAL_PORT = Number(process.env.OPENFGA_LOCAL_PORT ?? 18080);
+const OPENFGA_TOKEN = process.env.OPENFGA_TOKEN ?? "localdevkey";
+
+// kratosIdFor resolves the Kratos id for a registered email (the authz subject).
+async function kratosIdFor(email: string): Promise<string | null> {
+  const res = await fetch(
+    `${KRATOS_ADMIN}/admin/identities?credentials_identifier=${encodeURIComponent(email)}`,
+  );
+  if (!res.ok) {
+    return null;
+  }
+  const list = (await res.json()) as Array<{ id: string; traits?: { email?: string } }>;
+  return list.find((i) => i.traits?.email === email)?.id ?? null;
+}
+
+// adminOrgIds returns the orgs on which `user:<id>` holds `admin` in OpenFGA — the
+// ReBAC side of the registration dual-write (model.fga). Assumes a port-forward to
+// the OpenFGA HTTP API is already up on OPENFGA_LOCAL_PORT.
+async function adminOrgIds(identityId: string): Promise<string[]> {
+  const base = `http://127.0.0.1:${OPENFGA_LOCAL_PORT}`;
+  const headers = { authorization: `Bearer ${OPENFGA_TOKEN}`, "content-type": "application/json" };
+  const stores = (await (await fetch(`${base}/stores`, { headers })).json()) as {
+    stores?: { id: string; name: string }[];
+  };
+  const sid = stores.stores?.find((s) => s.name === "platform")?.id;
+  if (!sid) {
+    throw new Error("openfga store 'platform' not found — has the seed Job run?");
+  }
+  const res = await fetch(`${base}/stores/${sid}/list-objects`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ type: "org", relation: "admin", user: `user:${identityId}` }),
+  });
+  if (!res.ok) {
+    throw new Error(`openfga list-objects failed: ${res.status} ${await res.text()}`);
+  }
+  const body = (await res.json()) as { objects?: string[] };
+  return (body.objects ?? []).map((o) => o.replace(/^org:/, ""));
+}
 
 // Unlike the admin import path used by the bootstrap fixture, self-service
 // registration DOES enforce the password policy (haveibeenpwned, min_password_length
@@ -68,24 +114,43 @@ test.describe("self-service registration", () => {
       await anon.close();
     }
 
-    // The org is eventually-consistent: the web_hook only ENQUEUES RegisterUser, and
-    // cmd/worker runs the two dual-write activities out of band. Poll with a reload
-    // rather than asserting once — a single assertion races the worker. A timeout
-    // here means the workflow never completed (worker down, or a failed OpenFGA
-    // leg), not that the webhook never fired: a failed enqueue is blocking and would
-    // already have failed `register` above.
-    await expect(async () => {
-      await page.goto(`${opsURL("admin")}/orgs`);
-      await expect(page.getByText(EMAIL)).toBeVisible({ timeout: 5_000 });
-    }).toPass({ timeout: 60_000 });
+    // Resolve the registrant's Kratos id — the authz subject `user:<id>`.
+    const kratosPf = await portForward("ory-kratos-admin", 4434, 80);
+    let identityId: string | null;
+    try {
+      identityId = await kratosIdFor(EMAIL);
+    } finally {
+      kratosPf.stop();
+    }
+    expect(identityId, "registered identity must exist in Kratos").toBeTruthy();
 
-    // Clean up the org. Not just tidiness: the changelist grid paginates at 20 rows
-    // client-side (orgs.yaml), so a leftover row per run would eventually push new
-    // orgs off the first page and this test would start failing on its own history.
-    await page.getByText(EMAIL).first().click();
-    await expect(page).toHaveURL(/orgs_edit\?id=/, { timeout: 15_000 });
-    await page.getByRole("button", { name: "Delete", exact: true }).click();
+    // The org is eventually-consistent: the blocking web_hook only ENQUEUES
+    // RegisterUser; cmd/worker runs the two dual-write legs (app-DB org + the OpenFGA
+    // org#admin tuple) out of band. Poll the authz plane until the new identity
+    // admins exactly one org. A timeout means the workflow never completed (worker
+    // down, or a failed OpenFGA leg) — the regression this test guards; a failed
+    // enqueue is blocking and would already have failed `register` above.
+    const fgaPf = await portForward("openfga", OPENFGA_LOCAL_PORT, 8080);
+    let orgId = "";
+    try {
+      await expect(async () => {
+        const ids = await adminOrgIds(identityId as string);
+        expect(ids).toHaveLength(1);
+        orgId = ids[0];
+      }).toPass({ timeout: 60_000 });
+    } finally {
+      fgaPf.stop();
+    }
+
+    // Acceptance gauge (ADR-0018): the new org renders in the admin console, addressed
+    // by id (its name is the generic PERSONAL_ORG_NAME, shared across registrants).
+    // Clean it up through the console: not just tidiness — the changelist grid
+    // paginates at 20 rows client-side (orgs.yaml), so a leftover row per run would
+    // eventually push new orgs off the first page.
+    await page.goto(`${opsURL("admin")}/orgs_edit?id=${orgId}`);
+    const del = page.getByRole("button", { name: "Delete", exact: true });
+    await expect(del).toBeVisible({ timeout: 15_000 });
+    await del.click();
     await expect(page).toHaveURL(/\/orgs$/, { timeout: 15_000 });
-    await expect(page.getByText(EMAIL)).toHaveCount(0);
   });
 });

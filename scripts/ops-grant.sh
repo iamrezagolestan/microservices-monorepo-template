@@ -37,16 +37,17 @@ opf=""
 trap 'kill "$kpf" "$opf" 2>/dev/null || true' EXIT
 
 # Reap stale port-forwards from a prior run whose cleanup trap didn't fire (e.g.
-# mise/bash killed abruptly), else the new ones fail to bind 4434/8080.
+# mise/bash killed abruptly), else the new ones fail to bind 4434/18080.
 pkill -f 'kubectl.*port-forward svc/(ory-kratos-admin|openfga)' 2>/dev/null || true
 
 # 1. Resolve the Kratos identity id from the email via the admin API.
 k port-forward svc/ory-kratos-admin 4434:80 >/dev/null &
 kpf=$!
-# 2. Open the OpenFGA HTTP API with its preshared key.
-API="http://localhost:8080"
+# 2. Open the OpenFGA HTTP API with its preshared key. Local 18080, not 8080: k3d
+#    maps host 8080 to the edge loadbalancer, so binding 8080 would collide with it.
+API="http://localhost:18080"
 sk="$(k get secret openfga-creds -o jsonpath='{.data.preshared_key}' | base64 -d)"
-k port-forward svc/openfga 8080:8080 >/dev/null &
+k port-forward svc/openfga 18080:8080 >/dev/null &
 opf=$!
 sleep 4
 

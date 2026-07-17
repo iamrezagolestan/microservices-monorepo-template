@@ -35,8 +35,10 @@ mise run worker        # temporal worker (orders, payment, orgs)
 ```
 
 `dev:forward` exposes Postgres (`localhost:5432`), Temporal (`7233` gRPC / `8233`
-UI), and OpenFGA (`8080`) so the host process — and tools like `psql` — can reach
-them. Re-running the service is just re-running the binary; there is nothing to
+UI), and OpenFGA (`localhost:18080`) so the host process — and tools like `psql` —
+can reach them. OpenFGA is forwarded to `18080`, not its own `8080`, because the
+service under test already serves on `8080` (and k3d maps host `8080` to the edge);
+`OPENFGA_API_URL` in each service's `.env.example` points at `18080` to match. Re-running the service is just re-running the binary; there is nothing to
 rebuild or redeploy. To debug, point your editor's Go run configuration at
 `services/<svc>/cmd/server/main.go` and have it load that service's `.env`;
 breakpoints and hot-restart work because the service is a plain host process.
