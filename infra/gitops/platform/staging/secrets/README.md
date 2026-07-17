@@ -44,7 +44,7 @@ spec:
     - name: temporal-db-creds
       stringData:
         password: ""
-    - name: spicedb-creds
+    - name: openfga-creds
       stringData:
         preshared_key: ""
         datastore_uri: ""

@@ -2,7 +2,7 @@
 
 Per [ADR-0003](adr/0003-cluster-topology.md), k3d is the only local runtime.
 `mise run cluster:lite` creates the cluster and applies the lightweight dev
-dependencies (Postgres, Temporal, SpiceDB) from `infra/local/deps.yaml`. The
+dependencies (Postgres, Temporal, OpenFGA) from `infra/local/deps.yaml`. The
 inner loop is **native execution**: you run the service you are changing directly
 on the host against those dependencies — no image build, no in-cluster redeploy,
 no file-watch on the hot path.
@@ -25,7 +25,7 @@ values already pointing at the port-forwarded deps. Its `.mise.toml` loads `.env
 ## Inner loop (native)
 
 ```sh
-mise run cluster:lite  # k3d + a CNI + deps (Postgres, Temporal, SpiceDB)
+mise run cluster:lite  # k3d + a CNI + deps (Postgres, Temporal, OpenFGA)
 mise run dev:forward   # port-forward the deps to localhost (leave running in its own terminal)
 mise run db:migrate    # apply each service's migrations to the local Postgres
 
@@ -35,7 +35,7 @@ mise run worker        # temporal worker (orders, payment, orgs)
 ```
 
 `dev:forward` exposes Postgres (`localhost:5432`), Temporal (`7233` gRPC / `8233`
-UI), and SpiceDB (`50051`) so the host process — and tools like `psql` — can reach
+UI), and OpenFGA (`8080`) so the host process — and tools like `psql` — can reach
 them. Re-running the service is just re-running the binary; there is nothing to
 rebuild or redeploy. To debug, point your editor's Go run configuration at
 `services/<svc>/cmd/server/main.go` and have it load that service's `.env`;
@@ -123,7 +123,7 @@ For end-to-end work, the edge, auth, NetworkPolicy, or observability on a laptop
 `mise run cluster:full` (scripts/cluster-full.sh) stands up the **same charts
 production runs**, at a single replica ([ADR-0016](adr/0016-environment-parity.md)),
 **delivered by ArgoCD** — the same engine staging/prod use: **Cilium** as the CNI
-(real NetworkPolicy + Hubble), **CNPG**, the **Temporal** chart, the **SpiceDB**
+(real NetworkPolicy + Hubble), **CNPG**, the **Temporal** chart, the **OpenFGA**
 chart, in-cluster **MinIO**, the **observability** chart, Traefik + Ory (Kratos +
 Oathkeeper), and the Lowdefy console.
 
@@ -178,7 +178,7 @@ matches longest-prefix, so the specific routes below win over the `/` catch-all.
 
 The **ops tier** (ADR-0017) is a separate origin per operator dashboard under
 `*.ops.<host>` — never a product path. The **coarse gate** is a claim, not a
-SpiceDB call: the ops forward-auth requires the `operator` trait **and** an AAL2
+OpenFGA call: the ops forward-auth requires the `operator` trait **and** an AAL2
 session, and makes no `Checker` call, so the debugging surface never shares fate
 with the product authz plane ([docs/ops/break-glass.md](ops/break-glass.md)). A
 bare login does not grant tool access. Per-tool `dashboard:<tool>#view` grants are
@@ -334,7 +334,7 @@ first** bring-up. To rewire an existing cluster, recreate it
 
 > **Stalled image pulls through a proxy.** Even with the node proxied, some egress
 > proxies time out or truncate large image layers on containerd's single-stream pull
-> (Cilium, ArgoCD, and the SpiceDB seed's `authzed/zed` are the usual victims),
+> (Cilium, ArgoCD, and the OpenFGA seed's `openfga/cli` are the usual victims),
 > leaving pods in `ImagePullBackOff`. The opt-in **`mise run cluster:unwedge`**
 > ([`scripts/cluster-unwedge-images.sh`](../scripts/cluster-unwedge-images.sh))
 > recovers them: it host-pulls whatever is stuck (Docker resumes/retries reliably),

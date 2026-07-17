@@ -67,8 +67,8 @@ spec:
               path: "../../../auth/kratos/identity-schemas/user.v1.json"
             - name: oathkeeper.oathkeeper.accessRules
               path: "../../../auth/oathkeeper/access-rules.json"
-            - name: seed.schema
-              path: "../../../auth/spicedb/schema.zed"
+            - name: seed.model
+              path: "../../../auth/openfga/model.json"
       destination: { server: "{{ .server }}", namespace: platform }
       syncPolicy:
         automated: { prune: true, selfHeal: true }
@@ -129,8 +129,8 @@ spec:
               path: "../../../auth/kratos/identity-schemas/user.v1.json"
             - name: oathkeeper.oathkeeper.accessRules
               path: "../../../auth/oathkeeper/access-rules.json"
-            - name: seed.schema
-              path: "../../../auth/spicedb/schema.zed"
+            - name: seed.model
+              path: "../../../auth/openfga/model.json"
       destination: { server: "{{ .server }}", namespace: platform }
       syncPolicy:
         automated: { prune: true, selfHeal: true }
@@ -150,7 +150,7 @@ metadata:
     app.kubernetes.io/component: core
   annotations:
     # Wave 3: after the data tier is Healthy, so Tempo/Loki find MinIO + their
-    # buckets and Ory/Temporal/SpiceDB/pgweb find a live Postgres.
+    # buckets and Ory/Temporal/OpenFGA/pgweb find a live Postgres.
     argocd.argoproj.io/sync-wave: "3"
 spec:
   goTemplate: true
@@ -168,7 +168,7 @@ spec:
                 - { path: "infra/helm/platform/observability" }
                 - { path: "infra/helm/platform/ory" }
                 - { path: "infra/helm/platform/temporal" }
-                - { path: "infra/helm/platform/spicedb" }
+                - { path: "infra/helm/platform/openfga" }
                 - { path: "infra/helm/platform/pgweb" }
                 - { path: "infra/helm/platform/headlamp" }
                 - { path: "infra/helm/platform/lowdefy" }
@@ -196,8 +196,8 @@ spec:
               path: "../../../auth/kratos/identity-schemas/user.v1.json"
             - name: oathkeeper.oathkeeper.accessRules
               path: "../../../auth/oathkeeper/access-rules.json"
-            - name: seed.schema
-              path: "../../../auth/spicedb/schema.zed"
+            - name: seed.model
+              path: "../../../auth/openfga/model.json"
       destination: { server: "{{ .server }}", namespace: platform }
       syncPolicy:
         automated: { prune: true, selfHeal: true }

@@ -6,7 +6,7 @@
 # core "3" — each gated by a custom ApplicationSet health check, see
 # infra/helm/platform/argocd/values.yaml) and the gateway Application (wave "4")
 # are all Synced+Healthy. Services depend on both: platform for
-# Postgres/Temporal/SpiceDB/CoreDNS-affecting CNI stability, gateway for the
+# Postgres/Temporal/OpenFGA/CoreDNS-affecting CNI stability, gateway for the
 # Traefik middlewares their IngressRoutes reference.
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet

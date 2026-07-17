@@ -29,8 +29,8 @@ cluster:
   backup:
     enabled: false   # ephemeral local data; no backup destination needed
 
-# Top-level `replicas:` — the spicedb chart's own values schema has no
-# `spicedb:` namespace wrapper.
+# Top-level `replicas:` — the openfga chart's own values schema has no
+# `openfga:` namespace wrapper.
 replicas: 1
 
 # --- Ory (Kratos + Oathkeeper) --------------------------------------------
@@ -129,7 +129,7 @@ grafana:
 # --- Lowdefy admin console (ADR-0012) -------------------------------------
 # Repo-built image: pulled from the local registry (the CI stand-in) at the
 # stable `local` tag; Always so a cluster:full re-run picks up a rebuild.
-# Namespaced under `lowdefy:` to avoid colliding with the spicedb chart's
+# Namespaced under `lowdefy:` to avoid colliding with the openfga chart's
 # top-level `image` (both charts share this overlay).
 lowdefy:
   replicas: 1

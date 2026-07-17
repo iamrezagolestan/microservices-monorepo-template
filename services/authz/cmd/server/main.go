@@ -1,6 +1,6 @@
 // authz — the ops-tier edge authorizer (ADR-0017). A tiny internal HTTP service
 // (no DB, no edge route) that Oathkeeper's remote_json authorizer calls to decide
-// per-tool operator dashboard access via libs/go/authz's SpiceDB Checker.
+// per-tool operator dashboard access via libs/go/authz's OpenFGA Checker.
 package main
 
 import (
@@ -50,9 +50,9 @@ func run() error {
 		return fmt.Errorf("authz granter: %w", err)
 	}
 
-	// Coarse claim gate is always on; the optional fine per-tool SpiceDB layer is
+	// Coarse claim gate is always on; the optional fine per-tool OpenFGA layer is
 	// enabled per-project (ADR-0017). Default off keeps the coarse gate free of any
-	// SpiceDB dependency.
+	// OpenFGA dependency.
 	fineGrained := os.Getenv("OPS_FINE_GRAINED") == "true"
 
 	// authz is spec-first like every HTTP service (ADR-0008): the ogen server routes

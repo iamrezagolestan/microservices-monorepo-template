@@ -184,7 +184,7 @@ cat <<EOF
 
 ✓ cluster:full up (ArgoCD-driven from master).
   Product (Traefik):  https://${DOMAIN}:8443/api/<resource>/   (flat namespace, self-signed TLS)
-  Ops tier (ADR-0017; coarse gate = operator claim + AAL2, no SpiceDB call):
+  Ops tier (ADR-0017; coarse gate = operator claim + AAL2, no OpenFGA call):
     Grafana:          https://o11y.ops.${DOMAIN}:8443/
     Hubble UI:        https://network.ops.${DOMAIN}:8443/
     Temporal UI:      https://workflows.ops.${DOMAIN}:8443/

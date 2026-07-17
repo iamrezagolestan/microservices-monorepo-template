@@ -58,7 +58,7 @@ func (h *Handlers) GetOrg(ctx context.Context, params orgs.GetOrgParams) (*orgs.
 
 // OnIdentityCreated is the Kratos post-registration webhook (ADR-0010/0006). It
 // starts the RegisterUser workflow rather than writing directly: creating the
-// personal org spans the orgs DB and the SpiceDB owner tuple (an authz-relevant
+// personal org spans the orgs DB and the OpenFGA owner tuple (an authz-relevant
 // mutation), so it must run as a Temporal dual-write, never a bare DB write. The
 // workflow ID is derived from the identity, so a duplicate webhook delivery is a
 // no-op (Temporal rejects the duplicate ID).
@@ -140,7 +140,7 @@ func (h *Handlers) NewError(_ context.Context, err error) *orgs.ErrorStatusCode 
 	return &orgs.ErrorStatusCode{StatusCode: 500, Response: orgs.Problem{Code: "internal", Message: err.Error()}}
 }
 
-// requireOperator gates a write on the shared SpiceDB Checker (ADR-0010): the
+// requireOperator gates a write on the shared OpenFGA Checker (ADR-0010): the
 // caller must be an authenticated operator. Reads (List/Get) and the
 // registration webhook stay open; only the operator-facing org mutations are
 // gated, matching catalog's operator-write policy.

@@ -15,10 +15,10 @@ ingress:
 # covers Traefik → /api/products, so the console must be allowed explicitly.
 networkPolicy: { allowFrom: [lowdefy] }
 secrets:
-  envFrom: [catalog-db-creds, spicedb-creds]
+  envFrom: [catalog-db-creds, openfga-creds]
 env:
   DATABASE_URL_SECRET_REF: catalog-db-creds
-  # Write authz (ADR-0010): dial SpiceDB via the shared Checker. Blank preshared key
-  # falls back to spicedb-creds.preshared_key (envFrom), as the authz service does.
-  SPICEDB_ENDPOINT: "spicedb.platform.svc.cluster.local:50051"
-  SPICEDB_PRESHARED_KEY: ""
+  # Write authz (ADR-0010): dial OpenFGA via the shared Checker. Blank preshared key
+  # falls back to openfga-creds.preshared_key (envFrom), as the authz service does.
+  OPENFGA_API_URL: "http://openfga.platform.svc.cluster.local:8080"
+  OPENFGA_PRESHARED_KEY: ""

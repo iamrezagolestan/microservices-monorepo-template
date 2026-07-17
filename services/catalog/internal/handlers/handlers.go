@@ -135,7 +135,7 @@ func (h *Handlers) NewError(_ context.Context, err error) *catalog.ErrorStatusCo
 	return &catalog.ErrorStatusCode{StatusCode: 500, Response: catalog.Problem{Code: "internal", Message: err.Error()}}
 }
 
-// requireOperator gates a write on the shared SpiceDB Checker (ADR-0010): the
+// requireOperator gates a write on the shared OpenFGA Checker (ADR-0010): the
 // caller must be an authenticated operator. Reads (List/Get) stay open; only
 // writes to the global catalog are gated (x-audience: internal, ADR-0008).
 func (h *Handlers) requireOperator(ctx context.Context, action string) error {

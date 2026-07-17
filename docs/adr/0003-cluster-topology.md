@@ -206,27 +206,27 @@ the persistent dev/staging/prod clusters use ([ADR-0004](0004-gitops.md)) — fo
 
 | Step          | Command                                    | Brings up / does                                                                                     |
 |---------------|--------------------------------------------|------------------------------------------------------------------------------------------------------|
-| Cluster+deps  | `mise run cluster:lite`                       | k3d cluster + a CNI + lightweight Postgres, Temporal dev server, in-memory SpiceDB (`infra/local/deps.yaml`) |
-| Port-forwards | `mise run dev:forward`                      | forwards the deps to localhost (Postgres 5432, Temporal 7233/8233, SpiceDB 50051); leave running     |
+| Cluster+deps  | `mise run cluster:lite`                       | k3d cluster + a CNI + lightweight Postgres, Temporal dev server, in-memory OpenFGA (`infra/local/deps.yaml`) |
+| Port-forwards | `mise run dev:forward`                      | forwards the deps to localhost (Postgres 5432, Temporal 7233/8233, OpenFGA 8080); leave running     |
 | Inner loop    | run the service natively                    | set the env contract and run it in any editor/IDE or `go run ./services/<svc>/cmd/server` — no build/deploy |
 | In-cluster    | `mise run service:deploy -- <svc>`          | one-shot build → `k3d image import` → `helm upgrade` (for edge/auth/e2e testing); **no watch loop**  |
 | Migrations    | `mise run db:migrate`                       | applies each service's migrations to the local Postgres                                              |
 | Teardown      | `mise run cluster:stop` / `cluster:delete`   | stops (keeps image cache) / deletes the cluster                                                      |
 
 **Native, against real dependencies.** The service binary runs on the host; it reaches the k3d-hosted deps through the
-`dev:forward` port-forwards and the standard env contract (`DATABASE_URL`, `TEMPORAL_HOST_PORT`, `SPICEDB_ENDPOINT`).
+`dev:forward` port-forwards and the standard env contract (`DATABASE_URL`, `TEMPORAL_HOST_PORT`, `OPENFGA_API_URL`).
 There is nothing to rebuild or redeploy on save — you just re-run. When you genuinely need the service *in* the cluster
 (exercising the edge, auth, or e2e), `service:deploy` does a single build-import-upgrade against the production
 `infra/helm/service` chart with the `local` values overlay — a one-shot, not a watch loop.
 
 **Lightweight deps in the inner loop only.** `infra/local/deps.yaml` ships throwaway Postgres / Temporal-dev / in-memory
-SpiceDB so a service has something to talk to without paying for the full platform. Their production counterparts (CNPG,
-the Temporal Helm chart, the SpiceDB chart, the observability stack, the gateway and auth edge) run in the full-platform
+OpenFGA so a service has something to talk to without paying for the full platform. Their production counterparts (CNPG,
+the Temporal Helm chart, the OpenFGA chart, the observability stack, the gateway and auth edge) run in the full-platform
 local tier (`cluster:full`) and in dev/staging/prod, where their operators and ordering behave correctly
 ([ADR-0016](0016-environment-parity.md)).
 
 **What is not swapped out, ever:** the Kubernetes API, the service chart, the service images, the env contract (
-`DATABASE_URL`, `TEMPORAL_HOST_PORT`, OTLP, SpiceDB), the Postgres major version. A bug reproduced locally reproduces in
+`DATABASE_URL`, `TEMPORAL_HOST_PORT`, OTLP, OpenFGA), the Postgres major version. A bug reproduced locally reproduces in
 staging and prod. `service:deploy` loads images into k3d directly (no registry round-trip).
 
 ### Service mesh — and why Cilium, not Linkerd
@@ -238,10 +238,10 @@ one, compared on **security capability** (dashboards and RAM aside):
 | Security capability                              | flannel only        | flannel + Linkerd            | **Cilium + WireGuard**            |
 |--------------------------------------------------|---------------------|------------------------------|-----------------------------------|
 | L3/L4 default-deny segmentation                  | none (flat)         | meshed app traffic only      | all pods                          |
-| Data-tier protection (PG/MinIO/SpiceDB)          | wide open           | only if the data tier is meshed (fiddly) | NetworkPolicy         |
+| Data-tier protection (PG/MinIO/OpenFGA)          | wide open           | only if the data tier is meshed (fiddly) | NetworkPolicy         |
 | Cryptographic workload identity (anti-spoof)     | —                   | mTLS certs (meshed)          | label identity; SPIFFE optional   |
 | Encryption in transit (east-west)                | plaintext           | meshed only                  | all pods (WireGuard)              |
-| L7 authz (route/method)                          | —                   | fine-grained                 | Envoy, coarse — already have Oathkeeper + SpiceDB |
+| L7 authz (route/method)                          | —                   | fine-grained                 | Envoy, coarse — already have Oathkeeper + OpenFGA |
 | Egress control + DNS/FQDN (exfil/C2/metadata SSRF) | —                 | not Linkerd's job            | FQDN + L3 egress                  |
 
 flannel *silently ignores* applied NetworkPolicy objects — worse than "no policy," because it grants false confidence;
@@ -249,8 +249,8 @@ so flannel-only is no east-west security at all, indefensible for a multi-tenant
 Cilium wins on **breadth**: the controls it adds (data-tier segmentation, egress/metadata-SSRF control) map onto the
 highest-frequency, highest-impact cluster attacks — lateral movement to Postgres, metadata-endpoint credential theft
 (the Capital One shape). The controls Linkerd would add over Cilium (cert identity, fine L7) are depth *behind* those,
-and the L7 layer is already covered by Oathkeeper at the edge and SpiceDB in-app. Linkerd would also leak the data tier
-unless CNPG/MinIO/SpiceDB are meshed — the fiddly sidecar-vs-Job work our Job-heavy bootstrap makes painful. Cilium
+and the L7 layer is already covered by Oathkeeper at the edge and OpenFGA in-app. Linkerd would also leak the data tier
+unless CNPG/MinIO/OpenFGA are meshed — the fiddly sidecar-vs-Job work our Job-heavy bootstrap makes painful. Cilium
 mutual-auth / SPIFFE can add cert identity later with no sidecars, if wanted.
 
 **Cilium covers CNI + mesh as one component.** Its sidecarless eBPF mode provides transparent WireGuard encryption,

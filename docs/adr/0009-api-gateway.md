@@ -119,7 +119,7 @@ are in neither — they bypass the edge and are documented in the service README
 - **Dev portal** — a route group in the frontend at `apps/frontend/src/app/(devportal)/`, on the product origin
   ([ADR-0017](0017-url-and-domain-structure.md)). It renders **every edge operation** — audience `>= internal`, so
   first-party `internal` ops and `public` ops alike — for our own frontend/admin developers. It sits behind the app session
-  and is page-gated by the SpiceDB `Checker` ([ADR-0010](0010-auth.md)), like any product surface — not a bare session check.
+  and is page-gated by the OpenFGA `Checker` ([ADR-0010](0010-auth.md)), like any product surface — not a bare session check.
 - **Public docs portal** — **anonymous, no login**, the norm for public API documentation. It renders only `public`
   operations (`internal` ones dropped). It ships only when a public API does; until then the dev portal is the only portal
   and there is no public placeholder to operate.
@@ -147,7 +147,7 @@ issuing and rotating third-party OAuth2 client credentials via Hydra lives behin
 ### Hydra is a public-API flag
 
 Hydra ([ADR-0010](0010-auth.md)) issues OAuth2 tokens for third-party / external machine clients. **Internal-only
-projects do not deploy it:** Kratos (login) + Oathkeeper (edge) + SpiceDB (authz) is the internal stack. A project
+projects do not deploy it:** Kratos (login) + Oathkeeper (edge) + OpenFGA (authz) is the internal stack. A project
 exposing a public API or external machine clients sets `hydra_thirdparty: on`; Oathkeeper then validates those JWTs at
 the edge and converts them to the same identity headers, so the internal request shape is unchanged.
 
@@ -207,7 +207,7 @@ Settled here and inherited by [ADR-0010](0010-auth.md):
 - Static browser-security headers (`frame-ancestors`, `nosniff`, `Referrer-Policy`, HSTS) are a Traefik middleware applied to all responses; the per-request CSP nonce is set by the frontend ([ADR-0014](0014-frontend.md)).
 - Cookie-authenticated state-changing requests are Origin-checked by an Oathkeeper rule. Bearer-token traffic is exempt.
 - Hydra is deployed only for projects exposing a public API or external machine clients (`hydra_thirdparty` flag).
-  Internal-only projects run Kratos + Oathkeeper + SpiceDB.
+  Internal-only projects run Kratos + Oathkeeper + OpenFGA.
 - The dev portal is a `Checker`-gated route group in `apps/frontend/` rendering every edge operation (audience
   `>= internal`); the public docs portal is anonymous and renders only `public` operations
   ([ADR-0008](0008-api-contracts.md)), shipping only with a public API. Both are filtered projections of the specs — a

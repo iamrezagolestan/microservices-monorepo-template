@@ -7,7 +7,7 @@
 
 ## Context
 
-Three environments — **dev**, **staging**, **prod** — each on a k3s cluster ([ADR-0003](0003-cluster-topology.md)). Deploys cover the full service fleet (the target scale, [ADR-0000](0000-platform-foundations.md)), the frontend, and platform components (Postgres via CNPG, Temporal, Kratos/Oathkeeper (Hydra when a public API exists), SpiceDB, the observability stack, ArgoCD itself).
+Three environments — **dev**, **staging**, **prod** — each on a k3s cluster ([ADR-0003](0003-cluster-topology.md)). Deploys cover the full service fleet (the target scale, [ADR-0000](0000-platform-foundations.md)), the frontend, and platform components (Postgres via CNPG, Temporal, Kratos/Oathkeeper (Hydra when a public API exists), OpenFGA, the observability stack, ArgoCD itself).
 
 We need a single answer to:
 
@@ -79,7 +79,7 @@ The platform tier is split into three dependency layers, each its own Applicatio
 | `0` | `platform-base` | sops-operator, cert-manager, network-policies (+ cilium, argocd in prod) | — |
 | `1` | secrets | the per-env `SopsSecret` CR (`secrets` ApplicationSet for dev/staging/prod, `local-secrets` app locally) | base (operator + CRD up) |
 | `2` | `platform-data` | postgres, minio | secrets (creds decrypted) |
-| `3` | `platform-core` | observability *(tempo/loki)*, ory, temporal, spicedb, pgweb, headlamp, lowdefy | data (live Postgres, MinIO buckets) |
+| `3` | `platform-core` | observability *(tempo/loki)*, ory, temporal, openfga, pgweb, headlamp, lowdefy | data (live Postgres, MinIO buckets) |
 | `4` | gateway | Traefik middlewares + cross-cutting IngressRoutes | core |
 | `5` | services | one Application per service (git-directory generator over `infra/gitops/services/<env>/values/*.yaml`) | gateway |
 

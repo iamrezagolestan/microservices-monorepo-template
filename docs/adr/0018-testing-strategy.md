@@ -75,7 +75,7 @@ scoped to the e2e/visual runner alone.
 | Layer | Tool | Environment | Role |
 |-------|------|-------------|------|
 | **Unit / component** | `go test`, `bun test` ([ADR-0014](0014-frontend.md)) | none / `happy-dom` | logic & component shape in isolation |
-| **Service integration** | `go test` + generated SDK clients ([ADR-0008](0008-api-contracts.md)) | `cluster:lite` (deps only) | a service against real Postgres/Temporal/SpiceDB |
+| **Service integration** | `go test` + generated SDK clients ([ADR-0008](0008-api-contracts.md)) | `cluster:lite` (deps only) | a service against real Postgres/Temporal/OpenFGA |
 | **Preflight readiness** | Go / shell | `cluster:full` | fast failure **localiser** — pods ready, ports open, Postgres/Oathkeeper reachable; runs before the browser suite so a red e2e instantly reads "infra down" vs "app broken" |
 | **Browser acceptance e2e** | **Playwright (TS)** | `cluster:full` | **the gauge** — product journeys + operator dashboards rendered behind a real AAL2 session |
 | **Visual regression** | **Playwright `toHaveScreenshot`** | `cluster:full` / static render | component shape vs committed baselines |

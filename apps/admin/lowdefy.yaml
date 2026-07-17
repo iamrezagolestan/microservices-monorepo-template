@@ -28,10 +28,10 @@ config:
 # service in-cluster, bypassing the /api edge; auth is enforced upstream (ADR-0012).
 #
 # Identity for writes: a service's write handlers gate on an operator identity
-# (authmw X-User-Id → SpiceDB group:operator, ADR-0009/0010). Lowdefy has no
+# (authmw X-User-Id → OpenFGA group:operator, ADR-0009/0010). Lowdefy has no
 # server operator to relay the operator's inbound X-User-Id, so the console asserts
-# a fixed service-account identity `user:admin-console`, which the SpiceDB seed
-# grants group:operator#member (infra/helm/platform/spicedb). This is the ADR-0009
+# a fixed service-account identity `user:admin-console`, which the OpenFGA seed
+# grants group:operator#member (infra/helm/platform/openfga). This is the ADR-0009
 # header-trust model: only the console can reach these server ports (NetworkPolicy
 # allowFrom: [lowdefy]), so only it can assert this header. Reads ignore identity.
 connections:

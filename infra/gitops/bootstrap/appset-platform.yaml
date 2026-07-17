@@ -6,7 +6,7 @@
 #                    any SopsSecret CR can be decrypted into Secrets (ADR-0005).
 #   data (wave 2)  — postgres, minio. The storage layer everything else sits on;
 #                    needs the Secrets produced by the base + secrets tiers.
-#   core (wave 3)  — observability, ory, temporal, spicedb, pgweb, headlamp,
+#   core (wave 3)  — observability, ory, temporal, openfga, pgweb, headlamp,
 #                    lowdefy. Consumers of the data layer (Postgres DSNs, the
 #                    MinIO trace/log buckets).
 #
@@ -26,7 +26,7 @@
 # 3 core · 4 gateway · 5 services.
 #
 # The three sets share an identical template body (the same auth valueFiles /
-# fileParameters wiring as before; non-Ory/SpiceDB charts ignore the extra keys).
+# fileParameters wiring as before; non-Ory/OpenFGA charts ignore the extra keys).
 # Only the generator's directory list and the set's own sync-wave differ.
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
@@ -82,8 +82,8 @@ spec:
           # in-cluster DNS / cross-component refs).
           releaseName: "{{ .path.basename }}"
           # Auth single-source (Phase 0.4): the Ory app pulls kratos/oathkeeper
-          # config from the canonical infra/auth tree; SpiceDB pulls its schema.
-          # Non-Ory/SpiceDB charts ignore these extra keys. The per-env file layers
+          # config from the canonical infra/auth tree; OpenFGA pulls its schema.
+          # Non-Ory/OpenFGA charts ignore these extra keys. The per-env file layers
           # last so its host/dsn/secret overrides win (later valueFiles precede).
           valueFiles:
             - "../../../auth/kratos/values.yaml"
@@ -94,8 +94,8 @@ spec:
               path: "../../../auth/kratos/identity-schemas/user.v1.json"
             - name: oathkeeper.oathkeeper.accessRules
               path: "../../../auth/oathkeeper/access-rules.json"
-            - name: seed.schema
-              path: "../../../auth/spicedb/schema.zed"
+            - name: seed.model
+              path: "../../../auth/openfga/model.json"
       destination: { server: "{{ .server }}", namespace: platform }
       syncPolicy:
         automated: { prune: true, selfHeal: true }
@@ -157,8 +157,8 @@ spec:
               path: "../../../auth/kratos/identity-schemas/user.v1.json"
             - name: oathkeeper.oathkeeper.accessRules
               path: "../../../auth/oathkeeper/access-rules.json"
-            - name: seed.schema
-              path: "../../../auth/spicedb/schema.zed"
+            - name: seed.model
+              path: "../../../auth/openfga/model.json"
       destination: { server: "{{ .server }}", namespace: platform }
       syncPolicy:
         automated: { prune: true, selfHeal: true }
@@ -177,7 +177,7 @@ metadata:
     app.kubernetes.io/component: core
   annotations:
     # Wave 3: after the data tier is Healthy, so Tempo/Loki find MinIO + their
-    # buckets and Ory/Temporal/SpiceDB/pgweb find a live Postgres.
+    # buckets and Ory/Temporal/OpenFGA/pgweb find a live Postgres.
     argocd.argoproj.io/sync-wave: "3"
 spec:
   goTemplate: true
@@ -197,7 +197,7 @@ spec:
                 - { path: "infra/helm/platform/observability" }
                 - { path: "infra/helm/platform/ory" }
                 - { path: "infra/helm/platform/temporal" }
-                - { path: "infra/helm/platform/spicedb" }
+                - { path: "infra/helm/platform/openfga" }
                 - { path: "infra/helm/platform/pgweb" }
                 - { path: "infra/helm/platform/headlamp" }
                 - { path: "infra/helm/platform/lowdefy" }
@@ -225,8 +225,8 @@ spec:
               path: "../../../auth/kratos/identity-schemas/user.v1.json"
             - name: oathkeeper.oathkeeper.accessRules
               path: "../../../auth/oathkeeper/access-rules.json"
-            - name: seed.schema
-              path: "../../../auth/spicedb/schema.zed"
+            - name: seed.model
+              path: "../../../auth/openfga/model.json"
       destination: { server: "{{ .server }}", namespace: platform }
       syncPolicy:
         automated: { prune: true, selfHeal: true }

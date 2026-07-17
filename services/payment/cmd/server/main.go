@@ -51,8 +51,8 @@ func run() error {
 	}
 	defer tc.Close()
 
-	// Authz plane (ADR-0010): the shared SpiceDB Checker gates the operator-only
-	// refund. Lazily dialed — SPICEDB_PRESHARED_KEY (envFrom spicedb-creds) must be set.
+	// Authz plane (ADR-0010): the shared OpenFGA Checker gates the operator-only
+	// refund. Lazily dialed — OPENFGA_PRESHARED_KEY (envFrom openfga-creds) must be set.
 	checker, err := authz.New()
 	if err != nil {
 		return fmt.Errorf("authz: %w", err)

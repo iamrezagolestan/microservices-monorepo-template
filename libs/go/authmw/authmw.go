@@ -43,7 +43,7 @@ func (p *Principal) HasRole(role string) bool {
 	return slices.Contains(p.Roles, role)
 }
 
-// Subject renders the principal as a SpiceDB subject ("user:<id>") for the
+// Subject renders the principal as an OpenFGA user string ("user:<id>") for the
 // authz Checker (ADR-0010).
 func (p *Principal) Subject() string {
 	if !p.Authenticated() {

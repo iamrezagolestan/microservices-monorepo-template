@@ -67,7 +67,7 @@ infra/
 ├── helm/                     # Helm charts (ours + values for upstream)
 ├── gitops/                   # ArgoCD ApplicationSets + per-env values
 ├── ansible/                  # host configuration
-├── auth/                     # Kratos, Hydra, SpiceDB config
+├── auth/                     # Kratos, Hydra, OpenFGA config
 ├── gateway/                  # Traefik routing + rate-limit config (Oathkeeper rules live in infra/auth/)
 └── observability/            # dashboards and alerts as code
 
@@ -127,9 +127,9 @@ External tools (Go, sqlc, dbmate, helm, kubectl, etc.) are installed via `mise` 
 Every executable the repo depends on is pinned to a specific version in one of exactly two places:
 
 - **Developer / CI tools** (Go, Bun, `dbmate`, `sqlc`, `sqruff`, `ogen`, `vacuum`, `helm`, `kubectl`,
-  `terraform`, `ansible`, `zed`, `age`, `sops`, `mise` itself, etc.) live in the root `.mise.toml` (and
+  `terraform`, `ansible`, `fga`, `age`, `sops`, `mise` itself, etc.) live in the root `.mise.toml` (and
   service-local `.mise.toml` files when a service genuinely needs a different version).
-- **Runtime services** (Postgres, Temporal, Kratos, Oathkeeper, Hydra, SpiceDB, MinIO, Loki, Prometheus, Tempo,
+- **Runtime services** (Postgres, Temporal, Kratos, Oathkeeper, Hydra, OpenFGA, MinIO, Loki, Prometheus, Tempo,
   Grafana, OTel Collector, ArgoCD, CNPG operator, etc.) live as Helm chart `appVersion` plus an explicit `image.tag` in
   `infra/helm/.../values.yaml`. Local development uses the same Helm values via k3d (
   see [ADR-0003](0003-cluster-topology.md));

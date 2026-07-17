@@ -20,13 +20,19 @@ cd "$ROOT"
 SVC="${1:?usage: mise run service:deploy -- <svc>}"
 SVC_DIR="services/${SVC}"
 VALUES="infra/gitops/services/local/values/${SVC}.yaml"
-[ -d "$SVC_DIR" ] || { echo "✗ no such service: ${SVC_DIR}" >&2; exit 1; }
-[ -f "$VALUES" ]  || { echo "✗ missing local values: ${VALUES}" >&2; exit 1; }
+[ -d "$SVC_DIR" ] || {
+  echo "✗ no such service: ${SVC_DIR}" >&2
+  exit 1
+}
+[ -f "$VALUES" ] || {
+  echo "✗ missing local values: ${VALUES}" >&2
+  exit 1
+}
 
 k() { kubectl --context "k3d-${CLUSTER}" -n "$NS" "$@"; }
 h() { helm --kube-context "k3d-${CLUSTER}" "$@"; }
 
-TAG="local-$(date +%s)"   # unique tag forces a re-pull of the imported image
+TAG="local-$(date +%s)" # unique tag forces a re-pull of the imported image
 SET=(--set "image.repository=${SVC}-server" --set "image.tag=${TAG}")
 
 # Build identity baked into the image (ADR-0013): the working-tree SHA (+ -dirty
@@ -34,7 +40,7 @@ SET=(--set "image.repository=${SVC}-server" --set "image.tag=${TAG}")
 # X-App-Version header report exactly what you deployed.
 REV="$(git rev-parse --short=12 HEAD 2>/dev/null || echo unknown)"
 git diff --quiet 2>/dev/null || REV="${REV}-dirty"
-BUILD_ARGS=(--build-arg "GIT_SHA=${REV}" --build-arg BUILD_VERSION=local \
+BUILD_ARGS=(--build-arg "GIT_SHA=${REV}" --build-arg BUILD_VERSION=local
   --build-arg "BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)")
 
 echo "→ building ${SVC}-server"
@@ -61,8 +67,12 @@ if k -n argocd get application.argoproj.io "local-service-${SVC}" >/dev/null 2>&
 fi
 
 echo "→ helm upgrade ${SVC} (working-tree image ${TAG})"
+# --take-ownership: when the full tier normally manages this service, its resources
+# are owned by ArgoCD (Server-Side Apply), not a Helm release. Helm 4 refuses to
+# adopt them without this flag. Auto-sync is already paused above, so taking
+# ownership for the local override is safe; a re-run of cluster:full restores GitOps.
 h upgrade --install "$SVC" infra/helm/service -n "$NS" -f "$VALUES" \
-  --set image.pullPolicy=IfNotPresent "${SET[@]}" --timeout 5m
+  --take-ownership --force-conflicts --set image.pullPolicy=IfNotPresent "${SET[@]}" --timeout 5m
 k rollout restart "deploy/${SVC}-server"
-k rollout status  "deploy/${SVC}-server" --timeout=180s
+k rollout status "deploy/${SVC}-server" --timeout=180s
 echo "✓ ${SVC} deployed from working tree (tag ${TAG})"

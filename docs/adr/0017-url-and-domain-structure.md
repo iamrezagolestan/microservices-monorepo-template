@@ -134,7 +134,7 @@ Authentication only proves *who* the operator is; it does not entitle them to ev
 surface, at one of two enforcement points split by **who owns the code**:
 
 - **Product surfaces are our code → the app/service decides.** The `/admin`, `/panel`, `/devportal` route groups and the
-  `/api/<svc>` endpoints authorize with SpiceDB through `libs/go/authz`'s `Checker` ([ADR-0010](0010-auth.md)); the edge
+  `/api/<svc>` endpoints authorize with OpenFGA through `libs/go/authz`'s `Checker` ([ADR-0010](0010-auth.md)); the edge
   only authenticates. Page-level access to `/admin` is a `Checker.Allowed` call in the RSC layer, not a bare session
   check.
 - **Ops dashboards are third-party → the edge decides.** Hubble, Grafana, Argo CD, Temporal, the MinIO console, and the
@@ -144,27 +144,25 @@ surface, at one of two enforcement points split by **who owns the code**:
   - **Coarse gate (mandatory) — a claim, not a `Checker` call.** The whole ops tier is gated on the operator's identity:
     the ops-tier forward-auth requires `X-Roles` to contain `operator` (the `operator` trait on the Kratos identity,
     injected as a header per [ADR-0010](0010-auth.md)) **and** an **AAL2 session** (operator MFA). This decision reads
-    only the authenticated session and its claims — it makes **no SpiceDB call**. That is deliberate: the ops dashboards
+    only the authenticated session and its claims — it makes **no OpenFGA call**. That is deliberate: the ops dashboards
     are how an operator debugs an outage, so their coarse gate must not share fate with the product authorization plane.
-    A SpiceDB or authz-endpoint outage must not lock every operator out of Grafana/Hubble/Argo. Losing SpiceDB degrades
+    An OpenFGA or authz-endpoint outage must not lock every operator out of Grafana/Hubble/Argo. Losing OpenFGA degrades
     the ops tier to "any operator reaches any tool," not "nobody reaches anything."
 
-  - **Fine gate (optional) — per-tool `remote_json` → SpiceDB `Checker`.** When per-tool grants are wanted (`alice: Grafana
-    but not Hubble`), each ops route adds the `remote_json` authorizer calling the SpiceDB `Checker`, modelling each tool
+  - **Fine gate (optional) — per-tool `remote_json` → OpenFGA `Checker`.** When per-tool grants are wanted (`alice: Grafana
+    but not Hubble`), each ops route adds the `remote_json` authorizer calling the OpenFGA `Checker`, modelling each tool
     as a resource:
 
-    ```zed
-    definition dashboard {
-      relation viewer: user | group#member
-      permission view = viewer
-    }
-    ```
+        type dashboard
+          relations
+            define viewer: [user, group#member]
+            define view: viewer
 
     A request to `o11y.ops.<host>` then also checks `view` on `dashboard:o11y`. For 3–8 operators this fine layer
     is typically deferrable, so the `dashboard` resource and its `remote_json` wiring are optional day-one, not required.
 
 The coarse claim gate is the load-bearing one; the fine per-tool layer refines within it when a project needs it. Product
-surfaces are unaffected: they authorize in-app/in-service through the SpiceDB `Checker` ([ADR-0010](0010-auth.md)), so
+surfaces are unaffected: they authorize in-app/in-service through the OpenFGA `Checker` ([ADR-0010](0010-auth.md)), so
 "every product permission decision goes through `Checker`" still holds — only the ops tier's coarse gate is intentionally
 a claim, for break-glass independence.
 
@@ -274,9 +272,9 @@ scale**. Absent those, the public API is another `<host>/api/<resource>` route, 
 
 - The product/ops split lives in `infra/gateway` (host-parameterised ops IngressRoutes), the per-tool chart values
   (Grafana/Argo/Temporal base-path off; Hubble root), and the cert-manager Certificate (two wildcards).
-- The ops-tier forward-auth enforces the coarse **`operator` claim + AAL2** gate (no SpiceDB call). The `operator` trait
+- The ops-tier forward-auth enforces the coarse **`operator` claim + AAL2** gate (no OpenFGA call). The `operator` trait
   is declared on the Kratos identity schema and injected as `X-Roles` ([ADR-0010](0010-auth.md)). The optional fine
-  per-tool layer adds `remote_json` → SpiceDB `Checker` with a `dashboard` resource in `infra/auth/spicedb/schema.zed`.
+  per-tool layer adds `remote_json` → OpenFGA `Checker` with a `dashboard` resource in `infra/auth/openfga/model.fga`.
 - The default session cookie is parent-scoped. *Optional hardening:* an ops-tier OIDC proxy (Hydra) for token isolation,
   required only if a non-first-party origin is ever hosted under `<host>`.
 - Break-glass recovery for a full auth-plane outage is `docs/ops/break-glass.md` (`kubectl port-forward` with an
@@ -314,7 +312,7 @@ scale**. Absent those, the public API is another `<host>/api/<resource>` route, 
   isolation upgrade, and is **mandatory** if any non-first-party origin is hosted under `<host>`.
 - Each environment provisions both `*.<host>` and `*.ops.<host>` certificates.
 - The ops tier's coarse gate is a **claim, not a `Checker` call**: the ops-tier forward-auth requires `X-Roles` to
-  contain `operator` plus an **AAL2** session, and makes no SpiceDB call — so the debugging surface does not share fate
+  contain `operator` plus an **AAL2** session, and makes no OpenFGA call — so the debugging surface does not share fate
   with the product authorization plane. Optional per-tool refinement adds Oathkeeper's `remote_json` authorizer against
-  the SpiceDB `Checker` (`dashboard:<tool>#view`). Product surfaces authorize in-app/in-service through `libs/go/authz`
+  the OpenFGA `Checker` (`dashboard:<tool>#view`). Product surfaces authorize in-app/in-service through `libs/go/authz`
   ([ADR-0010](0010-auth.md)); a bare authenticated session never grants ops-tool access.

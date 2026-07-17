@@ -9,7 +9,7 @@
 //	                so it returns the 403 response variant with nil error; only real
 //	                infrastructure failures return an error (→ NewError → 5xx).
 //	CreateOperator — mints a Kratos identity with the `operator` trait and grants
-//	                group:operator#member in SpiceDB (ADR-0012), the generated admin
+//	                group:operator#member in OpenFGA (ADR-0012), the generated admin
 //	                page target (x-admin: action).
 package handlers
 
@@ -39,7 +39,7 @@ const (
 type Handlers struct {
 	checker     authz.Checker
 	granter     authz.Granter
-	fineGrained bool // when true, also require dashboard:<tool>#view in SpiceDB
+	fineGrained bool // when true, also require dashboard:<tool>#view in OpenFGA
 	kratosAdmin string
 	log         *slog.Logger
 }
@@ -60,9 +60,9 @@ var _ authzsdk.Handler = (*Handlers)(nil)
 // Authorize is the ops-tier edge authorizer (ADR-0017). It answers in two layers:
 //
 //	coarse (mandatory) — a CLAIM check: the `operator` trait and AAL2. It makes NO
-//	    SpiceDB call, so a product-authz outage cannot lock operators out of the
+//	    OpenFGA call, so a product-authz outage cannot lock operators out of the
 //	    dashboards they need to diagnose it (break-glass independence).
-//	fine (optional) — the subject holds dashboard:<tool>#view in SpiceDB, enabled
+//	fine (optional) — the subject holds dashboard:<tool>#view in OpenFGA, enabled
 //	    per-project via OPS_FINE_GRAINED.
 //
 // A bare authenticated session therefore never grants tool access.
@@ -88,7 +88,7 @@ func (h *Handlers) Authorize(ctx context.Context, req *authzsdk.AuthorizeRequest
 }
 
 // CreateOperator mints a Kratos identity carrying the `operator` trait — the coarse
-// ops-tier claim gate — and grants group:operator#member in SpiceDB to seed the
+// ops-tier claim gate — and grants group:operator#member in OpenFGA to seed the
 // optional fine per-tool layer (ADR-0012).
 func (h *Handlers) CreateOperator(ctx context.Context, req *authzsdk.OperatorInput) (*authzsdk.Operator, error) {
 	id, err := h.createKratosIdentity(ctx, req.Email, req.Password)
@@ -168,13 +168,13 @@ func (h *Handlers) NewError(_ context.Context, err error) *authzsdk.ErrorStatusC
 }
 
 // decide returns the allow/deny decision and its reason. The error is non-nil only
-// on an infrastructure failure (a SpiceDB call error), never on a plain deny.
+// on an infrastructure failure (a OpenFGA call error), never on a plain deny.
 func (h *Handlers) decide(ctx context.Context, req *authzsdk.AuthorizeRequest) (bool, string, error) {
 	if req.Subject == "" {
 		return false, "no session", nil
 	}
 	// Coarse gate — a CLAIM, not a Checker call: AAL2 session and the `operator`
-	// trait. No SpiceDB is consulted, so a product-authz outage never locks
+	// trait. No OpenFGA is consulted, so a product-authz outage never locks
 	// operators out.
 	if req.Aal != aalLevel2 {
 		return false, "aal2 required", nil
@@ -182,7 +182,7 @@ func (h *Handlers) decide(ctx context.Context, req *authzsdk.AuthorizeRequest) (
 	if req.Operator != operatorTraitTrue {
 		return false, "not an operator", nil
 	}
-	// Fine gate (optional): per-tool grant in SpiceDB. Skipped unless enabled.
+	// Fine gate (optional): per-tool grant in OpenFGA. Skipped unless enabled.
 	if h.fineGrained {
 		ok, err := h.checker.Allowed(ctx, "user:"+req.Subject, "view", "dashboard:"+req.Tool)
 		if err != nil {

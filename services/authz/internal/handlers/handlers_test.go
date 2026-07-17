@@ -27,7 +27,7 @@ const (
 
 // fakeChecker returns canned answers keyed by "permission resource". It also
 // records whether it was called, so tests can assert the coarse gate never
-// touches SpiceDB.
+// touches OpenFGA.
 type fakeChecker struct {
 	answers map[string]bool
 	called  bool
@@ -62,7 +62,7 @@ func decideStatus(t *testing.T, h *Handlers, r *authzsdk.AuthorizeRequest) int {
 }
 
 // The coarse gate is a claim check: operator trait + AAL2, and — critically — no
-// SpiceDB call, so a product-authz outage cannot lock operators out (ADR-0017).
+// OpenFGA call, so a product-authz outage cannot lock operators out (ADR-0017).
 func TestCoarseClaimGate(t *testing.T) {
 	t.Parallel()
 	checker := &fakeChecker{}
@@ -94,11 +94,11 @@ func TestCoarseClaimGate(t *testing.T) {
 	}
 
 	if checker.called {
-		t.Fatal("coarse gate called SpiceDB; it must not (break-glass independence, ADR-0017)")
+		t.Fatal("coarse gate called OpenFGA; it must not (break-glass independence, ADR-0017)")
 	}
 }
 
-// The optional fine gate adds a per-tool SpiceDB check on top of the coarse gate.
+// The optional fine gate adds a per-tool OpenFGA check on top of the coarse gate.
 func TestFineGrainedGate(t *testing.T) {
 	t.Parallel()
 	// alice holds o11y but not network.

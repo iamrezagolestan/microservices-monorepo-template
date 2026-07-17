@@ -5,7 +5,7 @@
 # revert you, then helm-upgrades the chart from the working tree with the local
 # values overlay. Re-enable sync when done (or just re-run cluster:full).
 #
-#   mise run platform:deploy -- <chart>     # e.g. ory, observability, spicedb
+#   mise run platform:deploy -- <chart>     # e.g. ory, observability, openfga
 #
 # For GitOps-wiring changes (sync-waves, ApplicationSets, App defs) helm cannot
 # exercise the delivery path — push a branch and point the local root-app
@@ -49,10 +49,21 @@ if k -n argocd get application.argoproj.io "$APP" >/dev/null 2>&1; then
     -p '{"spec":{"syncPolicy":{"automated":null}}}'
 fi
 
+# OpenFGA's authorization model is injected the same way the platform
+# ApplicationSet does it — a fileParameter from the canonical model.json (ADR-0010).
+# Without it seed.model is empty and the seed Job is disabled (no store is created).
+extra_args=()
+if [ "$CHART" = "openfga" ]; then
+  extra_args+=(--set-file "seed.model=infra/auth/openfga/model.json")
+fi
+
 echo "→ helm upgrade ${CHART} from the working tree"
 h dependency update "$CHART_DIR" >/dev/null
+# --take-ownership: platform charts are normally owned by ArgoCD (Server-Side
+# Apply), not a Helm release; Helm 4 refuses to adopt them without this flag. Sync
+# is paused above, so this is safe for the local override; cluster:full restores it.
 h upgrade --install "$CHART" "$CHART_DIR" -n "$NS" \
-  -f infra/gitops/platform/local/values.yaml --timeout 8m
+  --take-ownership --force-conflicts -f infra/gitops/platform/local/values.yaml "${extra_args[@]}" --timeout 8m
 
 # lowdefy's image tag is stable (:local), so helm sees no change to trigger a
 # rollout; restart explicitly to re-pull the image just rebuilt above.

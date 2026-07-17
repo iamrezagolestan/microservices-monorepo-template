@@ -31,7 +31,7 @@ writing an ADR that shows the floor already covers its concern.
 | Oathkeeper | Edge authorization (forward-auth) | [0009](adr/0009-api-gateway.md), [0010](adr/0010-auth.md) |
 | sops-operator | Secret decryption | [0005](adr/0005-secrets.md) |
 | Kyverno | Admission policy (image signatures, digest pins) | [0021](adr/0021-supply-chain-security.md) |
-| SpiceDB | Authorization (ReBAC) | [0010](adr/0010-auth.md) |
+| OpenFGA | Authorization (ReBAC) | [0010](adr/0010-auth.md) |
 | Temporal | Durable execution | [0006](adr/0006-temporal.md) |
 | Loki | Log storage | [0011](adr/0011-observability.md) |
 | Tempo | Trace storage | [0011](adr/0011-observability.md) |

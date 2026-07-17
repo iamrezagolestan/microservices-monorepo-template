@@ -14,7 +14,7 @@ import (
 const testID = "id_1"
 
 // registerEnv registers stub activities under the names RegisterUser executes, so
-// the test env resolves and mocks them without the real orgs DB / SpiceDB writer.
+// the test env resolves and mocks them without the real orgs DB / OpenFGA writer.
 func registerEnv(ts *testsuite.WorkflowTestSuite) *testsuite.TestWorkflowEnvironment {
 	env := ts.NewTestWorkflowEnvironment()
 	env.RegisterActivityWithOptions(
@@ -68,7 +68,7 @@ func TestRegisterUserWorkflow(t *testing.T) {
 	)
 
 	t.Run(
-		"SpiceDB grant failure fails the workflow after the org is created",
+		"OpenFGA grant failure fails the workflow after the org is created",
 		func(t *testing.T) {
 			t.Parallel()
 			var ts testsuite.WorkflowTestSuite
@@ -76,7 +76,7 @@ func TestRegisterUserWorkflow(t *testing.T) {
 			env.OnActivity("CreatePersonalOrgActivity", mock.Anything, mock.Anything).
 				Return("org_1", nil).Once()
 			env.OnActivity("GrantOrgAdminActivity", mock.Anything, "org_1", testID).
-				Return(errors.New("spicedb down"))
+				Return(errors.New("openfga down"))
 
 			env.ExecuteWorkflow(RegisterUser, RegisterInput{IdentityID: testID})
 

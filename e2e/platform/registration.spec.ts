@@ -2,11 +2,11 @@
 // `orgs` owns tenancy, and the two are joined by exactly one wire: the blocking
 // `after` web_hook on the self-service registration flow
 // (infra/auth/kratos/values.yaml) → POST /identity-created → the RegisterUser
-// Temporal workflow → personal org + admin membership + the SpiceDB `org#admin`
+// Temporal workflow → personal org + admin membership + the OpenFGA `org#admin`
 // tuple.
 //
 // This is the gauge for a seam with no unit-test equivalent — it spans Kratos, the
-// edge, the orgs server, Temporal, the orgs worker and SpiceDB, and every one of
+// edge, the orgs server, Temporal, the orgs worker and OpenFGA, and every one of
 // them has to be up for an org to appear. It also pins the boundary that is easy to
 // misread: identities created through the Kratos ADMIN API (fixtures/bootstrap.ts,
 // scripts/ops-grant.sh) do NOT run self-service flows, so they get no org. Seeing
@@ -71,7 +71,7 @@ test.describe("self-service registration", () => {
     // The org is eventually-consistent: the web_hook only ENQUEUES RegisterUser, and
     // cmd/worker runs the two dual-write activities out of band. Poll with a reload
     // rather than asserting once — a single assertion races the worker. A timeout
-    // here means the workflow never completed (worker down, or a failed SpiceDB
+    // here means the workflow never completed (worker down, or a failed OpenFGA
     // leg), not that the webhook never fired: a failed enqueue is blocking and would
     // already have failed `register` above.
     await expect(async () => {

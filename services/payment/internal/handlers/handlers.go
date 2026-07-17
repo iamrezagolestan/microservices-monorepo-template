@@ -198,7 +198,7 @@ func (h *Handlers) NewError(_ context.Context, err error) *payment.ErrorStatusCo
 	return &payment.ErrorStatusCode{StatusCode: 500, Response: payment.Problem{Code: "internal", Message: err.Error()}}
 }
 
-// requireOperator gates a write on the shared SpiceDB Checker (ADR-0010): the
+// requireOperator gates a write on the shared OpenFGA Checker (ADR-0010): the
 // caller must be an authenticated operator. Reads (List/Get) and creating a
 // charge stay open; only the destructive refund is gated, matching catalog's
 // operator-write policy.

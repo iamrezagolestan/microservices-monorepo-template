@@ -48,7 +48,7 @@ func run() error {
 	defer db.Close()
 
 	// The webhook handler only enqueues the RegisterUser workflow; the worker
-	// (cmd/worker) runs the dual-write. The server still dials SpiceDB for the
+	// (cmd/worker) runs the dual-write. The server still dials OpenFGA for the
 	// operator gate on the Update/Delete org mutations (ADR-0010).
 	tc, err := temporalmw.NewClient(serviceName)
 	if err != nil {

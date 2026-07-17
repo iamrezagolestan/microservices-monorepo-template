@@ -44,7 +44,7 @@ argo-cd:
       # CNPG Cluster health. Without this, ArgoCD's default assessment reports an
       # unknown CRD Healthy the instant its manifest applies — so the data-tier
       # ApplicationSet (postgres) would gate-close before the database is actually
-      # accepting connections, and the core tier (ory/temporal/spicedb/pgweb,
+      # accepting connections, and the core tier (ory/temporal/openfga/pgweb,
       # ADR-0004 wave 3) would start against a not-yet-ready Postgres. Report
       # Healthy only when the operator says the cluster is up with all instances
       # ready.

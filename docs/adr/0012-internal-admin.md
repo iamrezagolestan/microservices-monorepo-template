@@ -55,9 +55,9 @@ We need an internal admin surface that meets these constraints:
 
 This is the load-bearing rule; the tool choice is secondary to it. **Every admin mutation goes through the application
 layer (the service's Go API), never through raw SQL.** The API is where domain invariants are enforced, where the
-**dual-write to SpiceDB** happens ([ADR-0010](0010-auth.md)), and where a workflow can be triggered
+**dual-write to OpenFGA** happens ([ADR-0010](0010-auth.md)), and where a workflow can be triggered
 ([ADR-0006](0006-temporal.md)). A raw-SQL write bypasses all three: it desynchronises the authorization store from the
-application database (a row exists that SpiceDB has no tuple for, or vice versa) and skips every invariant the service
+application database (a row exists that OpenFGA has no tuple for, or vice versa) and skips every invariant the service
 guarantees. The admin tool matters less than what it writes *through* — so the tool is pointed at the API, not at
 Postgres.
 
@@ -113,11 +113,11 @@ Auth is enforced at the edge:
   own origin behind the ops-tier Oathkeeper forward-auth — not a product path.
 - The coarse ops gate is a **claim, not a `Checker` call**: the forward-auth requires `X-Roles` to contain `operator`
   plus an **AAL2** session ([ADR-0017](0017-url-and-domain-structure.md), [ADR-0010](0010-auth.md)). Unauthenticated or
-  non-operator requests never reach Lowdefy. This coarse gate makes no SpiceDB call, so the admin console does not share
+  non-operator requests never reach Lowdefy. This coarse gate makes no OpenFGA call, so the admin console does not share
   fate with the product authorization plane.
 - Oathkeeper forwards the authenticated identity as an `X-User-Email` (or equivalent) header. Lowdefy
   reads it through a request operator and exposes it to pages as `_request.headers.x-user-email`.
-- Fine-grained authorization (which operators may run which mutations) is enforced by SpiceDB `Checker` calls made by the
+- Fine-grained authorization (which operators may run which mutations) is enforced by OpenFGA `Checker` calls made by the
   **service APIs** the pages call, not by Lowdefy. The admin tool owns no RBAC of its own.
 
 ### Repository layout
@@ -242,14 +242,14 @@ Connection credentials are sourced from External Secrets ([ADR-0005](0005-secret
   drift-checked, never hand-edited. `pages/` and `custom/` hold the hand- or LLM-written pages the
   generator can't express. `lowdefy.yaml` references the generated `_generated/pages.yaml` index.
 - **Every admin mutation goes through the service Go API, never raw SQL** — the API enforces domain invariants, performs
-  the SpiceDB dual-write ([ADR-0010](0010-auth.md)), and can trigger workflows ([ADR-0006](0006-temporal.md)). A raw-SQL
-  write desyncs SpiceDB and bypasses every invariant, and is forbidden.
+  the OpenFGA dual-write ([ADR-0010](0010-auth.md)), and can trigger workflows ([ADR-0006](0006-temporal.md)). A raw-SQL
+  write desyncs OpenFGA and bypasses every invariant, and is forbidden.
 - Direct Postgres connections (Lowdefy's `Knex`, and pgweb/`psql`) are **read-only**, used only for inspection the
   REST API cannot serve, and enforced read-only at the database-role level — not by convention. pgweb (Go single-binary,
   `--readonly`) is a Core break-glass inspector, never a mutation surface.
 - Lowdefy's built-in auth/sessions are not used. MongoDB is not deployed for Lowdefy.
 - The admin console is served at `admin.ops.<host>` behind the ops-tier forward-auth: coarse gate is the `operator`
-  claim + AAL2 (no SpiceDB call), fine-grained authorization is the SpiceDB `Checker` inside the service APIs the pages
+  claim + AAL2 (no OpenFGA call), fine-grained authorization is the OpenFGA `Checker` inside the service APIs the pages
   call ([ADR-0017](0017-url-and-domain-structure.md), [ADR-0010](0010-auth.md)).
 - The admin pages generated for a service are determined by its spec markers: a tag with
   `x-admin: crud` yields a CRUD page (list, plus create/edit/delete for the operations present — an

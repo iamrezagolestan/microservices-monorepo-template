@@ -103,7 +103,7 @@ test.describe("admin ops dashboard", () => {
   // actually serves /identities. A paint-only check would pass on an empty grid; this
   // asserts the seeded bootstrap identities are present — the exact "I open Identities
   // and see nothing" regression — then edits one to exercise the PUT write path
-  // (authz gates writes on the console's operator X-User-Id → SpiceDB group:operator).
+  // (authz gates writes on the console's operator X-User-Id → OpenFGA group:operator).
   test.describe("identities", () => {
     test.use({ storageState: OPERATOR_STATE });
 
@@ -127,7 +127,7 @@ test.describe("admin ops dashboard", () => {
       const renamed = `e2e-op-${Date.now()}`;
 
       // Edit the name and save; the success toast confirms the PUT resolved — proof
-      // the operator identity header and SpiceDB grant let the write through.
+      // the operator identity header and OpenFGA grant let the write through.
       await nameField.fill(renamed);
       await page.getByRole("button", { name: "Save", exact: true }).click();
       await expect(page.getByText("Saved changes")).toBeVisible({ timeout: 20_000 });
@@ -151,7 +151,7 @@ test.describe("admin ops dashboard", () => {
   });
 
   // Operator management: the generated createOperator page creates a Kratos
-  // identity and grants group:operator membership in SpiceDB via server-side API
+  // identity and grants group:operator membership in OpenFGA via server-side API
   // calls (authz POST /operators).
   test.describe("create operator", () => {
     test.use({ storageState: OPERATOR_STATE });

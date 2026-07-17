@@ -11,7 +11,7 @@ import (
 	orgs "github.com/tabmadi/microservices-monorepo-template/libs/go/sdks/orgs"
 )
 
-// fakeChecker stands in for the SpiceDB Checker so the operator gate can be
+// fakeChecker stands in for the OpenFGA Checker so the operator gate can be
 // exercised without a cluster (ADR-0010).
 type fakeChecker struct {
 	allowed bool
@@ -44,7 +44,7 @@ func TestOrgWriteAuthz(t *testing.T) {
 	}{
 		{"anonymous is unauthorized", false, fakeChecker{}, 401},
 		{"non-operator is forbidden", true, fakeChecker{allowed: false}, 403},
-		{"checker failure is internal", true, fakeChecker{err: errors.New("spicedb down")}, 500},
+		{"checker failure is internal", true, fakeChecker{err: errors.New("openfga down")}, 500},
 	}
 	for name, call := range writes {
 		for _, tc := range cases {

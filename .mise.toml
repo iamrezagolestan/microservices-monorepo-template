@@ -44,8 +44,8 @@ jq = "1.8.1"
 # image digests into the prod values files — ADR-0013). Same rationale as jq.
 "aqua:mikefarah/yq" = "4.47.1"
 
-# Authorization (SpiceDB schema validation)
-"github:authzed/zed" = "1.1.1"
+# Authorization (OpenFGA model validation + ops-grant tuple writes)
+"github:openfga/cli" = "0.7.13"
 
 # Repo hygiene
 lefthook = "2.1.9"
@@ -89,7 +89,7 @@ run = "bash scripts/cilium-install.sh"
 
 [tasks."cluster:lite"]
 # Inner loop (ADR-0016): cluster + CNI + lightweight deps (Postgres/Temporal/
-# SpiceDB), then run the service you are changing NATIVELY (no Skaffold, no watch).
+# OpenFGA), then run the service you are changing NATIVELY (no Skaffold, no watch).
 # Ordering is the dependency graph: cluster:ensure → cluster:cilium → this apply.
 # Next steps (dev:forward, db:migrate, go run …) are in docs/dev-loop.md.
 depends = ["cluster:cilium"]
@@ -173,6 +173,12 @@ run = "bash scripts/gen-admin.sh"
 [tasks."gen:openapi-public"]
 # Filtered OpenAPI projections for the Scalar developer portals (ADR-0008/0009/0014).
 run = "bash scripts/gen-openapi-public.sh"
+
+[tasks."gen:authz-model"]
+# Regenerate infra/auth/openfga/model.json from the canonical model.fga DSL
+# (ADR-0010). The seed Job posts this JSON to the OpenFGA API; lint:authz asserts
+# it stays in sync with the DSL.
+run = "fga model transform --file infra/auth/openfga/model.fga --output-format json | jq -S . > infra/auth/openfga/model.json"
 
 [tasks."gen:sqlc"]
 run = "bash scripts/gen-sqlc.sh"
@@ -258,12 +264,12 @@ run = "bash scripts/lint-auth-inline.sh"
 
 [tasks."lint:authz"]
 # Edge-auth policy gates (ADR-0009/0010/0017):
-#   - SpiceDB schema + assertions (zed validate)
+#   - OpenFGA model + assertions (fga model test) + model.json in-sync check
 #   - ops dashboards authorize via remote_json → Checker, never `allow`
 #   - the product /api rule enumerates resources, never a bare /api wildcard
 #   - every forward-auth route strips client identity headers first (anti-spoofing)
 run = """
-bash scripts/validate-spicedb.sh
+bash scripts/validate-openfga.sh
 bash scripts/lint-authorizer.sh
 bash scripts/lint-api-wildcard.sh
 bash scripts/lint-strip-headers.sh

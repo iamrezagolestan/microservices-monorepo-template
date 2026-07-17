@@ -56,9 +56,9 @@ func (a *Activities) CreatePersonalOrgActivity(ctx context.Context, identityID s
 	return uuid.UUID(org.ID.Bytes).String(), nil
 }
 
-// GrantOrgAdminActivity is dual-write leg 2 (ADR-0010): the SpiceDB write. Grants
+// GrantOrgAdminActivity is dual-write leg 2 (ADR-0010): the OpenFGA write. Grants
 // the identity the `admin` relation on their personal org (org:<id>#admin@user:<id>,
-// schema.zed) so ReBAC ownership matches the app-DB membership.
+// model.fga) so ReBAC ownership matches the app-DB membership.
 func (a *Activities) GrantOrgAdminActivity(ctx context.Context, orgID, identityID string) error {
 	err := a.granter.Grant(ctx, "user:"+identityID, "admin", "org:"+orgID)
 	if err != nil {
