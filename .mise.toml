@@ -100,6 +100,13 @@ run = "kubectl --context k3d-${CLUSTER:-platform} apply -f infra/local/deps.yaml
 # Ordering/waits/secrets are Argo's job (sync-waves). See docs/dev-loop.md.
 run = "bash scripts/cluster-full.sh"
 
+[tasks."cluster:edge"]
+# Re-apply the host-only frontend edge glue (catch-all `/` → host `next dev` :3000,
+# Kratos public API, and the docker-bridge EndpointSlice). Not GitOps-managed, so a
+# stop/start or reboot loses it → Traefik 404 at /. cluster:ensure/heal/full run this
+# automatically; invoke it directly to re-stamp without a full restart.
+run = "bash scripts/cluster-edge.sh"
+
 [tasks."cluster:stop"]
 # Stops the cluster but KEEPS it (image cache + volumes survive) so the next
 # bring-up resumes without re-pulling.

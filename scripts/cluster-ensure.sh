@@ -88,4 +88,11 @@ else
 fi
 
 kubectl config use-context "k3d-${CLUSTER}"
+
+# Re-stamp the host-only frontend edge glue on every start. It is not GitOps-managed,
+# so a stop/start otherwise comes back without the catch-all `frontend` route (404 at
+# /) or with a stale docker-bridge address. No-op on a brand-new cluster whose Traefik
+# CRDs aren't up yet — cluster:full re-runs it once the platform is synced.
+CLUSTER="$CLUSTER" bash scripts/cluster-edge.sh
+
 echo "✓ cluster '$CLUSTER' ready (context k3d-${CLUSTER})"

@@ -155,30 +155,12 @@ done
 echo "✓ all ArgoCD applications Synced + Healthy"
 
 # 6. Host-specific edge tail (cannot be GitOps — depends on per-machine state):
-#    local Traefik tuning, the /auth + landing routes to a host-run frontend, and
-#    the frontend-dev EndpointSlice pointing at the docker-bridge gateway IP.
-echo "→ applying host-specific edge glue"
+#    local Traefik tuning, plus the /auth + landing routes to a host-run frontend
+#    and the frontend-dev EndpointSlice. The latter two live in cluster-edge.sh so
+#    the start path (cluster-ensure.sh) and reboot recovery (cluster-heal.sh) can
+#    re-stamp them too — otherwise a stop/start drops the `frontend` route (404 at /).
 k apply -f infra/local/traefik-config.yaml
-k apply -f infra/local/edge-auth.yaml
-GW="$(docker inspect "k3d-${CLUSTER}-server-0" \
-  --format '{{range .NetworkSettings.Networks}}{{.Gateway}}{{end}}')"
-k apply -f - <<EOF
-apiVersion: discovery.k8s.io/v1
-kind: EndpointSlice
-metadata:
-  name: frontend-dev
-  namespace: ${NS}
-  labels:
-    kubernetes.io/service-name: frontend-dev
-addressType: IPv4
-ports:
-  - name: http
-    port: 3000
-    protocol: TCP
-endpoints:
-  - addresses: ["${GW}"]
-    conditions: { ready: true }
-EOF
+bash scripts/cluster-edge.sh
 
 cat <<EOF
 
