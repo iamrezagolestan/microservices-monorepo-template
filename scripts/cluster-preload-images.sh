@@ -1,17 +1,16 @@
 #!/usr/bin/env bash
-# Preload the bootstrap-critical images into the node BEFORE the imperative
-# bring-up needs them (OPT-IN, proxied networks only).
+# Preload every platform image into the node BEFORE the imperative bring-up needs
+# them (OPT-IN, proxied networks only).
 #
 # The sibling cluster:unwedge is REACTIVE — it rescues Argo-synced pods stuck in
 # ImagePullBackOff. But cluster:full's imperative head (cilium-install, then the
 # ArgoCD install) BLOCKS on `helm --wait` rollouts BEFORE Argo ever runs, so if
 # the node's containerd wedges pulling Cilium or ArgoCD through a slow proxy there
 # is no pod loop for unwedge to fix — the whole bring-up just hangs. This warms
-# exactly those images ahead of time: host `docker pull` (the host proxy handles
+# every platform image ahead of time: host `docker pull` (the host proxy handles
 # large TLS blobs fine) → `k3d image import` into the node's containerd.
 #
-#   mise run cluster:preload          # cilium + argocd (bootstrap-critical)
-#   PRELOAD_ALL=1 mise run cluster:preload   # also every other platform chart
+#   mise run cluster:preload          # every platform chart image
 #
 # Nothing is hardcoded: the image list is derived from the charts via `helm
 # template`, so it tracks chart image bumps. The clean-network path never calls
@@ -22,13 +21,17 @@ CLUSTER="${CLUSTER:-platform}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-# The two charts cluster:full installs imperatively (helm --wait) before Argo, so
-# a wedged pull here stalls the whole bring-up. PRELOAD_ALL adds the rest, which
-# Argo pulls later (cluster:unwedge can also rescue those reactively).
+# cilium + argocd are the two charts cluster:full installs imperatively (helm
+# --wait) before Argo, so a wedged pull there stalls the whole bring-up; the rest
+# Argo pulls later (cluster:unwedge can also rescue those reactively). We preload
+# every platform chart so nothing has to wedge first — cilium/argocd lead so the
+# bootstrap-critical images land even if a later chart's pull is slow.
 charts=(cilium argocd)
-if [ "${PRELOAD_ALL:-0}" = "1" ]; then
-  for d in infra/helm/platform/*/; do charts+=("$(basename "$d")"); done
-fi
+for d in infra/helm/platform/*/; do
+  name="$(basename "$d")"
+  case "$name" in cilium | argocd) continue ;; esac
+  charts+=("$name")
+done
 
 # Best-effort per-chart render → image refs. cilium needs a couple of required
 # values to template; the rest render with their own defaults. A chart that will
@@ -37,9 +40,9 @@ fi
 render() { # <chart>
   local c="$1"
   case "$c" in
-    cilium) helm template cilium infra/helm/platform/cilium \
-              --set cilium.kubeProxyReplacement=false --set cilium.k8sServiceHost=127.0.0.1 2>/dev/null ;;
-    *) helm template "$c" "infra/helm/platform/$c" 2>/dev/null ;;
+  cilium) helm template cilium infra/helm/platform/cilium \
+    --set cilium.kubeProxyReplacement=false --set cilium.k8sServiceHost=127.0.0.1 2>/dev/null ;;
+  *) helm template "$c" "infra/helm/platform/$c" 2>/dev/null ;;
   esac
 }
 
@@ -67,7 +70,7 @@ fi
 # of that host clears it (we only ever pull public images here).
 docker_pull() { # <ref>
   local ref="$1" host="${1%%/*}" out
-  case "$host" in *.*|*:*) ;; *) host="docker.io" ;; esac  # bare name → Docker Hub
+  case "$host" in *.* | *:*) ;; *) host="docker.io" ;; esac # bare name → Docker Hub
   for attempt in 1 2 3; do
     if out=$(docker pull "$ref" 2>&1); then return 0; fi
     printf '%s\n' "$out" | tail -1
@@ -86,7 +89,8 @@ for img in "${want[@]}"; do
   echo "  · $img"
   if ! docker_pull "$img"; then
     echo "    ✗ could not pull $img — skipping (cluster:unwedge can retry later)"
-    failed+=("$img"); continue
+    failed+=("$img")
+    continue
   fi
   # k3d import can't resolve a `repo:tag@sha256:…` ref; a digest-only pull leaves no
   # `repo:tag` local tag either. Tag it back so import (and the digest-pinned pod)
@@ -98,10 +102,13 @@ for img in "${want[@]}"; do
       docker tag "$img" "$no_digest" && import_ref="$no_digest"
     fi
   fi
-  k3d image import "$import_ref" -c "$CLUSTER" >/dev/null || { echo "    ✗ import failed: $import_ref"; failed+=("$img"); }
+  k3d image import "$import_ref" -c "$CLUSTER" >/dev/null || {
+    echo "    ✗ import failed: $import_ref"
+    failed+=("$img")
+  }
 done
 
-ok=$(( ${#want[@]} - ${#failed[@]} ))
+ok=$((${#want[@]} - ${#failed[@]}))
 echo "✓ preloaded ${ok}/${#want[@]} image(s) into the node"
 if [ "${#failed[@]}" -gt 0 ]; then
   echo "✗ ${#failed[@]} image(s) not preloaded (proxy still choking) — re-run to retry:" >&2
