@@ -128,11 +128,13 @@ test.describe("end-to-end signal correlation", () => {
       .toBe(true);
     expect(logServices).toEqual(expect.arrayContaining(["orders", "catalog", "payment"]));
 
-    // PROMETHEUS: the domain + RED counters moved (dotted OTLP names, Prometheus 3.x).
+    // PROMETHEUS: the domain + RED counters moved. Prometheus escapes OTLP dotted
+    // names to the classic underscore form (UnderscoreEscapingWithSuffixes), so the
+    // stored series are orders_checkouts_started_total / http_server_requests_total.
     await expect
-      .poll(async () => await promSeriesCount("orders.checkouts_started_total"), { timeout: 60_000 })
+      .poll(async () => await promSeriesCount("orders_checkouts_started_total"), { timeout: 60_000 })
       .toBeGreaterThan(0);
-    expect(await promSeriesCount("http.server.requests_total")).toBeGreaterThan(0);
-    expect(await promSeriesCount("catalog.products_created_total")).toBeGreaterThan(0);
+    expect(await promSeriesCount("http_server_requests_total")).toBeGreaterThan(0);
+    expect(await promSeriesCount("catalog_products_created_total")).toBeGreaterThan(0);
   });
 });

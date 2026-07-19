@@ -91,9 +91,10 @@ export async function lokiServicesForTrace(traceId: string, windowSec = 900): Pr
   return [...svcs];
 }
 
-// promSeriesCount runs an instant query for a metric (Prometheus 3.x preserves the
-// dotted OTLP name, so callers pass e.g. "orders.checkouts_started_total", which is
-// quoted into the selector) and returns how many series matched.
+// promSeriesCount runs an instant query for a metric and returns how many series
+// matched. Prometheus escapes OTLP names to the classic underscore form, so callers
+// pass e.g. "orders_checkouts_started_total" (the name is quoted into the selector,
+// which is valid PromQL for any metric name).
 export async function promSeriesCount(metric: string): Promise<number> {
   const q = encodeURIComponent(`{"${metric}"}`);
   const res = await fetch(`http://127.0.0.1:${PROM_PORT}/api/v1/query?query=${q}`);
