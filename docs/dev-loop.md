@@ -91,7 +91,7 @@ mise run e2e                  # full suite: every journey, every dashboard, all 
 ```
 
 The browser test is the acceptance gauge — a rendered, authenticated dashboard (Grafana,
-Hubble, Temporal) is the proof the whole stack underneath is wired. A Go/shell **preflight
+Coroot, Temporal) is the proof the whole stack underneath is wired. A Go/shell **preflight
 readiness** check runs first so a red e2e reads "infra down" vs "app broken". The suite ships a
 committed deterministic test identity (an AAL1 user + an AAL2 operator); there is nothing to seed
 by hand. Playwright's runner is Node — the **one** sanctioned Node tool in the repo
@@ -197,7 +197,7 @@ resolve to a backend only once their chart is enabled).
 | Ops URL                                        | Tool                                                                                   | Auth                                             |
 |------------------------------------------------|----------------------------------------------------------------------------------------|--------------------------------------------------|
 | `https://o11y.ops.dev.localtest.me:8443/`      | **Grafana** — metrics/logs/traces                                                      | operator + AAL2                                  |
-| `https://network.ops.dev.localtest.me:8443/`   | Cilium **Hubble UI** — network-flow map                                                | operator + AAL2                                  |
+| `https://map.ops.dev.localtest.me:8443/`       | **Coroot** — eBPF service map / APM (replaces Hubble UI)                                | operator + AAL2                                  |
 | `https://workflows.ops.dev.localtest.me:8443/` | **Temporal Web UI**                                                                    | operator + AAL2                                  |
 | `https://s3.ops.dev.localtest.me:8443/`        | **MinIO console** (non-prod)                                                           | operator + AAL2, then `minio` / `minio-password` |
 | `https://admin.ops.dev.localtest.me:8443/`     | **Lowdefy** admin console                                                              | operator + AAL2                                  |
@@ -226,8 +226,8 @@ want one drops it with `enabled: false` in its env values overlay.
 ### Login flow
 
 The edge serves `*.dev.localtest.me` on `:8443` (real DNS → 127.0.0.1, no
-`/etc/hosts` edits). Auth-gated routes (e.g. the Hubble UI at
-`https://hubble.dev.localtest.me:8443/`) redirect an unauthenticated browser to
+`/etc/hosts` edits). Auth-gated routes (e.g. the Coroot service map at
+`https://map.ops.dev.localtest.me:8443/`) redirect an unauthenticated browser to
 Kratos at `…/auth/login`; register/login there and the redirect returns you to the
 gated page. The Kratos session cookie is scoped to `dev.localtest.me` (parent
 domain), so one login covers the edge and every `*.dev.localtest.me` subdomain. The landing page and `/auth` UI are

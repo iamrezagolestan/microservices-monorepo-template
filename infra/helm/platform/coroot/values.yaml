@@ -1,0 +1,37 @@
+# Coroot CE (ADR-0025). The coroot-operator subchart installs the CRD + operator;
+# the Coroot CR (templates/coroot.yaml) tells it what to run. Deployed to its own
+# `coroot` namespace by infra/gitops/*/app-coroot.yaml.
+
+coroot-operator:
+  image:
+    # Pin the operator (chart default tracks appVersion, but pin it explicitly so
+    # the deployed version is reproducible — toolchain philosophy).
+    tag: "1.9.5"
+
+# Component image pins (ADR-0025). CRITICAL: if a component image is unset, the
+# operator auto-updates it to the latest tag from ghcr.io/coroot on every reconcile.
+# Pinning every one keeps deploys reproducible and lets an air-gapped/enterprise
+# adopter mirror an exact set. Bump deliberately.
+images:
+  coroot: ghcr.io/coroot/coroot:1.23.3
+  nodeAgent: ghcr.io/coroot/coroot-node-agent:1.34.2
+  clusterAgent: ghcr.io/coroot/coroot-cluster-agent:1.7.1
+  clickhouse: ghcr.io/coroot/clickhouse:25.11.2-ubi9-0
+  prometheus: ghcr.io/coroot/prometheus:2.55.1-ubi9-0
+
+# ClickHouse is mandatory (stores traces/logs/profiles). Kept minimum-viable
+# (template minimalism): a single keeper + single shard/replica, no HA ensemble.
+# An enterprise adopter scales shards/replicas/keeper for durability.
+clickhouse:
+  shards: 1
+  replicas: 1
+  keeperReplicas: 1
+
+prometheus:
+  retention: 2d
+
+# Anonymous Admin. Access is gated at the edge (Oathkeeper AAL2 + OpenFGA
+# dashboard:map#view — infra/gateway + infra/auth), so Coroot itself runs open
+# behind that gate. Coroot CE has no built-in SSO/RBAC (Enterprise-only); the edge
+# is the auth boundary, consistent with the other ops dashboards (ADR-0017).
+authAnonymousRole: Admin

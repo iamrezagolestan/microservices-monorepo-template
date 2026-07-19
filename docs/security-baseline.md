@@ -13,10 +13,10 @@ It implements the decisions in [ADR-0009](adr/0009-api-gateway.md),
 Two tiers behind one Traefik edge, isolated at the browser by **separate origins**
 ([ADR-0017](adr/0017-url-and-domain-structure.md)):
 
-| Tier        | Origin            | Surfaces                                                         |
-|-------------|-------------------|-----------------------------------------------------------------|
+| Tier        | Origin            | Surfaces                                                                                      |
+|-------------|-------------------|-----------------------------------------------------------------------------------------------|
 | **Product** | `<host>` (apex)   | Next.js app (`/`, `/auth/*`, `panel`/`devportal`), flat `/api/<resource>/*`, telemetry ingest |
-| **Ops**     | `*.ops.<host>`    | one origin per operator dashboard (hubble/grafana/argo/temporal/console/minio) |
+| **Ops**     | `*.ops.<host>`    | one origin per operator dashboard (coroot/grafana/argo/temporal/admin/minio)                  |
 
 - East-west traffic is default-deny via Cilium NetworkPolicy ([ADR-0003](adr/0003-cluster-topology.md)).
 - Every gated route passes `strip-identity-headers` → `oathkeeper-forward-auth` → `security-headers`

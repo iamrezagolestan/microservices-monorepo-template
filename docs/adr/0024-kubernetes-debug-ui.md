@@ -3,12 +3,12 @@
 - **Status:** Accepted
 - **Date:** 2026-07-06
 - **Deciders:** Platform team
-- **Related:** [ADR-0000](0000-platform-foundations.md), [ADR-0004](0004-gitops.md), [ADR-0011](0011-observability.md), [ADR-0017](0017-url-and-domain-structure.md)
+- **Related:** [ADR-0000](0000-platform-foundations.md), [ADR-0004](0004-gitops.md), [ADR-0011](0011-observability.md), [ADR-0017](0017-url-and-domain-structure.md), [ADR-0025](0025-service-map-apm-ui.md)
 
 ## Context
 
-The ops surfaces answer different questions: ArgoCD (what is deployed), Grafana (signals), Hubble
-(network), Temporal (workflows). None does the k9s job — *what pods exist right now, describe them, tail
+The ops surfaces answer different questions: ArgoCD (what is deployed), Grafana (signals), Coroot
+(service map / APM, [ADR-0025](0025-service-map-apm-ui.md)), Temporal (workflows). None does the k9s job — *what pods exist right now, describe them, tail
 their logs, exec in, port-forward*. During an incident that gap is filled today by a laptop with
 `kubectl`, which is fine for engineers with cluster access but leaves no shared, auth-gated view.
 

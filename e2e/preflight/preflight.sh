@@ -48,12 +48,15 @@ deploy_ready platform temporal-web
 deploy_ready platform lowdefy
 deploy_ready platform headlamp
 deploy_ready platform pgweb
-deploy_ready kube-system hubble-ui
+# Hubble relay (flow engine) stays; the standalone Hubble UI is retired (ADR-0025).
+# Coroot (the replacement) deploys last into its own namespace and is slow to go
+# Healthy (ClickHouse), so it is not a hard preflight gate — the map.ops edge gate
+# below proves the route + auth, and the coroot e2e spec waits for the backend.
 deploy_ready kube-system hubble-relay
 # Ops origins are the ADR-0017 concept slugs, not the tool names.
 edge_gates o11y
 edge_gates workflows
-edge_gates network
+edge_gates map
 edge_gates admin
 edge_gates k8s
 edge_gates db

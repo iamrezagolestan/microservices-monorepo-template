@@ -40,6 +40,7 @@ writing an ADR that shows the floor already covers its concern.
 | MinIO | Object storage (non-prod; a real bucket in prod) | [0016](adr/0016-environment-parity.md) |
 | Lowdefy admin | Internal ops CRUD over the Go API | [0012](adr/0012-internal-admin.md) |
 | Headlamp | Read-mostly Kubernetes debug UI | [0024](adr/0024-kubernetes-debug-ui.md) |
+| Coroot | eBPF service map / APM (replaces the Hubble UI) | [0025](adr/0025-service-map-apm-ui.md) |
 | pgweb | Read-only break-glass DB inspector | [0012](adr/0012-internal-admin.md) |
 
 ### Scale — documented swap-in when a real signal demands it

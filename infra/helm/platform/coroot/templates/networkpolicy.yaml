@@ -1,0 +1,53 @@
+# Zero-trust baseline for the `coroot` namespace (ADR-0003), self-contained here
+# rather than in the platform network-policies chart because Coroot lives in its
+# own namespace. Default-deny both directions, then the minimum allows.
+#
+# The blanket intra-namespace allow is deliberate: Coroot's internal mesh (server,
+# node-agent, cluster-agent, Prometheus, and especially the ClickHouse + Keeper
+# raft/replication chatter) spans many ports. Allowing all *within* the namespace
+# — while still denying everything cross-namespace except DNS, the API server, and
+# edge ingress — keeps the policy robust without enumerating ClickHouse internals.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: coroot-baseline
+  namespace: {{ .Release.Namespace }}
+spec:
+  endpointSelector: {}
+  enableDefaultDeny:
+    ingress: true
+    egress: true
+  ingress:
+    # All Coroot components talk to each other freely within the namespace.
+    - fromEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: {{ .Release.Namespace }}
+    # Edge gateway (k3s/Traefik in kube-system) → Coroot UI on :8080. This is the
+    # only cross-namespace ingress; the route itself is auth-gated (infra/gateway).
+    - fromEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: kube-system
+      toPorts:
+        - ports: [{ port: "8080", protocol: TCP }]
+  egress:
+    # CoreDNS — service discovery.
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: kube-system
+            k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - { port: "53", protocol: UDP }
+            - { port: "53", protocol: TCP }
+    # Intra-namespace egress (mirror of the ingress allow above).
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: {{ .Release.Namespace }}
+    # Kubernetes API — the operator and cluster-agent watch/list cluster objects.
+    # host + remote-node accompany kube-apiserver for a node-hosted API server
+    # (same rationale as the platform baseline). No external egress is granted, so
+    # Coroot's phone-home update check (cloud.coroot.com) simply no-ops — air-gap safe.
+    - toEntities:
+        - kube-apiserver
+        - host
+        - remote-node

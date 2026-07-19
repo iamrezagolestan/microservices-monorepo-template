@@ -47,6 +47,8 @@ e2e/.auth/
 # repo-server renders them offline (no `helm dependency build` / network, which
 # wedges behind the local privoxy edge). See observability/Chart.yaml.
 !infra/helm/platform/observability/charts/*.tgz
+# ...and the Coroot operator subchart, vendored for the same offline reason.
+!infra/helm/platform/coroot/charts/*.tgz
 .terraform/
 *.tfstate
 *.tfstate.*

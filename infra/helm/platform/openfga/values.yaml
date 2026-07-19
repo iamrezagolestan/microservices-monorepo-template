@@ -28,9 +28,9 @@ seed:
   # Each ops dashboard (ADR-0017) granted to group:operator members. These are the
   # LOGICAL ops-tool names Oathkeeper checks (dashboard:<tool>#view, see
   # infra/auth/oathkeeper/access-rules.json), NOT the component names — admin
-  # (console), network (Hubble), o11y (Grafana), deploy (Argo), workflows
-  # (Temporal), s3 (MinIO), k8s (Headlamp), and db (pgweb).
-  dashboards: [admin, network, o11y, deploy, workflows, s3, k8s, db]
+  # (console), map (Coroot service map/APM), o11y (Grafana), deploy (Argo),
+  # workflows (Temporal), s3 (MinIO), k8s (Headlamp), and db (pgweb).
+  dashboards: [admin, map, o11y, deploy, workflows, s3, k8s, db]
   # Service-account identities granted group:operator#member. The Lowdefy admin
   # console (ADR-0012) calls services east-west asserting X-User-Id: admin-console;
   # this grant lets that identity pass the services' operator write-gate.

@@ -4,7 +4,7 @@
 #
 # Dashboard names are the LOGICAL ops-tool names Oathkeeper sends to the authz
 # service (infra/auth/oathkeeper/access-rules.json → dashboard:<tool>#view):
-# admin, network, o11y, deploy, workflows, s3, k8s, and db. They must match the
+# admin, map, o11y, deploy, workflows, s3, k8s, and db. They must match the
 # seed grants in the chart values.
 name: platform-authz
 model_file: ./model.fga
@@ -20,7 +20,7 @@ tuples:
   # grant, every other dashboard is granted to the operator group.
   - { user: user:alice,            relation: member, object: group:operator }
   - { user: user:alice,            relation: viewer, object: dashboard:admin }
-  - { user: group:operator#member, relation: viewer, object: dashboard:network }
+  - { user: group:operator#member, relation: viewer, object: dashboard:map }
   - { user: group:operator#member, relation: viewer, object: dashboard:o11y }
   - { user: group:operator#member, relation: viewer, object: dashboard:deploy }
   - { user: group:operator#member, relation: viewer, object: dashboard:workflows }
@@ -53,7 +53,7 @@ tests:
         object: dashboard:o11y
         assertions: { view: true }
       - user: user:alice
-        object: dashboard:network
+        object: dashboard:map
         assertions: { view: true }
       - user: user:alice
         object: dashboard:workflows

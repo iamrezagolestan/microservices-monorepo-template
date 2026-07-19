@@ -13,8 +13,8 @@ Every environment exposes two very different kinds of HTTP surface behind the sa
 1. **Product** — the user-facing Next.js app (landing, auth UI, the `panel`/`devportal` route groups,
    [ADR-0014](0014-frontend.md)), the service APIs (flat `/api/<resource>`, [ADR-0008](0008-api-contracts.md)), and browser
    telemetry ingest.
-2. **Operations tooling** — third-party operator dashboards we deploy but do not author: Hubble
-   ([ADR-0003](0003-cluster-topology.md)), Grafana ([ADR-0011](0011-observability.md)), the Lowdefy internal-admin
+2. **Operations tooling** — third-party operator dashboards we deploy but do not author: Coroot
+   ([ADR-0025](0025-service-map-apm-ui.md)), Grafana ([ADR-0011](0011-observability.md)), the Lowdefy internal-admin
    console ([ADR-0012](0012-internal-admin.md)), Argo CD ([ADR-0004](0004-gitops.md)), the Temporal Web UI
    ([ADR-0006](0006-temporal.md)), and the MinIO console (non-prod).
 
@@ -22,11 +22,12 @@ Serving both tiers as URL paths on one shared origin (`<env-host>/grafana`, `/in
 disqualifying problems:
 
 - **No browser-level isolation between tiers.** Path segments on one origin share cookies, `localStorage`, and the DOM.
-  A flaw in code we do not control (a Hubble/Grafana XSS, a dangling-subdomain takeover) executes in the **same origin**
+  A flaw in code we do not control (a Coroot/Grafana XSS, a dangling-subdomain takeover) executes in the **same origin**
   as the product app and its session. The browser's same-origin policy provides *zero* separation between a path and its
   siblings.
-- **Some tools cannot be served under a path at all.** Hubble UI's router is hardwired to basename `/` and 404s under
-  any path prefix; it must be served at the root of its own origin. Grafana needs `serve_from_sub_path`, Argo CD and the
+- **Some tools cannot be served under a path at all.** Coroot's SPA runs at basename `/` and 404s under
+  any path prefix; it must be served at the root of its own origin (Hubble UI, before it, had the same constraint).
+  Grafana needs `serve_from_sub_path`, Argo CD and the
   Temporal UI have their own base-path quirks. Path hosting is a per-tool fight.
 
 The web consensus is that **separate origins (subdomains) are the right boundary for internal/higher-risk tooling**:
@@ -73,7 +74,7 @@ shared `ops.` label.
 
 | Tool                       | Hostname                  | Notes                                              |
 |----------------------------|---------------------------|----------------------------------------------------|
-| Hubble UI                  | `network.ops.<host>`       | served at root (router can't run under a path)     |
+| Coroot (service map/APM)   | `map.ops.<host>`           | served at root (SPA can't run under a path)        |
 | Grafana                    | `o11y.ops.<host>`      | drop `serve_from_sub_path`; served at root         |
 | Argo CD                    | `deploy.ops.<host>`         | replaces port-forward access                       |
 | Temporal Web UI            | `workflows.ops.<host>`     | replaces port-forward access                       |
@@ -85,7 +86,7 @@ shared `ops.` label.
 Names follow [ADR-0015](0015-naming-and-identifiers.md)'s charset (`^[a-z][a-z0-9-]*$`, hyphen within a segment, never
 underscore). The grammar is `{concept}.{tier}.{env-host}`; the product tier carries **no** tier label (it is the apex).
 
-**Origins are named after the concept, not the tool.** `o11y` (not `grafana`), `network` (not `hubble`), `workflows`
+**Origins are named after the concept, not the tool.** `o11y` (not `grafana`), `map` (not `coroot`), `workflows`
 (not `temporal`), `s3` (not `minio`), `deploy` (not `argo`), `db` (not `pgweb`), `k8s` (not `headlamp`); `admin` names
 the internal-admin concept whatever renders it. The URL is a stable seam — the same discipline as the `Checker` seam
 ([ADR-0010](0010-auth.md)) or the Core/Scale storage swap ([ADR-0011](0011-observability.md)): it describes *what the
@@ -137,7 +138,7 @@ surface, at one of two enforcement points split by **who owns the code**:
   `/api/<svc>` endpoints authorize with OpenFGA through `libs/go/authz`'s `Checker` ([ADR-0010](0010-auth.md)); the edge
   only authenticates. Page-level access to `/admin` is a `Checker.Allowed` call in the RSC layer, not a bare session
   check.
-- **Ops dashboards are third-party → the edge decides.** Hubble, Grafana, Argo CD, Temporal, the MinIO console, and the
+- **Ops dashboards are third-party → the edge decides.** Coroot, Grafana, Argo CD, Temporal, the MinIO console, and the
   Lowdefy console cannot run a permission check themselves, so authorization moves to the ops-tier Oathkeeper, in two
   layers:
 
@@ -146,11 +147,11 @@ surface, at one of two enforcement points split by **who owns the code**:
     injected as a header per [ADR-0010](0010-auth.md)) **and** an **AAL2 session** (operator MFA). This decision reads
     only the authenticated session and its claims — it makes **no OpenFGA call**. That is deliberate: the ops dashboards
     are how an operator debugs an outage, so their coarse gate must not share fate with the product authorization plane.
-    An OpenFGA or authz-endpoint outage must not lock every operator out of Grafana/Hubble/Argo. Losing OpenFGA degrades
+    An OpenFGA or authz-endpoint outage must not lock every operator out of Grafana/Coroot/Argo. Losing OpenFGA degrades
     the ops tier to "any operator reaches any tool," not "nobody reaches anything."
 
   - **Fine gate (optional) — per-tool `remote_json` → OpenFGA `Checker`.** When per-tool grants are wanted (`alice: Grafana
-    but not Hubble`), each ops route adds the `remote_json` authorizer calling the OpenFGA `Checker`, modelling each tool
+    but not Coroot`), each ops route adds the `remote_json` authorizer calling the OpenFGA `Checker`, modelling each tool
     as a resource:
 
         type dashboard
@@ -253,7 +254,7 @@ scale**. Absent those, the public API is another `<host>/api/<resource>` route, 
   level isolation is handled by per-tool authz + operator AAL2 in the default model, or fully by the OIDC upgrade.)
 - Each ops tool is also isolated from the *other* ops tools (separate origins): per-origin CSP, security headers, rate
   limits, and storage.
-- Tools that resist path hosting (Hubble, Grafana, Argo, Temporal) are each served at a clean root — no `base-path`
+- Tools that resist path hosting (Coroot, Grafana, Argo, Temporal) are each served at a clean root — no `base-path`
   fights.
 - A logged-in session no longer implies tool access: every ops surface is per-tool authorized and AAL2-gated.
 - Argo CD, Temporal, and the MinIO console get first-class auth-gated URLs instead of port-forwarding.
@@ -271,7 +272,7 @@ scale**. Absent those, the public API is another `<host>/api/<resource>` route, 
 ### Follow-ups
 
 - The product/ops split lives in `infra/gateway` (host-parameterised ops IngressRoutes), the per-tool chart values
-  (Grafana/Argo/Temporal base-path off; Hubble root), and the cert-manager Certificate (two wildcards).
+  (Grafana/Argo/Temporal base-path off; Coroot root), and the cert-manager Certificate (two wildcards).
 - The ops-tier forward-auth enforces the coarse **`operator` claim + AAL2** gate (no OpenFGA call). The `operator` trait
   is declared on the Kratos identity schema and injected as `X-Roles` ([ADR-0010](0010-auth.md)). The optional fine
   per-tool layer adds `remote_json` → OpenFGA `Checker` with a `dashboard` resource in `infra/auth/openfga/model.fga`.

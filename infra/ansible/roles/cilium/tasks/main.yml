@@ -26,6 +26,9 @@
       --set hubble.relay.enabled=true \
       --set hubble.ui.enabled=false \
       --wait --timeout=5m
+  # hubble.ui stays off (ADR-0025): the flow engine + relay provide the audit
+  # surface (ADR-0009) and Grafana metrics, but the standalone hubble-UI is
+  # retired in favour of Coroot (infra/helm/platform/coroot, at map.ops.<host>).
   environment:
     KUBECONFIG: /etc/rancher/k3s/k3s.yaml
   when: inventory_hostname == groups['servers'][0]
