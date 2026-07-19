@@ -176,7 +176,7 @@ matches longest-prefix, so the specific routes below win over the `/` catch-all.
 | `/auth/login`, `/auth/registration`, …                         | Kratos UI pages (host-run `next dev`) | public         | `infra/local/edge-auth.yaml`                     |
 | `/auth/self-service`, `/auth/.well-known`, `/auth/sessions`    | Kratos public API                     | public         | `infra/local/edge-auth.yaml`                     |
 | `/api/products`, `/api/orders`, `/api/orgs`, `/api/charges`    | Service APIs (flat `/api/<resource>`, ADR-0017) | Oathkeeper | `infra/helm/service/templates/ingressroute.yaml` |
-| `/api/observability/faro`                                      | Faro/RUM browser-telemetry ingest     | public         | `infra/gateway/frontend-observability.yaml`      |
+| `/api/rum`                                                     | Faro/RUM browser-telemetry ingest     | public         | `infra/gateway/frontend-observability.yaml`      |
 
 The **ops tier** (ADR-0017) is a separate origin per operator dashboard under
 `*.ops.<host>` — never a product path. The **coarse gate** is a claim, not a

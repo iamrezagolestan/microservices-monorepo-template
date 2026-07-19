@@ -61,7 +61,7 @@ split into exactly two tiers:
 
 | Tier        | Origin                 | What lives there                                                                 |
 |-------------|------------------------|----------------------------------------------------------------------------------|
-| **Product** | `<host>` (apex)        | Next.js app — landing, `/auth/*`, `panel`/`devportal`; `/api/<resource>/*`; `/api/observability/faro` |
+| **Product** | `<host>` (apex)        | Next.js app — landing, `/auth/*`, `panel`/`devportal`; `/api/<resource>/*`; `/api/rum` (browser RUM ingest) |
 | **Ops**     | `*.ops.<host>`         | one origin per operator tool (table below)                                       |
 
 The Next.js app is the **whole product origin**: it serves the public landing page and the authenticated route groups,

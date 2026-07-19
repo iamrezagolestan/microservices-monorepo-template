@@ -99,7 +99,7 @@ Head sampling (errors at 100%, healthy traces at a low rate) runs on the agent. 
 
 **Logs follow a distinct path.** Services write structured JSON to **stdout**. The agent Collector reads `/var/log/pods/` via the `filelog` receiver, parses JSON, attaches k8s attributes, forwards. Stdout-first means logs survive even when the OTel SDK fails to start.
 
-**Browser telemetry** from the frontend's Grafana Faro agent ([ADR-0014](0014-frontend.md)) enters through a `faro` receiver on the same Collector, fed by a Traefik route (`infra/gateway/frontend-observability.yaml`) for `/api/observability/faro/*`. The receiver emits web traces and RUM logs/events into the traces and logs pipelines, so browser and service signals share the same Tempo/Loki backends and trace IDs.
+**Browser telemetry** from the frontend's Grafana Faro agent ([ADR-0014](0014-frontend.md)) enters through a `faro` receiver on the same Collector, fed by a Traefik route (`infra/gateway/frontend-observability.yaml`) for `/api/rum` (a vendor-neutral path — it names the concern, not the agent). The receiver emits web traces and RUM logs/events into the traces and logs pipelines, so browser and service signals share the same Tempo/Loki backends and trace IDs.
 
 ### Continuous profiling: latent by default
 
@@ -139,7 +139,7 @@ Service code is unchanged between local and prod. The same `obs.Init` call works
 
 Reach the local stack through the edge (`o11y.ops.<host>`, behind the operator session — [ADR-0017](0017-url-and-domain-structure.md)) or, for raw access while iterating, `mise run dev:forward` port-forwards Grafana (`:3001`) and the Faro ingest (`:12347`) when the observability stack is up.
 
-**Browser RUM (Faro) locally.** The frontend's Faro agent ([ADR-0014](0014-frontend.md)) POSTs beacons to the same-origin path `/api/observability/faro/collect`. In the cluster, Traefik forwards `/api/observability/faro/*` to the Collector's `faro` receiver; but `next dev` runs on the host with no edge in front of it, so a dev-only Next route handler stands in (`apps/frontend/src/app/api/observability/faro/collect/route.ts`). With `FARO_COLLECT_URL=http://localhost:12347/collect` set (and `dev:forward` forwarding the full-tier Collector's `faro` receiver) it forwards beacons to it; with `FARO_COLLECT_URL` unset it silently returns `204` so the dev console isn't spammed with 404s. The handler 404s in production, matching the fact that Traefik — not the frontend pod — owns this path in the cluster.
+**Browser RUM (Faro) locally.** The frontend's Faro agent ([ADR-0014](0014-frontend.md)) POSTs beacons to the same-origin path `/api/rum`. In the cluster, Traefik forwards `/api/rum` to the Collector's `faro` receiver; but `next dev` runs on the host with no edge in front of it, so a dev-only Next route handler stands in (`apps/frontend/src/app/api/rum/route.ts`). With `FARO_COLLECT_URL=http://localhost:12347/collect` set (and `dev:forward` forwarding the full-tier Collector's `faro` receiver) it forwards beacons to it; with `FARO_COLLECT_URL` unset it silently returns `204` so the dev console isn't spammed with 404s. The handler 404s in production, matching the fact that Traefik — not the frontend pod — owns this path in the cluster.
 
 ## Consequences
 

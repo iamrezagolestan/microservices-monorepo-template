@@ -1,9 +1,9 @@
-// Dev-only Faro ingest shim (ADR-0011, ADR-0014). In the cluster, Traefik routes
-// /api/observability/faro/* to the OTel Collector's Faro receiver and this Next
-// pod never sees the path, so in production this handler 404s to match. Locally
-// there is no edge: with FARO_COLLECT_URL set we forward beacons to a local
-// Grafana Alloy faro.receiver (`mise run dev:faro`); without it we swallow them so
-// the dev console isn't spammed with 404s.
+// Dev-only RUM ingest shim (ADR-0011, ADR-0014). In the cluster, Traefik routes
+// /api/rum to the OTel Collector's Faro receiver and this Next pod never sees the
+// path, so in production this handler 404s to match. Locally there is no edge:
+// with FARO_COLLECT_URL set we forward beacons to a local Grafana Alloy
+// faro.receiver (`mise run dev:faro`); without it we swallow them so the dev
+// console isn't spammed with 404s.
 import { type NextRequest, NextResponse } from "next/server";
 
 const COLLECT_URL = process.env.FARO_COLLECT_URL;
