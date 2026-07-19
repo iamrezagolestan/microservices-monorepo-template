@@ -72,6 +72,17 @@ k -n "$NS" create configmap grafana-dashboards \
 #     (ADR-0016). Must run before step 4 so images exist before Argo creates pods.
 #     Build args mirror scripts/service-deploy.sh.
 REG="k3d-registry.localhost:5000"
+# Push over the loopback host, not REG. Docker picks HTTP-vs-HTTPS by resolving the
+# registry hostname and checking the result against its insecure-registry CIDRs
+# (127.0.0.0/8, ::1/128 by default). k3d's registry only speaks plain HTTP, so the
+# push works only if the name resolves into those CIDRs — which depends on each dev's
+# NSS setup mapping *.localhost to loopback (e.g. myhostname). Where it doesn't,
+# k3d-registry.localhost resolves elsewhere and docker demands TLS: "server gave HTTP
+# response to HTTPS client". 127.0.0.1 sidesteps all of that (loopback is insecure on
+# every daemon, no per-machine daemon.json). Both names address the same registry
+# container and blobs are keyed by repo path, so REG stays the cluster-facing pull
+# name in the values overlays; only the push target differs.
+PUSH_REG="127.0.0.1:5000"
 build_push() { # <image-name> <dockerfile> <context> [extra docker build args…]
   local name="$1" dockerfile="$2" context="$3"
   shift 3
@@ -81,8 +92,8 @@ build_push() { # <image-name> <dockerfile> <context> [extra docker build args…
   # attempts miss — same explicit retry the unwedge script uses for host pulls.
   local attempt
   for attempt in 1 2 3; do
-    if docker build -t "${REG}/${name}:local" -f "$dockerfile" "$@" "$context" &&
-      docker push "${REG}/${name}:local"; then
+    if docker build -t "${PUSH_REG}/${name}:local" -f "$dockerfile" "$@" "$context" &&
+      docker push "${PUSH_REG}/${name}:local"; then
       return 0
     fi
     echo "    (build/push of ${name} attempt ${attempt} failed — retrying)"
