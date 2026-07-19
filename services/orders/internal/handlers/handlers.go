@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 	"go.temporal.io/sdk/client"
 
@@ -64,6 +65,10 @@ func (h *Handlers) Checkout(ctx context.Context, req *orders.CheckoutInput) (*or
 		return nil, apierr.Internal(err.Error())
 	}
 	id := uuid.UUID(row.ID.Bytes).String()
+	// Tag the root span with the order id so a specific checkout is addressable in
+	// Tempo (TraceQL `{ .order.id = "<id>" }`) — the anchor the e2e uses to pull the
+	// exact end-to-end trace and assert it stitched across catalog + payment.
+	span.SetAttributes(attribute.String("order.id", id))
 	_, err = h.tc.ExecuteWorkflow(
 		ctx,
 		client.StartWorkflowOptions{

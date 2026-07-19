@@ -16,8 +16,9 @@ server:  { replicas: 1 }
 ingress: { enabled: true, host: dev.localtest.me, resources: [charges] }
 otel:    { deployEnv: local }
 # The Lowdefy admin console (apps/admin) calls payment server-side, east-west on
-# the server port, bypassing the /api edge (ADR-0012).
-networkPolicy: { allowFrom: [lowdefy] }
+# the server port, bypassing the /api edge (ADR-0012). `orders` covers the checkout
+# saga: the orders worker's ChargeActivity dials payment east-west (ADR-0006).
+networkPolicy: { allowFrom: [lowdefy, orders] }
 secrets: { envFrom: [payment-db, openfga-creds] }
 env:
   # Write authz (ADR-0010): the server gates the operator-only refund via the shared

@@ -117,6 +117,18 @@ tempo:
           endpoint: "minio.platform.svc.cluster.local:9000"
           insecure: true
 
+# Keep every healthy trace locally. Prod/dev head-sample at 5% in the chart default
+# to cap volume, but on a laptop a developer needs to see the exact request they
+# just made stitch end-to-end (frontend → orders → catalog → payment) in Tempo — a
+# 1-in-20 chance of survival makes that useless, and the e2e trace assertion
+# (e2e/platform/purchase.spec.ts) would be non-deterministic. Merges over the base
+# collector config; the pipeline still runs the sampler, just at 100%.
+opentelemetry-collector:
+  config:
+    processors:
+      probabilistic_sampler:
+        sampling_percentage: 100
+
 # Grafana: a known local admin password (prod supplies one via Secret).
 # Served at the root of its ops origin (ADR-0017); root_url carries the local
 # edge's :8443 port so post-login redirects land back on the same origin.
