@@ -64,8 +64,6 @@ export type Flow = {
   ui: { action: string; method: string; nodes: UiNode[]; messages?: UiText[] };
 };
 
-type LoginSuccess = { redirect_browser_to?: string };
-
 class RestartFlowError extends Error {}
 
 // Ask Kratos for the browser flow as JSON, then open this app's matching UI URL.
@@ -211,8 +209,6 @@ export function KratosFlow({
 }) {
   const searchParams = useSearchParams();
   const id = searchParams.get("flow");
-  const restartedKey = useRef<string | null>(null);
-  const queryClient = useQueryClient();
   const queryKey = ["kratos-flow", kind, id] as const;
 
   const flowQuery = useQuery({
@@ -230,52 +226,6 @@ export function KratosFlow({
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   });
-
-  const submitMutation = useMutation({
-    mutationFn: async ({ flow, formData }: { flow: Flow; formData: FormData }) => {
-      const response = await fetch(flow.ui.action, {
-        method: flow.ui.method,
-        body: formData,
-        headers: { accept: "application/json" },
-        credentials: "include",
-      });
-      const body = (await response.json()) as Flow | LoginSuccess;
-
-      if (response.status === 400 && "ui" in body) {
-        return { flow: body };
-      }
-      if (!response.ok) {
-        throw new Error(String(response.status));
-      }
-      return { success: body as LoginSuccess };
-    },
-    onSuccess: (result) => {
-      if (result.flow) {
-        queryClient.setQueryData(queryKey, result.flow);
-        return;
-      }
-      if (result.success?.redirect_browser_to) {
-        window.location.assign(result.success.redirect_browser_to);
-      }
-    },
-  });
-
-  const shouldRestart = !id || flowQuery.error instanceof RestartFlowError;
-  const restartKey = shouldRestart ? `${kind}:${id ?? "missing"}` : null;
-
-  useEffect(() => {
-    if (!restartKey) {
-      restartedKey.current = null;
-      return;
-    }
-
-    if (restartedKey.current === restartKey) {
-      return;
-    }
-
-    restartedKey.current = restartKey;
-    restartFlow(kind).catch(() => undefined);
-  }, [kind, restartKey]);
 
   if (flowQuery.isError && !(flowQuery.error instanceof RestartFlowError)) {
     return (
@@ -297,35 +247,18 @@ export function KratosFlow({
 
   const flow = flowQuery.data;
 
-  function submitFlow(event: FormEvent<HTMLFormElement>): void {
-    event.preventDefault();
-    if (submitMutation.isPending) {
-      return;
-    }
-    const submitter = event.nativeEvent instanceof SubmitEvent ? event.nativeEvent.submitter : null;
-    const formData = new FormData(event.currentTarget, submitter);
-    submitMutation.mutate({ flow, formData });
-  }
-
   return (
-    <main className="mx-auto max-w-md p-6">
+     <main className="mx-auto max-w-md p-6">
       <h1 className="text-2xl font-semibold">{strings.title}</h1>
       {flow.ui.messages?.map((message) => (
         <p key={message.id} className="mt-2 text-tertiary">
           {message.text}
         </p>
       ))}
-      <form
-        method={flow.ui.method}
-        action={flow.ui.action}
-        onSubmit={submitFlow}
-        className="mt-4 space-y-3"
-      >
-        <fieldset disabled={submitMutation.isPending} className="space-y-3">
-          {flow.ui.nodes.map((node) => (
-            <FlowNode key={nodeKey(node)} node={node} submitLabel={strings.submit} />
-          ))}
-        </fieldset>
+      <form method={flow.ui.method} action={flow.ui.action} className="mt-4 space-y-3">
+        {flow.ui.nodes.map((node) => (
+          <FlowNode key={nodeKey(node)} node={node} submitLabel={strings.submit} />
+        ))}
       </form>
       {footer}
     </main>
