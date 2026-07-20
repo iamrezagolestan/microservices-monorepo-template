@@ -6,8 +6,10 @@
 // those cookies only exist in the browser.
 "use client";
 
-import type { HTMLAttributeReferrerPolicy, ReactNode } from "react";
-import { useEffect, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useSearchParams } from "next/navigation";
+import type { FormEvent, HTMLAttributeReferrerPolicy, ReactNode } from "react";
+import { useEffect, useRef } from "react";
 import { Input } from "@/components/base/input/input";
 
 export type FlowKind = "login" | "registration" | "recovery" | "verification" | "settings";
@@ -57,9 +59,13 @@ function nodeKey(node: UiNode): string {
     ":",
   );
 }
-type Flow = {
+export type Flow = {
   ui: { action: string; method: string; nodes: UiNode[]; messages?: UiText[] };
 };
+
+type LoginSuccess = { redirect_browser_to?: string };
+
+class RestartFlowError extends Error {}
 
 // Kratos sets the CSRF cookie and redirects back here with ?flow=<id>; (re)start
 // the browser flow, preserving any return_to.
@@ -70,6 +76,22 @@ function restartFlow(kind: FlowKind): void {
     init.searchParams.set("return_to", returnTo);
   }
   window.location.replace(init.toString());
+}
+
+async function getKratosFlow(kind: FlowKind, id: string): Promise<Flow> {
+  const response = await fetch(`/auth/self-service/${kind}/flows?id=${encodeURIComponent(id)}`, {
+    headers: { accept: "application/json" },
+    credentials: "include",
+  });
+
+  if (response.status === 404 || response.status === 410) {
+    throw new RestartFlowError();
+  }
+  if (!response.ok) {
+    throw new Error(String(response.status));
+  }
+
+  return response.json() as Promise<Flow>;
 }
 
 // Kratos WebAuthn helper script. Same-origin src; the nonce lets it run under the
@@ -171,35 +193,75 @@ export function KratosFlow({
   strings: FlowStrings;
   footer?: ReactNode;
 }) {
-  const [flow, setFlow] = useState<Flow | null>(null);
-  const [failed, setFailed] = useState(false);
+  const searchParams = useSearchParams();
+  const id = searchParams.get("flow");
+  const restartedKey = useRef<string | null>(null);
+  const queryClient = useQueryClient();
+  const queryKey = ["kratos-flow", kind, id] as const;
+
+  const flowQuery = useQuery({
+    queryKey,
+    queryFn: () => {
+      if (!id) {
+        throw new Error("Missing Kratos flow id.");
+      }
+      return getKratosFlow(kind, id);
+    },
+    enabled: Boolean(id),
+    retry: false,
+    staleTime: Number.POSITIVE_INFINITY,
+    gcTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  });
+
+  const submitMutation = useMutation({
+    mutationFn: async ({ flow, formData }: { flow: Flow; formData: FormData }) => {
+      const response = await fetch(flow.ui.action, {
+        method: flow.ui.method,
+        body: formData,
+        headers: { accept: "application/json" },
+        credentials: "include",
+      });
+      const body = (await response.json()) as Flow | LoginSuccess;
+
+      if (response.status === 400 && "ui" in body) {
+        return { flow: body };
+      }
+      if (!response.ok) {
+        throw new Error(String(response.status));
+      }
+      return { success: body as LoginSuccess };
+    },
+    onSuccess: (result) => {
+      if (result.flow) {
+        queryClient.setQueryData(queryKey, result.flow);
+        return;
+      }
+      if (result.success?.redirect_browser_to) {
+        window.location.assign(result.success.redirect_browser_to);
+      }
+    },
+  });
+
+  const shouldRestart = !id || flowQuery.error instanceof RestartFlowError;
+  const restartKey = shouldRestart ? `${kind}:${id ?? "missing"}` : null;
 
   useEffect(() => {
-    const id = new URLSearchParams(window.location.search).get("flow");
-    if (!id) {
-      restartFlow(kind);
+    if (!restartKey) {
+      restartedKey.current = null;
       return;
     }
-    fetch(`/auth/self-service/${kind}/flows?id=${encodeURIComponent(id)}`, {
-      headers: { accept: "application/json" },
-      credentials: "include",
-    })
-      .then((res) => {
-        if (res.status === 404 || res.status === 410) {
-          // Expired or unknown flow — start a fresh one.
-          restartFlow(kind);
-          return null;
-        }
-        if (!res.ok) {
-          throw new Error(String(res.status));
-        }
-        return res.json() as Promise<Flow>;
-      })
-      .then((data) => data && setFlow(data))
-      .catch(() => setFailed(true));
-  }, [kind]);
 
-  if (failed) {
+    if (restartedKey.current === restartKey) {
+      return;
+    }
+
+    restartedKey.current = restartKey;
+    restartFlow(kind);
+  }, [kind, restartKey]);
+
+  if (flowQuery.isError && !(flowQuery.error instanceof RestartFlowError)) {
     return (
       <main className="mx-auto max-w-md p-6">
         <h1 className="text-2xl font-semibold">{strings.title}</h1>
@@ -208,13 +270,25 @@ export function KratosFlow({
     );
   }
 
-  if (!flow) {
+  if (!flowQuery.data) {
     return (
       <main className="mx-auto max-w-md p-6">
         <h1 className="text-2xl font-semibold">{strings.title}</h1>
         <p className="mt-2 text-tertiary">{strings.starting}</p>
       </main>
     );
+  }
+
+  const flow = flowQuery.data;
+
+  function submitFlow(event: FormEvent<HTMLFormElement>): void {
+    event.preventDefault();
+    if (submitMutation.isPending) {
+      return;
+    }
+    const submitter = event.nativeEvent instanceof SubmitEvent ? event.nativeEvent.submitter : null;
+    const formData = new FormData(event.currentTarget, submitter);
+    submitMutation.mutate({ flow, formData });
   }
 
   return (
@@ -225,10 +299,17 @@ export function KratosFlow({
           {message.text}
         </p>
       ))}
-      <form method={flow.ui.method} action={flow.ui.action} className="mt-4 space-y-3">
-        {flow.ui.nodes.map((node) => (
-          <FlowNode key={nodeKey(node)} node={node} submitLabel={strings.submit} />
-        ))}
+      <form
+        method={flow.ui.method}
+        action={flow.ui.action}
+        onSubmit={submitFlow}
+        className="mt-4 space-y-3"
+      >
+        <fieldset disabled={submitMutation.isPending} className="space-y-3">
+          {flow.ui.nodes.map((node) => (
+            <FlowNode key={nodeKey(node)} node={node} submitLabel={strings.submit} />
+          ))}
+        </fieldset>
       </form>
       {footer}
     </main>

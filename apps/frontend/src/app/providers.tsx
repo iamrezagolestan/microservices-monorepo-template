@@ -8,19 +8,22 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "next-themes";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { type ReactNode, useState } from "react";
+import { MswProvider } from "./msw-provider";
 
 export function Providers({ children }: { children: ReactNode }) {
   const [queryClient] = useState(() => new QueryClient());
   return (
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider
-        attribute="class"
-        value={{ light: "light-mode", dark: "dark-mode" }}
-        defaultTheme="system"
-        enableSystem
-      >
-        <NuqsAdapter>{children}</NuqsAdapter>
-      </ThemeProvider>
-    </QueryClientProvider>
+    <MswProvider>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider
+          attribute="class"
+          value={{ light: "light-mode", dark: "dark-mode" }}
+          defaultTheme="system"
+          enableSystem
+        >
+          <NuqsAdapter>{children}</NuqsAdapter>
+        </ThemeProvider>
+      </QueryClientProvider>
+    </MswProvider>
   );
 }
