@@ -25,8 +25,8 @@ their logs, exec in, port-forward*. During an incident that gap is filled today 
 
 - **Tool: Headlamp** (CNCF Sandbox, Apache-2.0). A single in-cluster deployment, OIDC/header aware, drops
   into the existing pattern as one more ops origin.
-- **Ops-tier origin `k8s.ops.<host>`**, behind the ops forward-auth: coarse `operator` claim + AAL2, with
-  the optional per-tool OpenFGA grant `dashboard:k8s#view` ([ADR-0017](0017-url-and-domain-structure.md)).
+- **Ops-tier origin `headlamp.ops.<host>`**, behind the ops forward-auth: coarse `operator` claim + AAL2, with
+  the optional per-tool OpenFGA grant `dashboard:headlamp#view` ([ADR-0017](0017-url-and-domain-structure.md)).
 - **Read-only by default.** Headlamp runs bound to the built-in **`view` ClusterRole** — list/get/watch
   across the cluster, describe, and tailing pod logs. `view` grants no `create` verbs, so there is **no
   exec, no port-forward**, and it **cannot read `Secret` objects** (secrets are excluded from `view`). It
@@ -63,12 +63,12 @@ their logs, exec in, port-forward*. During an incident that gap is filled today 
 ### Follow-ups
 
 - `infra/helm/platform/headlamp/` with the read-only ClusterRole and the flag gate.
-- `k8s.ops.<host>` IngressRoute + Oathkeeper rule ([docs/gateway/runbook.md](../gateway/runbook.md)).
-- Optional `dashboard:k8s` grant in the OpenFGA schema for the fine per-tool layer.
+- `headlamp.ops.<host>` IngressRoute + Oathkeeper rule ([docs/gateway/runbook.md](../gateway/runbook.md)).
+- Optional `dashboard:headlamp` grant in the OpenFGA schema for the fine per-tool layer.
 
 ## Rules
 
 - The Kubernetes debug UI is Headlamp, a Core component deployed via Helm + ArgoCD in every environment,
-  served at `k8s.ops.<host>` behind the ops forward-auth (operator claim + AAL2). `(review-only)`
+  served at `headlamp.ops.<host>` behind the ops forward-auth (operator claim + AAL2). `(review-only)`
 - Headlamp runs with a read-only ClusterRole by default; it is a debugging surface, not a control surface.
   Desired-state changes go through Git/ArgoCD, never the UI ([ADR-0004](0004-gitops.md)). `(review-only)`

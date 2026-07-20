@@ -36,6 +36,24 @@ opentelemetry-collector:
       # web traces and RUM logs/events; fed into the traces + logs pipelines
       # below so browser signals land in the same Tempo/Loki as services.
       faro: { endpoint: 0.0.0.0:8027 }
+      # Hubble flow metrics off the cilium-agent (ADR-0011) — the ONE scrape in this
+      # repo. Prometheus itself ships `scrape_configs: []` with no ServiceAccount and
+      # no RBAC, because the invariant is "everything reaches Prometheus as an OTLP
+      # push from this collector". Teaching Prometheus kubernetes_sd would mean
+      # inventing RBAC for it and breaking that invariant, so the collector scrapes
+      # and re-exports instead.
+      #
+      # Node-local static target, not service discovery: this collector is a DaemonSet
+      # and so is cilium-agent (hostNetwork), so each pod scrapes the agent on its OWN
+      # node via the chart-injected K8S_NODE_IP. No RBAC, no cross-node traffic, and no
+      # scraping every agent from every collector.
+      prometheus/hubble:
+        config:
+          scrape_configs:
+            - job_name: hubble
+              scrape_interval: 30s
+              static_configs:
+                - targets: ["${env:K8S_NODE_IP}:9965"]
     processors:
       memory_limiter:
         check_interval: 1s
@@ -59,13 +77,13 @@ opentelemetry-collector:
     service:
       pipelines:
         traces:  { receivers: [otlp, faro], processors: [memory_limiter, probabilistic_sampler, batch], exporters: [otlphttp/tempo] }
-        metrics: { receivers: [otlp], processors: [memory_limiter, batch], exporters: [otlphttp/prometheus] }
+        metrics: { receivers: [otlp, prometheus/hubble], processors: [memory_limiter, batch], exporters: [otlphttp/prometheus] }
         logs:    { receivers: [otlp, faro], processors: [memory_limiter, batch], exporters: [otlphttp/loki] }
 
 grafana:
   fullnameOverride: grafana
   adminPassword: ""                # supplied via SOPS-decrypted Secret in prod
-  # Served at the ROOT of its own ops origin o11y.ops.<host> (ADR-0017), not
+  # Served at the ROOT of its own ops origin grafana.ops.<host> (ADR-0017), not
   # under a /grafana path — so serve_from_sub_path is off. Each env overrides
   # root_url with its external origin (the local overlay sets the :8443 edge).
   grafana.ini:
@@ -73,7 +91,7 @@ grafana:
       serve_from_sub_path: false
       root_url: "%(protocol)s://%(domain)s/"
     # The ops edge is the authentication gate (Oathkeeper: an AAL2 operator holding
-    # dashboard:o11y#view, ADR-0017). Grafana trusts it and serves anonymously
+    # dashboard:grafana#view, ADR-0017). Grafana trusts it and serves anonymously
     # instead of running a second, redundant login that would redirect to /login and
     # never render. Only AAL2 operators ever reach this origin.
     auth:
@@ -110,6 +128,25 @@ grafana:
         - { name: Prometheus, type: prometheus, url: http://prometheus.platform.svc.cluster.local:9090 }
         - { name: Loki,       type: loki,       url: http://loki.platform.svc.cluster.local:3100 }
         - { name: Tempo,      type: tempo,      url: http://tempo.platform.svc.cluster.local:3200 }
+  # BOTH halves are required. `dashboardsConfigMaps` only MOUNTS the JSON files;
+  # without a matching `dashboardProviders` entry Grafana never scans that directory,
+  # so the dashboards exist on disk and are invisible in the UI — `/api/search`
+  # returns []. That was the state until 2026-07-20: `service-red.json` appeared to
+  # work only because grafana.ini points `default_home_dashboard_path` straight at
+  # the file, which bypasses provisioning entirely. The provider name must match the
+  # dashboardsConfigMaps key (`default`), which is also the mount subdirectory.
+  dashboardProviders:
+    dashboardproviders.yaml:
+      apiVersion: 1
+      providers:
+        - name: default
+          orgId: 1
+          folder: ""
+          type: file
+          disableDeletion: false
+          editable: false      # dashboards are git artifacts (ADR-0011): PRs, not UI edits
+          options:
+            path: /var/lib/grafana/dashboards/default
   dashboardsConfigMaps:
     default: grafana-dashboards     # populated from infra/observability/dashboards/
 

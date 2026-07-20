@@ -22,7 +22,7 @@ cilium:
   # The standalone hubble-UI is intentionally DISABLED (ADR-0025): upstream
   # hubble-ui is in maintenance mode (last release v0.13.5, Apr 2024) and collapses
   # every workload sharing `app.kubernetes.io/name` into one card (all Temporal
-  # roles → "temporal"). Coroot (infra/helm/platform/coroot, at map.ops.<host>)
+  # roles → "temporal"). Coroot (infra/helm/platform/coroot, at coroot.ops.<host>)
   # replaces it and keys workloads by Deployment, so multi-role apps stay distinct.
   hubble:
     enabled: true
@@ -30,3 +30,28 @@ cilium:
       enabled: true
     ui:
       enabled: false
+    # Flow metrics on the agent at :9965, scraped by the node-local OTel collector
+    # and surfaced as Grafana's "network policy denials" view (ADR-0011, ADR-0025).
+    #
+    # DELIBERATELY NARROW — `drop` only. The service-map, latency and error
+    # story belongs to Coroot's eBPF map, so `flow`, `tcp` and especially `http`
+    # (per-request L7 cardinality on every agent) would buy duplication at real cost.
+    # What Coroot structurally CANNOT see is a Cilium policy verdict: it observes
+    # connections that succeeded or failed, never "denied by policy". That gap is the
+    # entire reason these metrics exist, and this repo has been bitten by it — the
+    # clusterwide metadata-deny regression, four default-deny bootstrap gaps, and a
+    # catalog/payment netpol block that silently broke every checkout.
+    #
+    # workload context so series name the Deployment (temporal-frontend vs
+    # temporal-history) rather than the shared app.kubernetes.io/name — the same
+    # collapsing defect that retired the Hubble UI. It renders as a single combined
+    # `source`/`destination` label of the form "<namespace>/<workload>", NOT as
+    # separate source_workload/destination_workload labels — verified against a live
+    # agent; the dashboard PromQL depends on this.
+    #
+    # `dns` was tried and REMOVED: Cilium only observes DNS at L7, so dns metrics
+    # never register without a DNS visibility/L7 policy on every pod. That is real
+    # scope and real cost for a signal Coroot already surfaces, so drops stand alone.
+    metrics:
+      enabled:
+        - "drop:sourceContext=workload;destinationContext=workload"

@@ -28,7 +28,23 @@ spec:
       replicas: {{ .Values.clickhouse.keeperReplicas }}
     image:
       name: {{ .Values.images.clickhouse }}
-  prometheus:
-    retention: {{ .Values.prometheus.retention }}
-    image:
-      name: {{ .Values.images.prometheus }}
+  # No `prometheus:` block — storeMetricsInClickhouse suppresses that Deployment
+  # entirely (see values.yaml for why we don't bridge to the platform Prometheus).
+  storeMetricsInClickhouse: {{ .Values.storeMetricsInClickhouse }}
+  logsTTL: {{ .Values.retention.logs }}
+  tracesTTL: {{ .Values.retention.traces }}
+  profilesTTL: {{ .Values.retention.profiles }}
+{{- if .Values.slo.enabled }}
+  # Declarative SLOs. The operator reconciles this project, so objectives are
+  # git-managed rather than clicked into the UI (see values.yaml).
+  projects:
+    - name: {{ .Values.slo.project }}
+      apiKeys:
+        - description: coroot agents
+          keySecret:
+            name: {{ .Values.slo.apiKeySecret.name }}
+            key: {{ .Values.slo.apiKeySecret.key }}
+      inspectionOverrides:
+        sloAvailability: {{- toYaml .Values.slo.availability | nindent 10 }}
+        sloLatency: {{- toYaml .Values.slo.latency | nindent 10 }}
+{{- end }}

@@ -178,14 +178,14 @@ cat <<EOF
 ✓ cluster:full up (ArgoCD-driven from master).
   Product (Traefik):  https://${DOMAIN}:8443/api/<resource>/   (flat namespace, self-signed TLS)
   Ops tier (ADR-0017; coarse gate = operator claim + AAL2, no OpenFGA call):
-    Grafana:          https://o11y.ops.${DOMAIN}:8443/
-    Coroot (map/APM): https://map.ops.${DOMAIN}:8443/   (eBPF service map; may lag — deploys last)
-    Temporal UI:      https://workflows.ops.${DOMAIN}:8443/
-    MinIO console:    https://s3.ops.${DOMAIN}:8443/  (login: minio / minio-password)
-    Lowdefy console:  https://admin.ops.${DOMAIN}:8443/
-    ArgoCD:           https://deploy.ops.${DOMAIN}:8443/
-    Headlamp (k8s):   https://k8s.ops.${DOMAIN}:8443/   (read-only debug UI)
-    pgweb (DB):       https://db.ops.${DOMAIN}:8443/    (read-only DB inspector)
+    Grafana:          https://grafana.ops.${DOMAIN}:8443/
+    Coroot (map/APM): https://coroot.ops.${DOMAIN}:8443/   (eBPF service map; may lag — deploys last)
+    Temporal UI:      https://temporal.ops.${DOMAIN}:8443/
+    MinIO console:    https://minio.ops.${DOMAIN}:8443/  (login: minio / minio-password)
+    Lowdefy console:  https://lowdefy.ops.${DOMAIN}:8443/
+    ArgoCD:           https://argocd.ops.${DOMAIN}:8443/
+    Headlamp (k8s):   https://headlamp.ops.${DOMAIN}:8443/   (read-only debug UI)
+    pgweb (DB):       https://pgweb.ops.${DOMAIN}:8443/    (read-only DB inspector)
   Frontend:           run it natively on :3000 (the frontend-dev EndpointSlice
                       routes /auth + landing to the host).
   Diagnose:           argocd --core --kube-context k3d-${CLUSTER} app get <app>
