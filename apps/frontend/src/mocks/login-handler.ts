@@ -3,14 +3,10 @@ import {
   createMockLoginFlow,
   MOCK_LOGIN_FLOW_ID,
   MOCK_LOGIN_FLOW_LIFESPAN_MS,
-  MOCK_LOGIN_SESSION_COOKIE,
-  MOCK_LOGIN_SESSION_ID,
-  MOCK_LOGIN_USER,
   type MockLoginFlowState,
 } from "./login-flow";
 
 const flows = new Map<string, MockLoginFlowState>();
-let authenticated = false;
 
 const errorStatuses = new Map([
   [400, "Bad Request"],
@@ -29,7 +25,7 @@ function findFlow(id: string | null): MockLoginFlowState | Response {
   if (!id) {
     return jsonError(400, "The flow id is missing.");
   }
-  if (id !== MOCK_LOGIN_FLOW_ID || !flows.has(id)) {
+  if (!flows.has(id)) {
     return jsonError(404, "The flow does not exist.");
   }
   const state = flows.get(id);
@@ -45,16 +41,16 @@ function findFlow(id: string | null): MockLoginFlowState | Response {
 
 export function resetMockLoginState(): void {
   flows.clear();
-  authenticated = false;
 }
 
 export function seedMockLoginFlow(
   origin = "http://localhost:3000",
   now = new Date(),
+  id = MOCK_LOGIN_FLOW_ID,
 ): MockLoginFlowState {
   const expiresAt = new Date(now.getTime() + MOCK_LOGIN_FLOW_LIFESPAN_MS);
-  const state = { flow: createMockLoginFlow(origin, now, expiresAt), issuedAt: now, expiresAt };
-  flows.set(MOCK_LOGIN_FLOW_ID, state);
+  const state = { flow: createMockLoginFlow(origin, now, expiresAt, id), issuedAt: now, expiresAt };
+  flows.set(id, state);
   return state;
 }
 
@@ -65,20 +61,27 @@ export function expireMockLoginFlow(): void {
   }
 }
 
-export const getLoginFlowHandler = http.get(
-  "*/auth/self-service/login/flows",
+export const getLoginFlowHandler = http.get("*/auth/self-service/login/flows", ({ request }) => {
+  const url = new URL(request.url);
+  const id = url.searchParams.get("id");
+
+  // Opening the UI URL reloads the page-side handler module and its Map.
+  // Recreate the flow so the subsequent lookup and later refresh work.
+  if (id && !flows.has(id)) {
+    seedMockLoginFlow(url.origin, new Date(), id);
+  }
+  const state = findFlow(id);
+  return state instanceof Response ? state : HttpResponse.json(state.flow);
+});
+
+export const initializeLoginFlowHandler = http.get(
+  "*/auth/self-service/login/browser",
   ({ request }) => {
     const url = new URL(request.url);
-    const id = url.searchParams.get("id");
-
-    // The fixed local browser URL stands in for Kratos's flow-init redirect.
-    // Its first GET creates the flow; arbitrary IDs must never create one.
-    if (id === MOCK_LOGIN_FLOW_ID && !flows.has(id)) {
-      seedMockLoginFlow(url.origin);
-    }
-    const state = findFlow(id);
-    return state instanceof Response ? state : HttpResponse.json(state.flow);
+    const id = crypto.randomUUID();
+    const state = seedMockLoginFlow(url.origin, new Date(), id);
+    return HttpResponse.json(state.flow);
   },
 );
 
-export const loginHandlers = [getLoginFlowHandler];
+export const loginHandlers = [initializeLoginFlowHandler, getLoginFlowHandler];

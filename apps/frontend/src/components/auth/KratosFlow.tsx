@@ -60,6 +60,7 @@ function nodeKey(node: UiNode): string {
   );
 }
 export type Flow = {
+  id: string;
   ui: { action: string; method: string; nodes: UiNode[]; messages?: UiText[] };
 };
 
@@ -67,15 +68,30 @@ type LoginSuccess = { redirect_browser_to?: string };
 
 class RestartFlowError extends Error {}
 
-// Kratos sets the CSRF cookie and redirects back here with ?flow=<id>; (re)start
-// the browser flow, preserving any return_to.
-function restartFlow(kind: FlowKind): void {
+// Ask Kratos for the browser flow as JSON, then open this app's matching UI URL.
+// Kratos still establishes the browser/CSRF state; preserve any return_to.
+async function restartFlow(kind: FlowKind): Promise<void> {
   const returnTo = new URLSearchParams(window.location.search).get("return_to");
   const init = new URL(`/auth/self-service/${kind}/browser`, window.location.origin);
   if (returnTo) {
     init.searchParams.set("return_to", returnTo);
   }
-  window.location.replace(init.toString());
+
+  const response = await fetch(init, {
+    headers: { accept: "application/json" },
+    credentials: "include",
+  });
+  if (!response.ok) {
+    throw new Error(String(response.status));
+  }
+  const flow = (await response.json()) as Flow;
+
+  const uiUrl = new URL(`/auth/${kind}`, window.location.origin);
+  uiUrl.searchParams.set("flow", flow.id);
+  if (returnTo) {
+    uiUrl.searchParams.set("return_to", returnTo);
+  }
+  window.location.replace(uiUrl);
 }
 
 async function getKratosFlow(kind: FlowKind, id: string): Promise<Flow> {
@@ -258,7 +274,7 @@ export function KratosFlow({
     }
 
     restartedKey.current = restartKey;
-    restartFlow(kind);
+    restartFlow(kind).catch(() => undefined);
   }, [kind, restartKey]);
 
   if (flowQuery.isError && !(flowQuery.error instanceof RestartFlowError)) {

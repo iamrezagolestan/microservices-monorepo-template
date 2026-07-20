@@ -65,16 +65,17 @@ export function createMockLoginFlow(
   origin: string,
   issuedAt: Date,
   expiresAt: Date,
+  id = MOCK_LOGIN_FLOW_ID,
 ): MockLoginFlow {
   return {
-    id: MOCK_LOGIN_FLOW_ID,
+    id,
     type: "browser",
     state: "choose_method",
     expires_at: expiresAt.toISOString(),
     issued_at: issuedAt.toISOString(),
     request_url: `${origin}/auth/self-service/login/browser`,
     ui: {
-      action: `${origin}/auth/self-service/login?flow=${MOCK_LOGIN_FLOW_ID}`,
+      action: `${origin}/auth/self-service/login?flow=${id}`,
       method: "POST",
       messages: [],
       nodes: [
