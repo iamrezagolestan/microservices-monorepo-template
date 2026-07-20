@@ -14,10 +14,17 @@ data:
     global:
       scrape_interval: 30s
     # OTLP metrics arrive from the OTel collector (--web.enable-otlp-receiver).
-    # Keep dotted OTel attribute names and unit/type suffixes so the stored series
-    # match the semantic-convention names dashboards query.
+    # Escape OTel dotted names to the classic Prometheus form (dots→underscores) +
+    # unit/type suffixes: `http.server.duration` (seconds) becomes
+    # http_server_duration_seconds_bucket, `orders.checkouts_started` becomes
+    # orders_checkouts_started_total. This is the conventional Prometheus naming every
+    # dashboard/PromQL example assumes — the alternative (NoUTF8Escaping, dotted
+    # names) forces awkward `{"a.b.c"}` quoting on every query and is what left the
+    # RED dashboard showing "No data". Resource attributes are otherwise dropped from
+    # series, so promote service.name/namespace to labels dashboards can group by.
     otlp:
-      translation_strategy: NoUTF8EscapingWithSuffixes
+      translation_strategy: UnderscoreEscapingWithSuffixes
+      promote_resource_attributes: ["service.name", "service.namespace"]
     # OTLP pushes can land slightly out of order across collector batches.
     storage:
       tsdb:

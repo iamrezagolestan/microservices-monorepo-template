@@ -3,12 +3,12 @@
 - **Status:** Accepted
 - **Date:** 2026-07-06
 - **Deciders:** Platform team
-- **Related:** [ADR-0000](0000-platform-foundations.md), [ADR-0004](0004-gitops.md), [ADR-0011](0011-observability.md), [ADR-0017](0017-url-and-domain-structure.md)
+- **Related:** [ADR-0000](0000-platform-foundations.md), [ADR-0004](0004-gitops.md), [ADR-0011](0011-observability.md), [ADR-0017](0017-url-and-domain-structure.md), [ADR-0025](0025-service-map-apm-ui.md)
 
 ## Context
 
-The ops surfaces answer different questions: ArgoCD (what is deployed), Grafana (signals), Hubble
-(network), Temporal (workflows). None does the k9s job — *what pods exist right now, describe them, tail
+The ops surfaces answer different questions: ArgoCD (what is deployed), Grafana (signals), Coroot
+(service map / APM, [ADR-0025](0025-service-map-apm-ui.md)), Temporal (workflows). None does the k9s job — *what pods exist right now, describe them, tail
 their logs, exec in, port-forward*. During an incident that gap is filled today by a laptop with
 `kubectl`, which is fine for engineers with cluster access but leaves no shared, auth-gated view.
 
@@ -26,7 +26,7 @@ their logs, exec in, port-forward*. During an incident that gap is filled today 
 - **Tool: Headlamp** (CNCF Sandbox, Apache-2.0). A single in-cluster deployment, OIDC/header aware, drops
   into the existing pattern as one more ops origin.
 - **Ops-tier origin `k8s.ops.<host>`**, behind the ops forward-auth: coarse `operator` claim + AAL2, with
-  the optional per-tool SpiceDB grant `dashboard:k8s#view` ([ADR-0017](0017-url-and-domain-structure.md)).
+  the optional per-tool OpenFGA grant `dashboard:k8s#view` ([ADR-0017](0017-url-and-domain-structure.md)).
 - **Read-only by default.** Headlamp runs bound to the built-in **`view` ClusterRole** — list/get/watch
   across the cluster, describe, and tailing pod logs. `view` grants no `create` verbs, so there is **no
   exec, no port-forward**, and it **cannot read `Secret` objects** (secrets are excluded from `view`). It
@@ -64,7 +64,7 @@ their logs, exec in, port-forward*. During an incident that gap is filled today 
 
 - `infra/helm/platform/headlamp/` with the read-only ClusterRole and the flag gate.
 - `k8s.ops.<host>` IngressRoute + Oathkeeper rule ([docs/gateway/runbook.md](../gateway/runbook.md)).
-- Optional `dashboard:k8s` grant in the SpiceDB schema for the fine per-tool layer.
+- Optional `dashboard:k8s` grant in the OpenFGA schema for the fine per-tool layer.
 
 ## Rules
 

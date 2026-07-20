@@ -2,6 +2,10 @@ package handlers
 
 import (
 	"context"
+	"encoding/json"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	authzsdk "github.com/tabmadi/microservices-monorepo-template/libs/go/sdks/authz"
@@ -11,12 +15,19 @@ const (
 	subjectAlice = "alice"
 	subjectBob   = "bob"
 	toolO11y     = "o11y"
-	toolNetwork  = "network"
+	toolMap      = "map"
+
+	traitEmail    = "email"
+	traitName     = "name"
+	traitOperator = "operator"
+
+	opEmail    = "op@example.com"
+	stateValue = "active"
 )
 
 // fakeChecker returns canned answers keyed by "permission resource". It also
 // records whether it was called, so tests can assert the coarse gate never
-// touches SpiceDB.
+// touches OpenFGA.
 type fakeChecker struct {
 	answers map[string]bool
 	called  bool
@@ -51,7 +62,7 @@ func decideStatus(t *testing.T, h *Handlers, r *authzsdk.AuthorizeRequest) int {
 }
 
 // The coarse gate is a claim check: operator trait + AAL2, and — critically — no
-// SpiceDB call, so a product-authz outage cannot lock operators out (ADR-0017).
+// OpenFGA call, so a product-authz outage cannot lock operators out (ADR-0017).
 func TestCoarseClaimGate(t *testing.T) {
 	t.Parallel()
 	checker := &fakeChecker{}
@@ -63,7 +74,7 @@ func TestCoarseClaimGate(t *testing.T) {
 		want int
 	}{
 		{"operator + aal2", req(subjectAlice, toolO11y, aalLevel2, operatorTraitTrue), 200},
-		{"operator + aal2, any tool", req(subjectAlice, toolNetwork, aalLevel2, operatorTraitTrue), 200},
+		{"operator + aal2, any tool", req(subjectAlice, toolMap, aalLevel2, operatorTraitTrue), 200},
 		{"operator but aal1", req(subjectAlice, toolO11y, "aal1", operatorTraitTrue), 403},
 		{"aal2 but not operator", req(subjectBob, toolO11y, aalLevel2, "false"), 403},
 		{"operator trait empty", req(subjectBob, toolO11y, aalLevel2, ""), 403},
@@ -83,21 +94,21 @@ func TestCoarseClaimGate(t *testing.T) {
 	}
 
 	if checker.called {
-		t.Fatal("coarse gate called SpiceDB; it must not (break-glass independence, ADR-0017)")
+		t.Fatal("coarse gate called OpenFGA; it must not (break-glass independence, ADR-0017)")
 	}
 }
 
-// The optional fine gate adds a per-tool SpiceDB check on top of the coarse gate.
+// The optional fine gate adds a per-tool OpenFGA check on top of the coarse gate.
 func TestFineGrainedGate(t *testing.T) {
 	t.Parallel()
-	// alice holds o11y but not network.
+	// alice holds o11y but not map.
 	h := New(&fakeChecker{answers: map[string]bool{"view dashboard:o11y": true}}, nil, true, nil)
 
 	granted := decideStatus(t, h, req(subjectAlice, toolO11y, aalLevel2, operatorTraitTrue))
 	if granted != 200 {
 		t.Fatalf("granted tool status = %d, want 200", granted)
 	}
-	ungranted := decideStatus(t, h, req(subjectAlice, toolNetwork, aalLevel2, operatorTraitTrue))
+	ungranted := decideStatus(t, h, req(subjectAlice, toolMap, aalLevel2, operatorTraitTrue))
 	if ungranted != 403 {
 		t.Fatalf("ungranted tool status = %d, want 403", ungranted)
 	}
@@ -105,5 +116,102 @@ func TestFineGrainedGate(t *testing.T) {
 	nonOperator := decideStatus(t, h, req(subjectBob, toolO11y, aalLevel2, "false"))
 	if nonOperator != 403 {
 		t.Fatalf("non-operator status = %d, want 403", nonOperator)
+	}
+}
+
+// fakeKratos stands in for the Kratos admin identity API so the identity handlers can
+// be tested without a live Kratos: list returns a fixed page, get returns one full
+// identity (schema_id/state included), and put echoes back the body it received after
+// recording it for the caller to assert on.
+func fakeKratos(t *testing.T, gotPut *map[string]any) *httptest.Server {
+	t.Helper()
+	full := map[string]any{
+		"id": "id-1", "schema_id": schemaUserV1, "state": stateValue,
+		"traits": map[string]any{traitEmail: opEmail, traitName: "Op One", traitOperator: true},
+	}
+	writeJSON := func(w http.ResponseWriter, v any) {
+		err := json.NewEncoder(w).Encode(v)
+		if err != nil {
+			t.Errorf("encode response: %v", err)
+		}
+	}
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/admin/identities":
+			user := map[string]any{
+				"id": "id-2", "schema_id": schemaUserV1, "state": stateValue,
+				"traits": map[string]any{traitEmail: "user@example.com", traitName: "User Two"},
+			}
+			writeJSON(w, []any{full, user})
+		case r.Method == http.MethodGet && r.URL.Path == "/admin/identities/id-1":
+			writeJSON(w, full)
+		case r.Method == http.MethodPut && r.URL.Path == "/admin/identities/id-1":
+			body, _ := io.ReadAll(r.Body)
+			_ = json.Unmarshal(body, gotPut)
+			_, _ = w.Write(body) // echo the updated identity back
+		default:
+			t.Errorf("unexpected kratos call %s %s", r.Method, r.URL.Path)
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}
+	return httptest.NewServer(http.HandlerFunc(handler))
+}
+
+func newKratosHandlers(url string) *Handlers {
+	h := New(nil, nil, false, nil)
+	h.kratosAdmin = url
+	return h
+}
+
+// ListIdentities flattens each Kratos identity's traits, defaulting a missing
+// operator trait to false.
+func TestListIdentities(t *testing.T) {
+	t.Parallel()
+	srv := fakeKratos(t, &map[string]any{})
+	defer srv.Close()
+	h := newKratosHandlers(srv.URL)
+
+	ids, err := h.ListIdentities(context.Background(), authzsdk.ListIdentitiesParams{})
+	if err != nil {
+		t.Fatalf("ListIdentities: %v", err)
+	}
+	if len(ids) != 2 {
+		t.Fatalf("len = %d, want 2", len(ids))
+	}
+	if ids[0].Email != opEmail || !ids[0].Operator.Value {
+		t.Errorf("identity[0] = %+v, want operator op@example.com", ids[0])
+	}
+	if ids[1].Operator.Value {
+		t.Errorf("identity[1] operator = true, want false (trait absent)")
+	}
+}
+
+// UpdateIdentity overlays only the changed traits onto the current identity, so a
+// Kratos PUT (which replaces the whole record) keeps schema_id, state, and email.
+func TestUpdateIdentityPreservesRecord(t *testing.T) {
+	t.Parallel()
+	got := map[string]any{}
+	srv := fakeKratos(t, &got)
+	defer srv.Close()
+	h := newKratosHandlers(srv.URL)
+
+	body := &authzsdk.IdentityUpdate{Name: authzsdk.NewOptString("Renamed"), Operator: authzsdk.NewOptBool(false)}
+	updated, err := h.UpdateIdentity(context.Background(), body, authzsdk.UpdateIdentityParams{ID: "id-1"})
+	if err != nil {
+		t.Fatalf("UpdateIdentity: %v", err)
+	}
+	if got["schema_id"] != schemaUserV1 || got["state"] != stateValue {
+		t.Errorf("PUT dropped schema_id/state: %+v", got)
+	}
+	traits, _ := got["traits"].(map[string]any)
+	if traits[traitEmail] != opEmail {
+		t.Errorf("PUT changed email to %v, want preserved op@example.com", traits[traitEmail])
+	}
+	if traits[traitName] != "Renamed" || traits[traitOperator] != false {
+		t.Errorf("PUT traits = %+v, want name=Renamed operator=false", traits)
+	}
+	if updated.Name.Value != "Renamed" || updated.Operator.Value {
+		t.Errorf("returned identity = %+v, want name=Renamed operator=false", updated)
 	}
 }

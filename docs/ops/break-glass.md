@@ -1,6 +1,6 @@
 # Break-glass & ops recovery
 
-How an operator reaches the debugging surfaces (Grafana, Hubble, Argo CD, the admin console) when the auth plane that
+How an operator reaches the debugging surfaces (Grafana, Coroot, Argo CD, the admin console) when the auth plane that
 normally gates them is itself down. Companion to [ADR-0017](../adr/0017-url-and-domain-structure.md) and
 [ADR-0010](../adr/0010-auth.md).
 
@@ -13,7 +13,7 @@ gives the ops tier an **independent trust root**.
 Two moves, and most teams do both:
 
 - **Logical decoupling** — same stack, fragile link removed. The ops tier's coarse gate is an `operator` **claim + AAL2**,
-  not a SpiceDB `Checker` call ([ADR-0017](../adr/0017-url-and-domain-structure.md)), so a SpiceDB hiccup no longer locks
+  not an OpenFGA `Checker` call ([ADR-0017](../adr/0017-url-and-domain-structure.md)), so an OpenFGA hiccup no longer locks
   operators out. Cheap, but Kratos/Oathkeeper are still in the path.
 - **Physical decoupling (break-glass)** — a separate path with its own credentials that bypasses the plane entirely.
   This is what saves you when auth is fully down.
@@ -26,14 +26,14 @@ Right-sized for a 3–8 engineer team — no separate operator IdP or PKI, which
 1. **Everyday:** the SSO ops gate — Oathkeeper `operator` claim + AAL2 at `*.ops.<host>`
    ([ADR-0017](../adr/0017-url-and-domain-structure.md)).
 2. **Reduce the need for break-glass:** the coarse-gate-on-claim decoupling above. Only a *full* Kratos/Oathkeeper outage
-   now locks operators out, not a SpiceDB blip.
+   now locks operators out, not an OpenFGA blip.
 3. **True break-glass (auth fully down): `kubectl port-forward` with an independently-obtained kubeconfig.** The
-   kubeconfig authenticates to the API server via client cert/token — a trust root independent of Kratos and SpiceDB.
-   It reaches any tool directly, bypassing Traefik, Oathkeeper, and SpiceDB:
+   kubeconfig authenticates to the API server via client cert/token — a trust root independent of Kratos and OpenFGA.
+   It reaches any tool directly, bypassing Traefik, Oathkeeper, and OpenFGA:
 
    ```sh
    kubectl -n platform port-forward svc/grafana 3000:80       # then http://localhost:3000
-   kubectl -n platform port-forward svc/hubble-ui 8080:80
+   kubectl -n coroot   port-forward svc/coroot-coroot 8080:8080
    kubectl -n argocd   port-forward svc/argocd-server 8081:80
    ```
 

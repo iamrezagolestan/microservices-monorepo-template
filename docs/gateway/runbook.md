@@ -36,5 +36,5 @@ filter, no API-management gateway) is [ADR-0009](../adr/0009-api-gateway.md); tr
 
 - A 401 at the edge is Oathkeeper rejecting the session/JWT ([docs/auth/jwt-validation.md](../auth/jwt-validation.md)).
 - A 403 on an ops origin is the coarse claim gate (not `operator` / not AAL2) or the optional per-tool
-  SpiceDB check ([docs/ops/break-glass.md](../ops/break-glass.md) if the auth plane itself is down).
+  OpenFGA check ([docs/ops/break-glass.md](../ops/break-glass.md) if the auth plane itself is down).
 - Inspect live routing with the Traefik dashboard / `kubectl -n platform logs` for the edge and Oathkeeper.

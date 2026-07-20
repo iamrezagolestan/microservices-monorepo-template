@@ -1,6 +1,6 @@
 # Values namespaced under `lowdefy:` (not top-level) so this chart can share the
 # platform ApplicationSet's single per-env values overlay without its `image` key
-# colliding with the spicedb chart, which also reads a top-level `.Values.image`.
+# colliding with the openfga chart, which also reads a top-level `.Values.image`.
 lowdefy:
   image:
     repository: ""        # per-env overlay: local → k3d registry, prod → ghcr

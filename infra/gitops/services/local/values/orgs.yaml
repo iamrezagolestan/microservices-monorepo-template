@@ -15,10 +15,11 @@ ingress: { enabled: true, host: dev.localtest.me, resources: [orgs] }
 otel:    { deployEnv: local }
 # Kratos calls /identity-created east-west on the server port (ADR-0010); the
 # edge (allowFromGateway) only covers Traefik → /api/orgs, so allow Kratos too.
-networkPolicy: { allowFrom: [kratos] }
-secrets: { envFrom: [orgs-db, spicedb-creds] }
+# The Lowdefy admin console (apps/admin) also calls orgs server-side (ADR-0012).
+networkPolicy: { allowFrom: [kratos, lowdefy] }
+secrets: { envFrom: [orgs-db, openfga-creds] }
 env:
-  # Write authz (ADR-0010): the worker grants org admin via the shared SpiceDB
-  # Granter. Blank preshared key falls back to spicedb-creds.preshared_key (envFrom).
-  SPICEDB_ENDPOINT: "spicedb.platform.svc.cluster.local:50051"
-  SPICEDB_PRESHARED_KEY: ""
+  # Write authz (ADR-0010): the worker grants org admin via the shared OpenFGA
+  # Granter. Blank preshared key falls back to openfga-creds.preshared_key (envFrom).
+  OPENFGA_API_URL: "http://openfga.platform.svc.cluster.local:8080"
+  OPENFGA_PRESHARED_KEY: ""

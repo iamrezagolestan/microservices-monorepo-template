@@ -17,6 +17,8 @@ import (
 	"go.temporal.io/sdk/client"
 
 	"github.com/tabmadi/microservices-monorepo-template/libs/go/apierr"
+	"github.com/tabmadi/microservices-monorepo-template/libs/go/authmw"
+	"github.com/tabmadi/microservices-monorepo-template/libs/go/authz"
 	"github.com/tabmadi/microservices-monorepo-template/libs/go/observability"
 	"github.com/tabmadi/microservices-monorepo-template/libs/go/sdks/payment"
 	"github.com/tabmadi/microservices-monorepo-template/services/payment/internal/store"
@@ -28,13 +30,15 @@ const serviceName = "payment"
 type Handlers struct {
 	q              store.Querier
 	tc             client.Client
+	checker        authz.Checker
 	chargesCreated metric.Int64Counter
 }
 
-func New(db *pgxpool.Pool, tc client.Client) *Handlers {
+func New(db *pgxpool.Pool, tc client.Client, checker authz.Checker) *Handlers {
 	return &Handlers{
 		q:              store.New(db),
 		tc:             tc,
+		checker:        checker,
 		chargesCreated: observability.Counter("payment.charges_created"),
 	}
 }
@@ -107,6 +111,10 @@ func (h *Handlers) RefundCharge(
 	ctx, span := observability.StartSpan(ctx, "payment.RefundCharge")
 	defer span.End()
 
+	err := h.requireOperator(ctx, "refunding charges")
+	if err != nil {
+		return nil, err
+	}
 	row, err := h.q.GetCharge(ctx, pgtype.UUID{Bytes: params.ID, Valid: true})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, apierr.NotFound("charge")
@@ -188,4 +196,23 @@ func (h *Handlers) NewError(_ context.Context, err error) *payment.ErrorStatusCo
 		return &payment.ErrorStatusCode{StatusCode: e.Status, Response: payment.Problem{Code: e.Code, Message: e.Message}}
 	}
 	return &payment.ErrorStatusCode{StatusCode: 500, Response: payment.Problem{Code: "internal", Message: err.Error()}}
+}
+
+// requireOperator gates a write on the shared OpenFGA Checker (ADR-0010): the
+// caller must be an authenticated operator. Reads (List/Get) and creating a
+// charge stay open; only the destructive refund is gated, matching catalog's
+// operator-write policy.
+func (h *Handlers) requireOperator(ctx context.Context, action string) error {
+	principal, _ := authmw.FromContext(ctx)
+	if !principal.Authenticated() {
+		return apierr.Unauthorized()
+	}
+	allowed, err := h.checker.Allowed(ctx, principal.Subject(), "member", "group:operator")
+	if err != nil {
+		return apierr.Internal(err.Error())
+	}
+	if !allowed {
+		return apierr.Forbidden(action + " requires operator")
+	}
+	return nil
 }

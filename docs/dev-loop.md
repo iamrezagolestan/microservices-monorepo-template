@@ -2,7 +2,7 @@
 
 Per [ADR-0003](adr/0003-cluster-topology.md), k3d is the only local runtime.
 `mise run cluster:lite` creates the cluster and applies the lightweight dev
-dependencies (Postgres, Temporal, SpiceDB) from `infra/local/deps.yaml`. The
+dependencies (Postgres, Temporal, OpenFGA) from `infra/local/deps.yaml`. The
 inner loop is **native execution**: you run the service you are changing directly
 on the host against those dependencies — no image build, no in-cluster redeploy,
 no file-watch on the hot path.
@@ -14,27 +14,40 @@ This file is editor-agnostic. Any IDE that can load a `.env` file and run a Go
 
 ```sh
 mise run setup                       # lefthook hooks
-cp services/catalog/.env.example services/catalog/.env  # only for host-process debugging
+cp services/<svc>/.env.example services/<svc>/.env   # per service you work on
 ```
+
+Every service ships a `.env.example` listing exactly the variables it reads, with
+values already pointing at the port-forwarded deps. Its `.mise.toml` loads `.env`
+(`_.file`), so `mise run server` needs no inline environment. `.env` is gitignored;
+`.env.example` is the tracked contract.
 
 ## Inner loop (native)
 
 ```sh
-mise run cluster:lite  # k3d + a CNI + deps (Postgres, Temporal, SpiceDB)
+mise run cluster:lite  # k3d + a CNI + deps (Postgres, Temporal, OpenFGA)
 mise run dev:forward   # port-forward the deps to localhost (leave running in its own terminal)
 mise run db:migrate    # apply each service's migrations to the local Postgres
-# then run the service natively (any editor/IDE, or go run):
-DATABASE_URL=postgres://dev:dev@localhost:5432/catalog?sslmode=disable \
-  TEMPORAL_HOST_PORT=localhost:7233 SPICEDB_ENDPOINT=localhost:50051 \
-  go run ./services/catalog/cmd/server      # → http://localhost:8080
+
+cd services/catalog
+mise run server        # http server → http://localhost:8080
+mise run worker        # temporal worker (orders, payment, orgs)
 ```
 
 `dev:forward` exposes Postgres (`localhost:5432`), Temporal (`7233` gRPC / `8233`
-UI), and SpiceDB (`50051`) so the host process — and tools like `psql` — can reach
-them. Re-running the service is just re-running the binary; there is nothing to
+UI), and OpenFGA (`localhost:18080`) so the host process — and tools like `psql` —
+can reach them. OpenFGA is forwarded to `18080`, not its own `8080`, because the
+service under test already serves on `8080` (and k3d maps host `8080` to the edge);
+`OPENFGA_API_URL` in each service's `.env.example` points at `18080` to match. Re-running the service is just re-running the binary; there is nothing to
 rebuild or redeploy. To debug, point your editor's Go run configuration at
-`services/<svc>/cmd/server/main.go` with those env vars set; breakpoints and
-hot-restart work because the service is a plain host process.
+`services/<svc>/cmd/server/main.go` and have it load that service's `.env`;
+breakpoints and hot-restart work because the service is a plain host process.
+
+Every server hardcodes `:8080`, so only one can run natively at a time. To exercise
+a service that calls another (orders → catalog/payment), deploy the callee into the
+cluster with `mise run service:deploy -- catalog` and override `CATALOG_URL` /
+`PAYMENT_URL` in `.env` — their defaults are in-cluster DNS, which a host process
+cannot resolve.
 
 ### Putting a service *in* the cluster (edge/auth/e2e)
 
@@ -78,7 +91,7 @@ mise run e2e                  # full suite: every journey, every dashboard, all 
 ```
 
 The browser test is the acceptance gauge — a rendered, authenticated dashboard (Grafana,
-Hubble, Temporal) is the proof the whole stack underneath is wired. A Go/shell **preflight
+Coroot, Temporal) is the proof the whole stack underneath is wired. A Go/shell **preflight
 readiness** check runs first so a red e2e reads "infra down" vs "app broken". The suite ships a
 committed deterministic test identity (an AAL1 user + an AAL2 operator); there is nothing to seed
 by hand. Playwright's runner is Node — the **one** sanctioned Node tool in the repo
@@ -112,7 +125,7 @@ For end-to-end work, the edge, auth, NetworkPolicy, or observability on a laptop
 `mise run cluster:full` (scripts/cluster-full.sh) stands up the **same charts
 production runs**, at a single replica ([ADR-0016](adr/0016-environment-parity.md)),
 **delivered by ArgoCD** — the same engine staging/prod use: **Cilium** as the CNI
-(real NetworkPolicy + Hubble), **CNPG**, the **Temporal** chart, the **SpiceDB**
+(real NetworkPolicy + Hubble), **CNPG**, the **Temporal** chart, the **OpenFGA**
 chart, in-cluster **MinIO**, the **observability** chart, Traefik + Ory (Kratos +
 Oathkeeper), and the Lowdefy console.
 
@@ -163,11 +176,11 @@ matches longest-prefix, so the specific routes below win over the `/` catch-all.
 | `/auth/login`, `/auth/registration`, …                         | Kratos UI pages (host-run `next dev`) | public         | `infra/local/edge-auth.yaml`                     |
 | `/auth/self-service`, `/auth/.well-known`, `/auth/sessions`    | Kratos public API                     | public         | `infra/local/edge-auth.yaml`                     |
 | `/api/products`, `/api/orders`, `/api/orgs`, `/api/charges`    | Service APIs (flat `/api/<resource>`, ADR-0017) | Oathkeeper | `infra/helm/service/templates/ingressroute.yaml` |
-| `/api/observability/faro`                                      | Faro/RUM browser-telemetry ingest     | public         | `infra/gateway/frontend-observability.yaml`      |
+| `/api/rum`                                                     | Faro/RUM browser-telemetry ingest     | public         | `infra/gateway/frontend-observability.yaml`      |
 
 The **ops tier** (ADR-0017) is a separate origin per operator dashboard under
 `*.ops.<host>` — never a product path. The **coarse gate** is a claim, not a
-SpiceDB call: the ops forward-auth requires the `operator` trait **and** an AAL2
+OpenFGA call: the ops forward-auth requires the `operator` trait **and** an AAL2
 session, and makes no `Checker` call, so the debugging surface never shares fate
 with the product authz plane ([docs/ops/break-glass.md](ops/break-glass.md)). A
 bare login does not grant tool access. Per-tool `dashboard:<tool>#view` grants are
@@ -184,7 +197,7 @@ resolve to a backend only once their chart is enabled).
 | Ops URL                                        | Tool                                                                                   | Auth                                             |
 |------------------------------------------------|----------------------------------------------------------------------------------------|--------------------------------------------------|
 | `https://o11y.ops.dev.localtest.me:8443/`      | **Grafana** — metrics/logs/traces                                                      | operator + AAL2                                  |
-| `https://network.ops.dev.localtest.me:8443/`   | Cilium **Hubble UI** — network-flow map                                                | operator + AAL2                                  |
+| `https://map.ops.dev.localtest.me:8443/`       | **Coroot** — eBPF service map / APM (replaces Hubble UI)                                | operator + AAL2                                  |
 | `https://workflows.ops.dev.localtest.me:8443/` | **Temporal Web UI**                                                                    | operator + AAL2                                  |
 | `https://s3.ops.dev.localtest.me:8443/`        | **MinIO console** (non-prod)                                                           | operator + AAL2, then `minio` / `minio-password` |
 | `https://admin.ops.dev.localtest.me:8443/`     | **Lowdefy** admin console                                                              | operator + AAL2                                  |
@@ -213,8 +226,8 @@ want one drops it with `enabled: false` in its env values overlay.
 ### Login flow
 
 The edge serves `*.dev.localtest.me` on `:8443` (real DNS → 127.0.0.1, no
-`/etc/hosts` edits). Auth-gated routes (e.g. the Hubble UI at
-`https://hubble.dev.localtest.me:8443/`) redirect an unauthenticated browser to
+`/etc/hosts` edits). Auth-gated routes (e.g. the Coroot service map at
+`https://map.ops.dev.localtest.me:8443/`) redirect an unauthenticated browser to
 Kratos at `…/auth/login`; register/login there and the redirect returns you to the
 gated page. The Kratos session cookie is scoped to `dev.localtest.me` (parent
 domain), so one login covers the edge and every `*.dev.localtest.me` subdomain. The landing page and `/auth` UI are
@@ -323,7 +336,7 @@ first** bring-up. To rewire an existing cluster, recreate it
 
 > **Stalled image pulls through a proxy.** Even with the node proxied, some egress
 > proxies time out or truncate large image layers on containerd's single-stream pull
-> (Cilium, ArgoCD, and the SpiceDB seed's `authzed/zed` are the usual victims),
+> (Cilium, ArgoCD, and the OpenFGA seed's `openfga/cli` are the usual victims),
 > leaving pods in `ImagePullBackOff`. The opt-in **`mise run cluster:unwedge`**
 > ([`scripts/cluster-unwedge-images.sh`](../scripts/cluster-unwedge-images.sh))
 > recovers them: it host-pulls whatever is stuck (Docker resumes/retries reliably),

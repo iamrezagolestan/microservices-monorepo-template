@@ -1,18 +1,22 @@
 // Command admin-gen scaffolds the Lowdefy admin pages (ADR-0012) from the service
-// OpenAPI specs (ADR-0008). It emits apps/admin/_generated/<service>/ — one page
-// file per resource and per action — plus a pages.yaml manifest the root
-// lowdefy.yaml references. Output is REST-connector pages only: every mutation goes
-// through the service Go API, never raw SQL (the ADR-0012 write-path invariant).
+// OpenAPI specs (ADR-0008). It emits apps/admin/_generated/<service>/ — a small set
+// of pages per resource and per action — a shared navigation menu, and a pages.yaml
+// manifest the root lowdefy.yaml references. Output is REST-connector pages only:
+// every mutation goes through the service Go API, never raw SQL (the ADR-0012
+// write-path invariant).
 //
 // The surface a service gets is driven by two markers on its spec:
-//   - a tag with `x-admin: crud`  → a CRUD page for that resource group, built from
-//     the operations present: a list table, and (only when they exist) a create form
-//     (POST returning 201 — an async 202 workflow create is intentionally skipped),
-//     an edit form (PUT), and a delete control (DELETE).
+//   - a tag with `x-admin: crud`  → a Django-admin-style resource: a list (changelist)
+//     page, and — only when the matching operations exist — a separate "add" page
+//     (POST returning 201; an async 202 workflow create is intentionally skipped) and
+//     a separate "edit" page (PUT/DELETE, prefilled from GET /{id} when present).
 //   - an operation with `x-admin: action` → a single button/form action page.
 //
-// Pages call the service in-cluster (connectionId == service name) using the raw
-// spec paths, so the emitted output is independent of the /api edge prefix.
+// Every page is a PageSiderMenu, so the generated menu renders as a persistent left
+// nav across the whole console. Pages call the service in-cluster (connectionId ==
+// service name) using the raw spec paths, so the output is independent of the /api
+// edge prefix. The AxiosHttp connection returns the HTTP envelope, so response bodies
+// are read at `.data` (e.g. a list grid binds `_request: list.data`).
 package main
 
 import (
@@ -32,13 +36,16 @@ const (
 	outRoot  = "apps/admin/_generated"
 	adminDir = "apps/admin"
 
-	pageType   = "PageHeaderMenu"
+	pageType   = "PageSiderMenu"
 	typeAxios  = "AxiosHttp"
 	typeText   = "TextInput"
 	typeNum    = "NumberInput"
 	typeSwitch = "Switch"
+	typePass   = "PasswordInput"
 	typeButton = "Button"
 	typeTitle  = "Title"
+	typePara   = "Paragraph"
+	typeCard   = "Card"
 	typeGrid   = "AgGridAlpine"
 
 	mediaJSON = "application/json"
@@ -48,13 +55,37 @@ const (
 	mPut    = "put"
 	mDelete = "delete"
 
-	stateKey   = "_state"
-	payloadKey = "_payload"
-	requestKey = "_request"
-	concatKey  = "_string_concat"
+	stateKey    = "_state"
+	payloadKey  = "_payload"
+	requestKey  = "_request"
+	concatKey   = "_string.concat"
+	eventKey    = "_event"
+	urlQueryKey = "_url_query"
 
 	crudMarker   = "crud"
 	actionMarker = "action"
+
+	// listPageSize is the changelist grid's client-side page size (Django-style).
+	listPageSize = 20
+
+	menuFile = "menu.yaml"
+
+	// Lowdefy action + menu type strings and the map keys used across page blocks.
+	actLink       = "Link"
+	actRequest    = "Request"
+	actMessage    = "DisplayMessage"
+	menuLinkType  = "MenuLink"
+	menuGroupType = "MenuGroup"
+
+	keyOnClick = "onClick"
+	keyParams  = "params"
+	keyPageID  = "pageId"
+	keyMethod  = "method"
+	keyContent = "content"
+	keyTitle   = "title"
+	keyURL     = "url"
+	keyType    = "type"
+	keyData    = "data"
 )
 
 var httpMethods = map[string]bool{
@@ -83,59 +114,84 @@ func run() error {
 	}
 
 	var generated []string
+	// The nav always opens with a hand-written dashboard link; each service then
+	// contributes a menu group of its resource and action pages.
+	groups := []menuLink{{
+		ID: "link_dashboard", Type: menuLinkType, PageID: "dashboard",
+		Properties: map[string]any{keyTitle: "Dashboard"},
+	}}
 	for _, specPath := range specs {
 		svc := filepath.Base(filepath.Dir(specPath))
 		// _template is scaffolding, not a live service — never generated for.
 		if svc == "_template" {
 			continue
 		}
-		refs, err := genService(svc, specPath)
+		refs, group, err := genService(svc, specPath)
 		if err != nil {
 			return fmt.Errorf("%s: %w", svc, err)
 		}
 		generated = append(generated, refs...)
+		if len(group.Links) > 0 {
+			groups = append(groups, group)
+		}
 	}
 
+	err = writeMenu(groups)
+	if err != nil {
+		return err
+	}
 	return writeManifest(generated)
 }
 
 // genService writes every page for one service and returns their manifest refs
-// (root-relative to apps/admin), in deterministic order.
-func genService(svc, specPath string) ([]string, error) {
+// (root-relative to apps/admin) plus the service's nav menu group.
+func genService(svc, specPath string) ([]string, menuLink, error) {
 	data, err := os.ReadFile(specPath)
 	if err != nil {
-		return nil, fmt.Errorf("read %s: %w", specPath, err)
+		return nil, menuLink{}, fmt.Errorf("read %s: %w", specPath, err)
 	}
 	var d doc
 	err = yaml.Unmarshal(data, &d)
 	if err != nil {
-		return nil, fmt.Errorf("parse %s: %w", specPath, err)
+		return nil, menuLink{}, fmt.Errorf("parse %s: %w", specPath, err)
 	}
 
 	resources, actions, err := d.collect()
 	if err != nil {
-		return nil, err
+		return nil, menuLink{}, err
 	}
 
+	group := menuLink{ID: "group_" + svc, Type: menuGroupType, Properties: map[string]any{keyTitle: title(svc)}}
 	var refs []string
 	for _, name := range sortedKeys(resources) {
-		ref, err := d.writeResourcePage(svc, resources[name])
+		r := resources[name]
+		pageRefs, err := d.writeResourcePages(svc, r)
 		if err != nil {
-			return nil, err
+			return nil, menuLink{}, err
 		}
-		if ref != "" {
-			refs = append(refs, ref)
+		refs = append(refs, pageRefs...)
+		if r.list != nil {
+			link := menuLink{
+				ID: "link_" + r.name, Type: menuLinkType, PageID: r.name,
+				Properties: map[string]any{keyTitle: title(r.name)},
+			}
+			group.Links = append(group.Links, link)
 		}
 	}
 	sort.Slice(actions, func(i, j int) bool { return actions[i].OperationID < actions[j].OperationID })
 	for _, a := range actions {
 		ref, err := d.writeActionPage(svc, a)
 		if err != nil {
-			return nil, err
+			return nil, menuLink{}, err
 		}
 		refs = append(refs, ref)
+		link := menuLink{
+			ID: "link_" + a.OperationID, Type: menuLinkType, PageID: a.OperationID,
+			Properties: map[string]any{keyTitle: humanize(a.OperationID)},
+		}
+		group.Links = append(group.Links, link)
 	}
-	return refs, nil
+	return refs, group, nil
 }
 
 // collect classifies a spec's operations into CRUD resource groups and standalone
@@ -178,124 +234,329 @@ func (d *doc) collect() (map[string]*resource, []op, error) {
 	return resources, actions, nil
 }
 
-// writeResourcePage emits one CRUD page: a list table plus create/edit/delete
-// controls for whichever operations the resource exposes.
-func (d *doc) writeResourcePage(svc string, r *resource) (string, error) {
+// writeResourcePages emits the Django-admin page set for one resource: a list
+// (changelist) page always, plus separate add and edit pages when the resource
+// exposes the matching operations. It returns the manifest refs it wrote.
+func (d *doc) writeResourcePages(svc string, r *resource) ([]string, error) {
 	if r.list == nil && r.create == nil && r.update == nil && r.remove == nil {
-		return "", nil
+		return nil, nil
 	}
-	pg := page{ID: r.name, Type: pageType, Properties: pageProps{Title: title(r.name)}}
+	var refs []string
+	hasEdit := r.update != nil || r.remove != nil
 
 	if r.list != nil {
-		d.appendTable(&pg, svc, r.list)
+		ref, err := d.writeListPage(svc, r, hasEdit)
+		if err != nil {
+			return nil, err
+		}
+		refs = append(refs, ref)
 	}
 	if r.create != nil {
-		create := formSpec{reqID: "create", verb: mPost, heading: "Create", prefix: "create_", op: r.create, button: "Create"}
-		d.appendForm(&pg, create)
-	}
-	if r.update != nil {
-		edit := formSpec{reqID: "update", verb: mPut, heading: "Edit", prefix: "edit_", op: r.update, button: "Save"}
-		d.appendForm(&pg, edit)
-	}
-	if r.remove != nil {
-		del := formSpec{
-			reqID: "remove", verb: mDelete, heading: "Delete",
-			prefix: "delete_", op: r.remove, button: "Delete", idOnly: true,
+		ref, err := d.writeCreatePage(svc, r)
+		if err != nil {
+			return nil, err
 		}
-		d.appendForm(&pg, del)
+		refs = append(refs, ref)
 	}
+	if hasEdit {
+		ref, err := d.writeEditPage(svc, r)
+		if err != nil {
+			return nil, err
+		}
+		refs = append(refs, ref)
+	}
+	return refs, nil
+}
+
+// writeListPage emits the changelist: a table of the resource, an "Add" button that
+// links to the create page (when a create exists), and row-click navigation to the
+// edit page (when an edit page exists).
+func (d *doc) writeListPage(svc string, r *resource, hasEdit bool) (string, error) {
+	pg := page{ID: r.name, Type: pageType, Properties: pageProps{Title: title(r.name)}}
+
+	req := request{ID: "list", Type: typeAxios, ConnectionID: svc}
+	req.Properties = map[string]any{keyURL: r.list.path, keyMethod: mGet}
+	pg.Requests = append(pg.Requests, req)
+
+	// Lowdefy 5 does not auto-run a request just because a block binds it; fetch the
+	// list explicitly on mount so the grid is populated when the page paints.
+	pg.Events = map[string]any{"onMount": []any{
+		map[string]any{"id": "loadList", keyType: actRequest, keyParams: "list"},
+	}}
+
+	pg.Blocks = append(pg.Blocks, heading(title(r.name)))
+	if r.create != nil {
+		pg.Blocks = append(pg.Blocks, linkButton("add", "Add "+singular(r.name), r.name+"_new", nil, "primary"))
+	}
+
+	table := block{ID: "table", Type: typeGrid}
+	table.Properties = map[string]any{
+		"rowData":    map[string]any{requestKey: "list.data"},
+		"columnDefs": d.columnDefs(r.list.responseSchema()),
+		// Every changelist paginates, like Django admin. AgGrid paginates the loaded
+		// page client-side; the list request itself is a single server page (services
+		// that support it accept page/per_page — see authz listIdentities).
+		"pagination":         true,
+		"paginationPageSize": listPageSize,
+	}
+	if hasEdit {
+		// Django's changelist: click a row to open its change page. The AgGrid
+		// onRowClick event carries the row under `event.row`.
+		table.Events = map[string]any{"onRowClick": []any{
+			map[string]any{
+				"id": "openRow", keyType: actLink,
+				keyParams: map[string]any{
+					keyPageID:  r.name + "_edit",
+					"urlQuery": map[string]any{"id": map[string]any{eventKey: "row.id"}},
+				},
+			},
+		}}
+		pg.Blocks = append(pg.Blocks, hint("Click a row to edit."))
+	}
+	pg.Blocks = append(pg.Blocks, card(r.name+"_card", title(r.name), []block{table}))
 	return writePage(svc, r.name, pg)
 }
 
-// writeActionPage emits a single action page: inputs for the operation's path
-// params and request body, and a button that posts to the endpoint.
-func (d *doc) writeActionPage(svc string, o op) (string, error) {
-	pg := page{ID: o.OperationID, Type: pageType, Properties: pageProps{Title: humanize(o.OperationID)}}
-	run := formSpec{reqID: "run", verb: o.method, op: &o, button: humanize(o.OperationID)}
-	d.appendForm(&pg, run)
-	return writePage(svc, o.OperationID, pg)
-}
+// writeCreatePage emits the standalone "add" form for a resource.
+func (d *doc) writeCreatePage(svc string, r *resource) (string, error) {
+	pg := page{ID: r.name + "_new", Type: pageType, Properties: pageProps{Title: "Add " + singular(r.name)}}
+	pg.Blocks = append(pg.Blocks, heading("Add "+singular(r.name)))
 
-func (d *doc) appendTable(pg *page, svc string, list *op) {
-	cols := d.props(list.responseSchema())
-	defs := make([]any, 0, len(cols))
-	for _, c := range cols {
-		defs = append(defs, map[string]any{"field": c.Name, "headerName": headerName(c.Name)})
-	}
-	req := request{ID: "list", Type: typeAxios, ConnectionID: svc}
-	req.Properties = map[string]any{"url": list.path, "method": mGet}
-	pg.Requests = append(pg.Requests, req)
-
-	table := block{ID: "table", Type: typeGrid}
-	table.Properties = map[string]any{"rowData": map[string]any{requestKey: "list"}, "columnDefs": defs}
-	pg.Blocks = append(pg.Blocks, table)
-}
-
-// formSpec describes one generated form (create/edit/delete/action).
-type formSpec struct {
-	reqID, verb, heading, prefix, button string
-	op                                   *op
-	idOnly                               bool // no body fields (delete)
-}
-
-func (d *doc) appendForm(pg *page, f formSpec) {
+	fields := d.props(r.create.bodySchema())
 	payload := map[string]any{}
 	data := map[string]any{}
+	form := make([]block, 0, len(fields)+3)
+	for _, f := range fields {
+		form = append(form, input(f.Name, f.Name, f.Type))
+		payload[f.Name] = map[string]any{stateKey: f.Name}
+		data[f.Name] = map[string]any{payloadKey: f.Name}
+	}
+	req := request{
+		ID: "create", Type: typeAxios, ConnectionID: svc,
+		Payload:    payload,
+		Properties: map[string]any{keyURL: pathToURL(r.create.path), keyMethod: mPost, keyData: data},
+	}
+	pg.Requests = append(pg.Requests, req)
 
-	if f.heading != "" {
-		head := block{ID: f.prefix + "heading", Type: typeTitle}
-		head.Properties = map[string]any{"content": f.heading, "level": 5}
-		pg.Blocks = append(pg.Blocks, head)
+	// Django's add flow: on success return to the changelist, where the new row is
+	// the confirmation (a toast announces it). A failed request throws and halts the
+	// chain, so neither the toast nor the redirect fires.
+	toast := message("Created " + singular(r.name))
+	submit := requestButton("submit", "Create", "create", "primary", false, toast, linkTo(r.name))
+	back := linkButton("back", "Back to list", r.name, nil, "")
+	form = append(form, submit, back)
+	pg.Blocks = append(pg.Blocks, card(r.name+"_form", "New "+singular(r.name), form))
+	return writePage(svc, r.name+"_new", pg)
+}
+
+// writeEditPage emits the standalone change page: a form prefilled from GET /{id}
+// (when present), a Save (PUT), and a Delete (DELETE) that returns to the list.
+func (d *doc) writeEditPage(svc string, r *resource) (string, error) {
+	pg := page{ID: r.name + "_edit", Type: pageType, Properties: pageProps{Title: "Edit " + singular(r.name)}}
+	pg.Blocks = append(pg.Blocks, heading("Edit "+singular(r.name)))
+
+	// The record id comes from the ?id= query the changelist row-click set; the
+	// editable fields are whatever the PUT body accepts (none for a delete-only
+	// resource, which then renders just the id and a Delete button).
+	idFromQuery := map[string]any{urlQueryKey: "id"}
+	var fields []prop
+	if r.update != nil {
+		fields = d.props(r.update.bodySchema())
 	}
 
-	// Path params become inputs (the id for edit/delete/action).
-	for _, name := range f.op.pathParams() {
-		state := f.prefix + name
-		pg.Blocks = append(pg.Blocks, input(state, name, "string"))
-		payload[name] = map[string]any{stateKey: state}
-	}
+	d.appendPrefill(&pg, svc, r, fields, idFromQuery)
 
-	// Request-body fields become inputs, unless this is an id-only (delete) form.
-	if !f.idOnly {
-		for _, p := range d.props(f.op.bodySchema()) {
-			state := f.prefix + p.Name
-			pg.Blocks = append(pg.Blocks, input(state, p.Name, p.Type))
-			payload[p.Name] = map[string]any{stateKey: state}
-			data[p.Name] = map[string]any{payloadKey: p.Name}
+	form := make([]block, 0, len(fields)+5)
+	form = append(form, readonlyID(idFromQuery))
+	for _, f := range fields {
+		form = append(form, input(f.Name, f.Name, f.Type))
+	}
+	form = append(form, d.editWrites(&pg, svc, r, fields, idFromQuery)...)
+	form = append(form, linkButton("back", "Back to list", r.name, nil, ""))
+
+	pg.Blocks = append(pg.Blocks, card(r.name+"_form", "Edit "+singular(r.name), form))
+	return writePage(svc, r.name+"_edit", pg)
+}
+
+// appendPrefill wires the change page to load its record on mount (GET /{id}) and
+// copy the response body into the form's field state. No-op when the resource has
+// no get-by-id — the form then starts blank.
+func (d *doc) appendPrefill(pg *page, svc string, r *resource, fields []prop, id map[string]any) {
+	if r.get == nil {
+		return
+	}
+	req := request{
+		ID: "get", Type: typeAxios, ConnectionID: svc,
+		Payload:    map[string]any{"id": id},
+		Properties: map[string]any{keyURL: pathToURL(r.get.path), keyMethod: mGet},
+	}
+	pg.Requests = append(pg.Requests, req)
+	fill := map[string]any{}
+	for _, f := range fields {
+		fill[f.Name] = map[string]any{requestKey: "get.data." + f.Name}
+	}
+	pg.Events = map[string]any{"onMount": []any{
+		map[string]any{"id": "load", keyType: actRequest, keyParams: "get"},
+		map[string]any{"id": "fill", keyType: "SetState", keyParams: fill},
+	}}
+}
+
+// editWrites appends the change page's Save (PUT) and Delete (DELETE) requests and
+// returns the buttons that drive them.
+func (d *doc) editWrites(pg *page, svc string, r *resource, fields []prop, id map[string]any) []block {
+	var controls []block
+	if r.update != nil {
+		payload := map[string]any{"id": id}
+		data := map[string]any{}
+		for _, f := range fields {
+			payload[f.Name] = map[string]any{stateKey: f.Name}
+			data[f.Name] = map[string]any{payloadKey: f.Name}
 		}
+		req := request{
+			ID: "update", Type: typeAxios, ConnectionID: svc,
+			Payload:    payload,
+			Properties: map[string]any{keyURL: pathToURL(r.update.path), keyMethod: mPut, keyData: data},
+		}
+		pg.Requests = append(pg.Requests, req)
+		// Save keeps the operator on the record (Django "save and continue"), with a
+		// toast confirming the write.
+		save := requestButton("save", "Save", "update", "primary", false, message("Saved changes"))
+		controls = append(controls, save)
 	}
+	if r.remove != nil {
+		req := request{
+			ID: "remove", Type: typeAxios, ConnectionID: svc,
+			Payload:    map[string]any{"id": id},
+			Properties: map[string]any{keyURL: pathToURL(r.remove.path), keyMethod: mDelete},
+		}
+		pg.Requests = append(pg.Requests, req)
+		// Delete, then return to the list — the record no longer exists to edit.
+		del := requestButton("delete", "Delete", "remove", "", true, linkTo(r.name))
+		controls = append(controls, del)
+	}
+	return controls
+}
 
-	props := map[string]any{"url": pathToURL(f.op.path), "method": f.verb}
+// writeActionPage emits a single action page: inputs for the operation's path params
+// and request body, and a button that posts to the endpoint.
+func (d *doc) writeActionPage(svc string, o op) (string, error) {
+	pg := page{ID: o.OperationID, Type: pageType, Properties: pageProps{Title: humanize(o.OperationID)}}
+	pg.Blocks = append(pg.Blocks, heading(humanize(o.OperationID)))
+
+	payload := map[string]any{}
+	data := map[string]any{}
+	form := make([]block, 0, len(o.pathParams())+2)
+	for _, name := range o.pathParams() {
+		form = append(form, input(name, name, "string"))
+		payload[name] = map[string]any{stateKey: name}
+	}
+	for _, p := range d.props(o.bodySchema()) {
+		form = append(form, input(p.Name, p.Name, p.Type))
+		payload[p.Name] = map[string]any{stateKey: p.Name}
+		data[p.Name] = map[string]any{payloadKey: p.Name}
+	}
+	props := map[string]any{keyURL: pathToURL(o.path), keyMethod: o.method}
 	if len(data) > 0 {
 		props["data"] = data
 	}
-	req := request{ID: f.reqID, Type: typeAxios, Properties: props}
+	req := request{ID: "run", Type: typeAxios, ConnectionID: svc, Properties: props}
 	if len(payload) > 0 {
 		req.Payload = payload
 	}
 	pg.Requests = append(pg.Requests, req)
 
-	// The SetState runs only if the Request above resolved — a failed request throws
-	// and halts the onClick chain — so it doubles as the success signal.
-	doneState := f.prefix + "done"
-	onClick := []any{
-		map[string]any{"id": f.reqID + "Click", "type": "Request", "params": f.reqID},
-		map[string]any{"id": f.reqID + "Done", "type": "SetState", "params": map[string]any{doneState: true}},
-	}
-	submit := block{ID: f.prefix + "submit", Type: typeButton}
-	submit.Properties = map[string]any{"title": f.button}
-	submit.Events = map[string]any{"onClick": onClick}
-	pg.Blocks = append(pg.Blocks, submit)
+	label := humanize(o.OperationID)
+	submit := requestButton("submit", label, "run", "primary", false, message(label+" succeeded"))
+	form = append(form, submit)
+	pg.Blocks = append(pg.Blocks, card(o.OperationID+"_form", label, form))
+	return writePage(svc, o.OperationID, pg)
+}
 
-	// A confirmation hidden until the request resolves: operator feedback and the
-	// e2e acceptance signal (ADR-0018).
-	success := block{ID: f.prefix + "success", Type: typeTitle}
-	success.Properties = map[string]any{
-		"content": f.button + " succeeded",
-		"level":   5,
-		"visible": map[string]any{stateKey: doneState},
+// ── block builders ──────────────────────────────────────────────────────────────
+
+func heading(text string) block {
+	return block{ID: "header", Type: typeTitle, Properties: map[string]any{keyContent: text, "level": 3}}
+}
+
+func hint(text string) block {
+	return block{ID: "hint", Type: typePara, Properties: map[string]any{keyContent: text}}
+}
+
+// card wraps blocks in a titled antd Card — the panel that gives each page its
+// clean, single-purpose framing.
+func card(id, title string, blocks []block) block {
+	return block{ID: id, Type: typeCard, Properties: map[string]any{keyTitle: title}, Blocks: blocks}
+}
+
+// readonlyID shows the record id being edited, read from the page's ?id= query.
+func readonlyID(id any) block {
+	return block{ID: "id_display", Type: typePara, Properties: map[string]any{
+		keyContent: map[string]any{concatKey: []any{"Editing id: ", id}},
+	}}
+}
+
+// linkButton is a Button whose onClick navigates to another page.
+func linkButton(id, label, pageID string, urlQuery map[string]any, btnType string) block {
+	params := map[string]any{keyPageID: pageID}
+	if urlQuery != nil {
+		params["urlQuery"] = urlQuery
 	}
-	pg.Blocks = append(pg.Blocks, success)
+	b := block{ID: id, Type: typeButton, Style: buttonSpacing(), Properties: map[string]any{keyTitle: label}}
+	if btnType != "" {
+		b.Properties["type"] = btnType
+	}
+	b.Events = map[string]any{keyOnClick: []any{
+		map[string]any{"id": id + actLink, keyType: actLink, keyParams: params},
+	}}
+	return b
+}
+
+// buttonSpacing separates a button from the field or button above it — Lowdefy
+// stacks blocks flush, so form actions need explicit top margin to breathe.
+func buttonSpacing() map[string]any {
+	return map[string]any{"marginTop": 16, "marginRight": 8}
+}
+
+// requestButton runs reqID on click, then the follow-up steps — a success toast
+// and/or a navigation. A failed request throws and halts the chain (ADR-0018), so
+// the follow-ups only run on success. Feedback is a transient DisplayMessage toast
+// rather than a state-gated block: Lowdefy only hides a block on a strictly-false
+// visible, which an unset flag never yields, so a toast is both simpler and correct.
+func requestButton(id, label, reqID, btnType string, danger bool, follow ...map[string]any) block {
+	b := block{ID: id, Type: typeButton, Style: buttonSpacing(), Properties: map[string]any{keyTitle: label}}
+	if btnType != "" {
+		b.Properties[keyType] = btnType
+	}
+	if danger {
+		b.Properties["danger"] = true
+	}
+	onClick := make([]any, 0, 1+len(follow))
+	onClick = append(onClick, map[string]any{"id": id + "Req", keyType: actRequest, keyParams: reqID})
+	for i, step := range follow {
+		step["id"] = fmt.Sprintf("%s%d", id, i)
+		onClick = append(onClick, step)
+	}
+	b.Events = map[string]any{keyOnClick: onClick}
+	return b
+}
+
+// message is an onClick step showing a success toast.
+func message(text string) map[string]any {
+	return map[string]any{keyType: actMessage, keyParams: map[string]any{keyContent: text, "status": "success"}}
+}
+
+// linkTo is an onClick step navigating to a page.
+func linkTo(pageID string) map[string]any {
+	return map[string]any{keyType: actLink, keyParams: map[string]any{keyPageID: pageID}}
+}
+
+func (d *doc) columnDefs(schema yaml.Node) []any {
+	cols := d.props(schema)
+	defs := make([]any, 0, len(cols))
+	for _, c := range cols {
+		defs = append(defs, map[string]any{"field": c.Name, "headerName": headerName(c.Name)})
+	}
+	return defs
 }
 
 func input(state, label, typ string) block {
@@ -306,9 +567,10 @@ func input(state, label, typ string) block {
 	case "boolean":
 		b.Type = typeSwitch
 	default:
-		b.Type = typeText
 		if label == "password" {
-			b.Properties["type"] = "password"
+			b.Type = typePass
+		} else {
+			b.Type = typeText
 		}
 	}
 	return b
@@ -389,7 +651,11 @@ func (o *op) bodySchema() yaml.Node {
 }
 
 func (o *op) responseSchema() yaml.Node {
-	return o.Responses["200"].Content[mediaJSON].Schema
+	b, ok := o.Responses["200"]
+	if !ok {
+		b = o.Responses["201"]
+	}
+	return b.Content[mediaJSON].Schema
 }
 
 // segments counts the non-empty path segments (e.g. /orders/{id} == 2).
@@ -404,8 +670,8 @@ func (o *op) has201() bool {
 
 // resource collects the CRUD operations of one resource group.
 type resource struct {
-	name                         string
-	list, create, update, remove *op
+	name                              string
+	list, get, create, update, remove *op
 }
 
 // classify assigns an operation to its CRUD role by method and path shape. An
@@ -416,6 +682,8 @@ func (r *resource) classify(o op) {
 	switch {
 	case len(o.pathParams()) == 0 && o.method == mGet:
 		r.list = &cp
+	case o.segments() == 2 && o.method == mGet:
+		r.get = &cp
 	case len(o.pathParams()) == 0 && o.method == mPost && o.has201():
 		r.create = &cp
 	case o.segments() == 2 && o.method == mPut:
@@ -478,11 +746,12 @@ func orderedProps(node yaml.Node) []prop {
 // ── Lowdefy page model ────────────────────────────────────────────────────────
 
 type page struct {
-	ID         string    `yaml:"id"`
-	Type       string    `yaml:"type"`
-	Properties pageProps `yaml:"properties"`
-	Requests   []request `yaml:"requests,omitempty"`
-	Blocks     []block   `yaml:"blocks"`
+	ID         string         `yaml:"id"`
+	Type       string         `yaml:"type"`
+	Properties pageProps      `yaml:"properties"`
+	Events     map[string]any `yaml:"events,omitempty"`
+	Requests   []request      `yaml:"requests,omitempty"`
+	Blocks     []block        `yaml:"blocks"`
 }
 
 type pageProps struct {
@@ -501,23 +770,37 @@ type block struct {
 	ID         string         `yaml:"id"`
 	Type       string         `yaml:"type"`
 	Properties map[string]any `yaml:"properties,omitempty"`
+	Style      map[string]any `yaml:"style,omitempty"`
 	Events     map[string]any `yaml:"events,omitempty"`
+	Blocks     []block        `yaml:"blocks,omitempty"`
+}
+
+// menuLink is a Lowdefy nav entry: a MenuLink (leaf, links to a pageId) or a
+// MenuGroup (a titled group of links).
+type menuLink struct {
+	ID         string         `yaml:"id"`
+	Type       string         `yaml:"type"`
+	PageID     string         `yaml:"pageId,omitempty"`
+	Properties map[string]any `yaml:"properties,omitempty"`
+	Links      []menuLink     `yaml:"links,omitempty"`
 }
 
 const genHeader = "# GENERATED by tools/admin-gen (ADR-0012). Do not edit; run `mise run gen:admin`.\n"
 
 func writePage(svc, name string, pg page) (string, error) {
-	for i := range pg.Requests {
-		if pg.Requests[i].ConnectionID == "" {
-			pg.Requests[i].ConnectionID = svc
-		}
-	}
 	rel := filepath.Join("_generated", svc, name+".yaml")
 	err := marshalFile(filepath.Join(adminDir, rel), pg)
 	if err != nil {
 		return "", err
 	}
 	return rel, nil
+}
+
+// writeMenu emits the shared nav as a single default menu the PageSiderMenu pages
+// render. The root lowdefy.yaml references it with `menus: { _ref: _generated/menu.yaml }`.
+func writeMenu(groups []menuLink) error {
+	menus := []any{map[string]any{"id": "default", "links": groups}}
+	return marshalFile(filepath.Join(outRoot, menuFile), menus)
 }
 
 func writeManifest(generated []string) error {
@@ -590,7 +873,7 @@ func marshalFile(p string, v any) error {
 // ── helpers ───────────────────────────────────────────────────────────────────
 
 // pathToURL turns a spec path into a Lowdefy url: a plain string, or a
-// _string_concat that splices path params from the request payload.
+// _string.concat that splices path params from the request payload.
 func pathToURL(p string) any {
 	if !strings.Contains(p, "{") {
 		return p
@@ -632,6 +915,19 @@ func title(s string) string {
 		return s
 	}
 	return strings.ToUpper(s[:1]) + s[1:]
+}
+
+// singular turns a plural resource noun into its per-record label: "identities" ->
+// "identity" ("ies" -> "y"), "products" -> "product" (drop trailing "s"). Good
+// enough for the demo resource nouns; not a full inflector.
+func singular(s string) string {
+	if strings.HasSuffix(s, "ies") && len(s) > 3 {
+		return s[:len(s)-3] + "y"
+	}
+	if strings.HasSuffix(s, "s") && len(s) > 1 {
+		return s[:len(s)-1]
+	}
+	return s
 }
 
 // headerName turns a snake_case field into a label ("price_cents" -> "Price cents").

@@ -72,10 +72,10 @@ pre-commit:
       # Auth config single-source guard (lint:auth-inline).
       glob: "infra/{auth/**,helm/platform/ory/values.yaml}"
       run: bash scripts/lint-auth-inline.sh
-    spicedb:
-      # SpiceDB schema + assertions (part of lint:authz).
-      glob: "infra/auth/spicedb/**"
-      run: bash scripts/validate-spicedb.sh
+    openfga:
+      # OpenFGA model + assertions (part of lint:authz).
+      glob: "infra/auth/openfga/**"
+      run: bash scripts/validate-openfga.sh
     authorizer:
       # Ops dashboards authorize via remote_json, never `allow` (part of lint:authz).
       glob: "infra/auth/oathkeeper/access-rules.json"

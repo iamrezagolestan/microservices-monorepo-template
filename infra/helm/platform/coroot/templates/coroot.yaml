@@ -1,0 +1,34 @@
+# The Coroot CR the operator reconciles into the running stack (server + node-agent
+# DaemonSet + cluster-agent + ClickHouse + Prometheus). sync-wave "1" so it applies
+# AFTER the operator + CRD (wave 0) are Healthy — otherwise the first ArgoCD sync
+# races the CRD registration (retry would eventually catch it, but the wave is clean).
+apiVersion: coroot.com/v1
+kind: Coroot
+metadata:
+  name: coroot
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  communityEdition:
+    image:
+      name: {{ .Values.images.coroot }}
+  # Gated at the edge (ADR-0017); Coroot CE has no SSO/RBAC of its own.
+  authAnonymousRole: {{ .Values.authAnonymousRole }}
+  nodeAgent:
+    image:
+      name: {{ .Values.images.nodeAgent }}
+  clusterAgent:
+    image:
+      name: {{ .Values.images.clusterAgent }}
+  clickhouse:
+    shards: {{ .Values.clickhouse.shards }}
+    replicas: {{ .Values.clickhouse.replicas }}
+    keeper:
+      replicas: {{ .Values.clickhouse.keeperReplicas }}
+    image:
+      name: {{ .Values.images.clickhouse }}
+  prometheus:
+    retention: {{ .Values.prometheus.retention }}
+    image:
+      name: {{ .Values.images.prometheus }}

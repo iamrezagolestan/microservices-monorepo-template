@@ -29,8 +29,14 @@ func Chain(h http.Handler, serviceName string) http.Handler {
 	if err != nil {
 		panic(err)
 	}
-	traced := otelhttp.NewHandler(h, "http", otelhttp.WithServerName(serviceName))
-	return version(red(requestCount, requestDur, access(traced)))
+	// otelhttp must wrap red+access, not the other way round: it creates the server
+	// span and injects it into the request context it passes inward. The access log
+	// reads that context, so keeping it INSIDE the span is what stamps trace_id/
+	// span_id onto every access log line (→ Loki structured metadata), giving
+	// logs↔traces correlation. With access outside otelhttp the log had no span and
+	// every line landed in Loki untraceable.
+	traced := otelhttp.NewHandler(red(requestCount, requestDur, access(h)), "http", otelhttp.WithServerName(serviceName))
+	return version(traced)
 }
 
 // version stamps the running binary's identity on every response (ADR-0013), so a

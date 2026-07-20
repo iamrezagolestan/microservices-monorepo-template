@@ -72,16 +72,28 @@ k -n "$NS" create configmap grafana-dashboards \
 #     (ADR-0016). Must run before step 4 so images exist before Argo creates pods.
 #     Build args mirror scripts/service-deploy.sh.
 REG="k3d-registry.localhost:5000"
-build_push() {  # <image-name> <dockerfile> <context> [extra docker build args…]
-  local name="$1" dockerfile="$2" context="$3"; shift 3
+# Push over the loopback host, not REG. Docker picks HTTP-vs-HTTPS by resolving the
+# registry hostname and checking the result against its insecure-registry CIDRs
+# (127.0.0.0/8, ::1/128 by default). k3d's registry only speaks plain HTTP, so the
+# push works only if the name resolves into those CIDRs — which depends on each dev's
+# NSS setup mapping *.localhost to loopback (e.g. myhostname). Where it doesn't,
+# k3d-registry.localhost resolves elsewhere and docker demands TLS: "server gave HTTP
+# response to HTTPS client". 127.0.0.1 sidesteps all of that (loopback is insecure on
+# every daemon, no per-machine daemon.json). Both names address the same registry
+# container and blobs are keyed by repo path, so REG stays the cluster-facing pull
+# name in the values overlays; only the push target differs.
+PUSH_REG="127.0.0.1:5000"
+build_push() { # <image-name> <dockerfile> <context> [extra docker build args…]
+  local name="$1" dockerfile="$2" context="$3"
+  shift 3
   # Behind a slow proxy, buildkit's fetch of the Dockerfile frontend + base images
   # (docker.io) trips TLS-handshake timeouts intermittently; the layers it did get
   # are cached, so a retry rides over the transient failure. Fails loudly if all
   # attempts miss — same explicit retry the unwedge script uses for host pulls.
   local attempt
   for attempt in 1 2 3; do
-    if docker build -t "${REG}/${name}:local" -f "$dockerfile" "$@" "$context" \
-        && docker push "${REG}/${name}:local"; then
+    if docker build -t "${PUSH_REG}/${name}:local" -f "$dockerfile" "$@" "$context" &&
+      docker push "${PUSH_REG}/${name}:local"; then
       return 0
     fi
     echo "    (build/push of ${name} attempt ${attempt} failed — retrying)"
@@ -94,7 +106,7 @@ echo "→ building + pushing repo images to ${REG}"
 # so /version and the X-App-Version header report exactly what this run deployed.
 REV="$(git rev-parse --short=12 HEAD 2>/dev/null || echo unknown)"
 git diff --quiet 2>/dev/null || REV="${REV}-dirty"
-BUILD_ID=(--build-arg "GIT_SHA=${REV}" --build-arg BUILD_VERSION=local \
+BUILD_ID=(--build-arg "GIT_SHA=${REV}" --build-arg BUILD_VERSION=local
   --build-arg "BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)")
 for svc in authz catalog orders orgs payment; do
   build_push "${svc}-server" "services/${svc}/Dockerfile" . \
@@ -114,8 +126,8 @@ k apply -f infra/gitops/local-bootstrap/root-application.yaml
 #    foreground, streams per-resource sync/health as it changes, and exits
 #    non-zero with the offending resource the moment a sync operation fails
 #    (no silent wait to the timeout). Two phases because apps are generated
-#    asynchronously: first the root app (its AppProject + 2 child apps + 2
-#    appsets), then
+#    asynchronously: first the root app (its AppProject + 2 child apps [secrets,
+#    gateway] + 4 appsets [platform-base/data/core, services]), then
 #    every app the appsets produced. Appset generation lags appset sync, so the
 #    set is re-listed until stable.
 echo "→ waiting for ArgoCD to converge (this is a full platform; first run is slow)…"
@@ -132,7 +144,8 @@ kubectl --kubeconfig "$AC_KUBECONFIG" config set-context --current --namespace a
 # first thing to suspect: terminate the wedged operation and force a fresh one
 # (which recomputes the plan against current git) before giving up for real.
 wait_apps() {
-  local timeout="$1"; shift
+  local timeout="$1"
+  shift
   if ac app wait "$@" --sync --health --operation --timeout "$timeout"; then
     return 0
   fi
@@ -153,38 +166,20 @@ done
 echo "✓ all ArgoCD applications Synced + Healthy"
 
 # 6. Host-specific edge tail (cannot be GitOps — depends on per-machine state):
-#    local Traefik tuning, the /auth + landing routes to a host-run frontend, and
-#    the frontend-dev EndpointSlice pointing at the docker-bridge gateway IP.
-echo "→ applying host-specific edge glue"
+#    local Traefik tuning, plus the /auth + landing routes to a host-run frontend
+#    and the frontend-dev EndpointSlice. The latter two live in cluster-edge.sh so
+#    the start path (cluster-ensure.sh) and reboot recovery (cluster-heal.sh) can
+#    re-stamp them too — otherwise a stop/start drops the `frontend` route (404 at /).
 k apply -f infra/local/traefik-config.yaml
-k apply -f infra/local/edge-auth.yaml
-GW="$(docker inspect "k3d-${CLUSTER}-server-0" \
-  --format '{{range .NetworkSettings.Networks}}{{.Gateway}}{{end}}')"
-k apply -f - <<EOF
-apiVersion: discovery.k8s.io/v1
-kind: EndpointSlice
-metadata:
-  name: frontend-dev
-  namespace: ${NS}
-  labels:
-    kubernetes.io/service-name: frontend-dev
-addressType: IPv4
-ports:
-  - name: http
-    port: 3000
-    protocol: TCP
-endpoints:
-  - addresses: ["${GW}"]
-    conditions: { ready: true }
-EOF
+bash scripts/cluster-edge.sh
 
 cat <<EOF
 
 ✓ cluster:full up (ArgoCD-driven from master).
   Product (Traefik):  https://${DOMAIN}:8443/api/<resource>/   (flat namespace, self-signed TLS)
-  Ops tier (ADR-0017; coarse gate = operator claim + AAL2, no SpiceDB call):
+  Ops tier (ADR-0017; coarse gate = operator claim + AAL2, no OpenFGA call):
     Grafana:          https://o11y.ops.${DOMAIN}:8443/
-    Hubble UI:        https://network.ops.${DOMAIN}:8443/
+    Coroot (map/APM): https://map.ops.${DOMAIN}:8443/   (eBPF service map; may lag — deploys last)
     Temporal UI:      https://workflows.ops.${DOMAIN}:8443/
     MinIO console:    https://s3.ops.${DOMAIN}:8443/  (login: minio / minio-password)
     Lowdefy console:  https://admin.ops.${DOMAIN}:8443/

@@ -56,12 +56,20 @@ if ! k3d cluster list | awk '{print $1}' | grep -qx "$CLUSTER"; then
   # against our OWN local registry it just throttles cold/mass reschedules into a
   # "pull QPS exceeded" storm that adds minutes of backoff. Create-time only.
   #
-  # eviction-hard pinned at 5% free (both filesystems): a developer disk often sits
+  # eviction-hard pinned at 2% free (both filesystems): a developer disk often sits
   # near-full, and kubelet's stock disk-pressure threshold (taints ~10-15% free)
   # then evicts the WHOLE platform over a few spare GB. Pinning it low keeps pods
   # put until the disk is genuinely almost-full — and pins it so a recreate (or a
   # distro whose default differs from k3s') can't silently raise it. Explicit set,
   # so inode-based eviction is intentionally out of scope here.
+  #
+  # image-gc-high/low-threshold (98/80% imagefs used) makes kubelet reclaim unused
+  # images only once the image filesystem is 98% full, down to 80%. A developer disk
+  # here often shares one near-full partition with the k3d node's imagefs, so a lower
+  # high-water mark just makes kubelet log perpetual ImageGCFailed/FreeDiskSpaceFailed
+  # warnings — it keeps trying to shed layers that are all in-use, freeing nothing.
+  # Pinning high at 98 (level with the eviction floor) silences that noise on a busy
+  # disk; GC still fires as a last resort right before eviction would.
   k3d cluster create "$CLUSTER" \
     --servers 1 --agents 0 \
     --port "8080:80@loadbalancer" --port "8443:443@loadbalancer" \
@@ -70,6 +78,8 @@ if ! k3d cluster list | awk '{print $1}' | grep -qx "$CLUSTER"; then
     --k3s-arg '--kubelet-arg=registry-qps=0@server:*' \
     --k3s-arg '--kubelet-arg=registry-burst=0@server:*' \
     --k3s-arg '--kubelet-arg=eviction-hard=imagefs.available<2%,nodefs.available<2%@server:*' \
+    --k3s-arg '--kubelet-arg=image-gc-high-threshold=98@server:*' \
+    --k3s-arg '--kubelet-arg=image-gc-low-threshold=80@server:*' \
     --registry-use "k3d-${REGISTRY}:5000" \
     ${proxy_flags[@]+"${proxy_flags[@]}"}
 else
@@ -78,4 +88,25 @@ else
 fi
 
 kubectl config use-context "k3d-${CLUSTER}"
+
+# Coroot's eBPF node-agent (infra/helm/platform/coroot, ADR-0025) attaches kernel
+# tracepoints, which require tracefs/debugfs mounted on the node. A k3d "node" is a
+# container that ships neither, so without this the agent CrashLoops with
+# "neither debugfs nor tracefs are mounted". Re-applied on every ensure because a
+# stop/start recreates the node's mount namespace. Real k3s nodes (prod, ansible)
+# already mount these, so this is strictly a local-k3d shim. Guarded (not swallowed):
+# mount only when absent.
+for node in $(docker ps --filter "label=k3d.cluster=${CLUSTER}" --filter "label=k3d.role=server" --format '{{.Names}}'); do
+  docker exec "$node" sh -c '
+    grep -qw /sys/kernel/tracing /proc/mounts || mount -t tracefs tracefs /sys/kernel/tracing
+    grep -qw /sys/kernel/debug   /proc/mounts || mount -t debugfs debugfs /sys/kernel/debug
+  '
+done
+
+# Re-stamp the host-only frontend edge glue on every start. It is not GitOps-managed,
+# so a stop/start otherwise comes back without the catch-all `frontend` route (404 at
+# /) or with a stale docker-bridge address. No-op on a brand-new cluster whose Traefik
+# CRDs aren't up yet — cluster:full re-runs it once the platform is synced.
+CLUSTER="$CLUSTER" bash scripts/cluster-edge.sh
+
 echo "✓ cluster '$CLUSTER' ready (context k3d-${CLUSTER})"

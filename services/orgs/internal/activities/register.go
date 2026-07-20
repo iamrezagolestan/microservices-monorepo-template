@@ -23,10 +23,17 @@ func New(db *pgxpool.Pool, granter authz.Granter) *Activities {
 	return &Activities{db: db, q: store.New(db), granter: granter}
 }
 
+// personalOrgName is the default display name for the org auto-created at
+// registration. It is deliberately generic, not the user's email: an org is a
+// tenant that may later hold a whole team, its `name` is shown to every member
+// the user invites (so an email here would leak PII, ADR-0023), and email is
+// mutable. The user renames it from the console; the stable identity is the id.
+const personalOrgName = "Personal workspace"
+
 // CreatePersonalOrgActivity is dual-write leg 1 (ADR-0010): the application-DB
-// write. Creates the identity's personal org (named by email) and records them
-// as its admin member in one transaction. Returns the new org id.
-func (a *Activities) CreatePersonalOrgActivity(ctx context.Context, identityID, email string) (string, error) {
+// write. Creates the identity's personal org (generic default name) and records
+// them as its admin member in one transaction. Returns the new org id.
+func (a *Activities) CreatePersonalOrgActivity(ctx context.Context, identityID string) (string, error) {
 	tx, err := a.db.Begin(ctx)
 	if err != nil {
 		return "", fmt.Errorf("create personal org: begin: %w", err)
@@ -34,7 +41,7 @@ func (a *Activities) CreatePersonalOrgActivity(ctx context.Context, identityID, 
 	defer func() { _ = tx.Rollback(ctx) }()
 
 	qtx := a.q.WithTx(tx)
-	org, err := qtx.CreateOrg(ctx, email)
+	org, err := qtx.CreateOrg(ctx, personalOrgName)
 	if err != nil {
 		return "", fmt.Errorf("create personal org: insert org: %w", err)
 	}
@@ -49,9 +56,9 @@ func (a *Activities) CreatePersonalOrgActivity(ctx context.Context, identityID, 
 	return uuid.UUID(org.ID.Bytes).String(), nil
 }
 
-// GrantOrgAdminActivity is dual-write leg 2 (ADR-0010): the SpiceDB write. Grants
+// GrantOrgAdminActivity is dual-write leg 2 (ADR-0010): the OpenFGA write. Grants
 // the identity the `admin` relation on their personal org (org:<id>#admin@user:<id>,
-// schema.zed) so ReBAC ownership matches the app-DB membership.
+// model.fga) so ReBAC ownership matches the app-DB membership.
 func (a *Activities) GrantOrgAdminActivity(ctx context.Context, orgID, identityID string) error {
 	err := a.granter.Grant(ctx, "user:"+identityID, "admin", "org:"+orgID)
 	if err != nil {

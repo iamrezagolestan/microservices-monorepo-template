@@ -3,7 +3,7 @@
 #
 # The normal bring-up is proxy-free: on a clean network every image pulls fine and
 # you never need this. Behind a corporate proxy, though, the k3d node's containerd
-# pulls public-registry images (cilium, argocd, authzed/zed, …) THROUGH privoxy,
+# pulls public-registry images (cilium, argocd, openfga/openfga, …) THROUGH privoxy,
 # which times out on large TLS blobs and can wedge the pull indefinitely — pods sit
 # in ImagePullBackOff / ErrImagePull. See docs/dev-loop.md ("HTTP proxies").
 #
@@ -28,15 +28,15 @@ k() { kubectl --context "k3d-${CLUSTER}" "$@"; }
 # authoritative signal (ImagePullBackOff/ErrImagePull); dedupe since one image can
 # wedge many pods.
 readarray -t stuck < <(
-  k get pods -A -o json \
-    | jq -r '
+  k get pods -A -o json |
+    jq -r '
         .items[].status
         | (.initContainerStatuses // []) + (.containerStatuses // [])
         | .[]
         | select(.state.waiting.reason // "" | test("ImagePull|ErrImagePull"))
         | .image
-      ' \
-    | sort -u
+      ' |
+    sort -u
 )
 
 if [ "${#stuck[@]}" -eq 0 ]; then
@@ -49,7 +49,7 @@ echo "→ ${#stuck[@]} image(s) stuck behind the proxy; pulling on the host + im
 # even when the image is perfectly reachable — retry a few times before giving up.
 docker_pull() {
   local ref="$1" host="${1%%/*}" out
-  case "$host" in *.*|*:*) ;; *) host="docker.io" ;; esac  # bare name → Docker Hub
+  case "$host" in *.* | *:*) ;; *) host="docker.io" ;; esac # bare name → Docker Hub
   for attempt in 1 2 3; do
     if out=$(docker pull "$ref" 2>&1); then return 0; fi
     printf '%s\n' "$out" | tail -1
@@ -81,7 +81,8 @@ missing=()
 for img in "${stuck[@]}"; do
   echo "  · $img"
   # Pull by the full, digest-pinned ref so we fetch exactly the bytes the pod wants.
-  docker_pull "$img"; rc=$?
+  docker_pull "$img"
+  rc=$?
   if [ "$rc" = 2 ]; then
     echo "    ✗ $img not found in registry — never built/pushed (not a proxy issue)"
     missing+=("$img")
@@ -115,8 +116,8 @@ done
 # Jobs, Deployments, DaemonSets — recreate them, which re-pulls and finds the image
 # local). Only pods with a still-waiting pull container are touched.
 echo "→ restarting pods that were waiting on those images"
-k get pods -A -o json \
-  | jq -r '
+k get pods -A -o json |
+  jq -r '
       .items[]
       | select(
           [ (.status.initContainerStatuses // []) + (.status.containerStatuses // [])
@@ -124,13 +125,13 @@ k get pods -A -o json \
           | any(test("ImagePull|ErrImagePull"))
         )
       | "\(.metadata.namespace) \(.metadata.name)"
-    ' \
-  | while read -r ns pod; do
-      echo "  · $ns/$pod"
-      k -n "$ns" delete pod "$pod" --wait=false
-    done
+    ' |
+  while read -r ns pod; do
+    echo "  · $ns/$pod"
+    k -n "$ns" delete pod "$pod" --wait=false
+  done
 
-imported=$(( ${#stuck[@]} - ${#failed[@]} - ${#missing[@]} ))
+imported=$((${#stuck[@]} - ${#failed[@]} - ${#missing[@]}))
 echo "✓ imported ${imported}/${#stuck[@]} image(s); pods will re-pull locally. Re-run if more wedge."
 if [ "${#missing[@]}" -gt 0 ]; then
   echo "✗ ${#missing[@]} image(s) not found in the registry — never built/pushed."
@@ -142,5 +143,5 @@ if [ "${#failed[@]}" -gt 0 ]; then
   echo "✗ ${#failed[@]} image(s) could not be pulled (proxy still choking) — re-run to retry:"
   printf '    · %s\n' "${failed[@]}"
 fi
-[ "$(( ${#missing[@]} + ${#failed[@]} ))" -gt 0 ] && exit 1
+[ "$((${#missing[@]} + ${#failed[@]}))" -gt 0 ] && exit 1
 exit 0

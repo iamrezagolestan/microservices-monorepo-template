@@ -11,8 +11,8 @@ const SESSION_COOKIE = "ory_kratos_session";
 // Route groups that require an authenticated Kratos session.
 const PROTECTED = ["/panel", "/devportal"];
 
-// Telemetry ingest origin for connect-src. Same-origin (/api/observability via
-// Traefik) by default; override when RUM ships to a distinct host.
+// Telemetry ingest origin for connect-src. Same-origin (/api/rum via Traefik)
+// by default; override when RUM ships to a distinct host.
 const INGEST_ORIGIN = process.env.NEXT_PUBLIC_OTEL_INGEST_ORIGIN ?? "";
 
 function makeNonce(): string {

@@ -29,8 +29,8 @@ cluster:
   backup:
     enabled: false   # ephemeral local data; no backup destination needed
 
-# Top-level `replicas:` — the spicedb chart's own values schema has no
-# `spicedb:` namespace wrapper.
+# Top-level `replicas:` — the openfga chart's own values schema has no
+# `openfga:` namespace wrapper.
 replicas: 1
 
 # --- Ory (Kratos + Oathkeeper) --------------------------------------------
@@ -69,7 +69,7 @@ kratos:
                 id: dev.localtest.me
                 display_name: Platform (local)
                 origins: ["https://dev.localtest.me:8443"]
-      # Share the session cookie with subdomains (hubble.dev.localtest.me is
+      # Share the session cookie with subdomains (map.ops.dev.localtest.me is
       # served at its own origin); overrides the chart's dev.example.com default.
       session:
         cookie:
@@ -117,6 +117,18 @@ tempo:
           endpoint: "minio.platform.svc.cluster.local:9000"
           insecure: true
 
+# Keep every healthy trace locally. Prod/dev head-sample at 5% in the chart default
+# to cap volume, but on a laptop a developer needs to see the exact request they
+# just made stitch end-to-end (frontend → orders → catalog → payment) in Tempo — a
+# 1-in-20 chance of survival makes that useless, and the e2e trace assertion
+# (e2e/platform/purchase.spec.ts) would be non-deterministic. Merges over the base
+# collector config; the pipeline still runs the sampler, just at 100%.
+opentelemetry-collector:
+  config:
+    processors:
+      probabilistic_sampler:
+        sampling_percentage: 100
+
 # Grafana: a known local admin password (prod supplies one via Secret).
 # Served at the root of its ops origin (ADR-0017); root_url carries the local
 # edge's :8443 port so post-login redirects land back on the same origin.
@@ -129,7 +141,7 @@ grafana:
 # --- Lowdefy admin console (ADR-0012) -------------------------------------
 # Repo-built image: pulled from the local registry (the CI stand-in) at the
 # stable `local` tag; Always so a cluster:full re-run picks up a rebuild.
-# Namespaced under `lowdefy:` to avoid colliding with the spicedb chart's
+# Namespaced under `lowdefy:` to avoid colliding with the openfga chart's
 # top-level `image` (both charts share this overlay).
 lowdefy:
   replicas: 1

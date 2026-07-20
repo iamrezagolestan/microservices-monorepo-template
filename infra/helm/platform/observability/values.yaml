@@ -92,6 +92,17 @@ grafana:
       reporting_enabled: false
       check_for_updates: false
       check_for_plugin_updates: false
+    # Grafana 11.4+ ships the drilldown apps (Explore Logs/Traces/Metrics, Pyroscope)
+    # as *preinstalled* plugins and fetches them from grafana.com on startup — which
+    # fails on an air-gapped/proxied cluster ("Failed to install plugin … context
+    # deadline exceeded"). check_for_plugin_updates only governs update checks, not
+    # this preinstall; we don't use those apps, so disable it for a clean startup.
+    # public_key_retrieval_disabled stops the separate startup call that pulls plugin
+    # signature keys from grafana.com/api/plugins/ci/keys (also proxy-blocked); the
+    # bundled plugins verify against the keys embedded in the Grafana binary.
+    plugins:
+      preinstall_disabled: true
+      public_key_retrieval_disabled: true
   datasources:
     datasources.yaml:
       apiVersion: 1

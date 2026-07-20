@@ -46,6 +46,9 @@ k -n kube-system rollout restart deploy/coredns >/dev/null 2>&1 || true
 
 echo "→ verifying pod→API datapath (CoreDNS readiness)…"
 if k -n kube-system rollout status deploy/coredns --timeout=180s; then
+  # A reboot's raw node restart can change the docker-bridge gateway IP, so re-stamp
+  # the host-only frontend edge glue (route + fresh host address) as part of healing.
+  CLUSTER="$CLUSTER" bash scripts/cluster-edge.sh
   echo "✓ heal complete: CoreDNS ready — pods can reach the API again"
 else
   echo "✗ CoreDNS still not ready after heal — the Cilium pod-egress datapath is" >&2

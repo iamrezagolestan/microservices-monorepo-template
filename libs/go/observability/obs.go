@@ -18,10 +18,11 @@ import (
 	"go.opentelemetry.io/contrib/bridges/otelslog"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp"
+	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/metric"
+	"go.opentelemetry.io/otel/propagation"
 	sdklog "go.opentelemetry.io/otel/sdk/log"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
@@ -51,6 +52,16 @@ func Init(ctx context.Context, cfg Config) (func(context.Context) error, error) 
 	if cfg.AdminAddr == "" {
 		cfg.AdminAddr = ":9090"
 	}
+
+	// Install the W3C trace-context + baggage propagator globally. otelhttp (server
+	// handler in httpmw.Chain and the client transport on outbound calls) reads the
+	// GLOBAL propagator, which otherwise defaults to a no-op — so without this every
+	// service would extract nothing inbound and inject nothing outbound, starting a
+	// fresh root span per hop and breaking end-to-end traces. Set unconditionally
+	// (even when exporters are disabled) so context still threads through HTTP.
+	otel.SetTextMapPropagator(
+		propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{}),
+	)
 
 	// OTEL_SDK_DISABLED=true (OTel spec env) makes Init a no-op for exporters:
 	// no OTLP connections are opened, so a service can run locally without the
@@ -88,13 +99,18 @@ func Init(ctx context.Context, cfg Config) (func(context.Context) error, error) 
 		return nil, fmt.Errorf("resource: %w", err)
 	}
 
+	// All three signals share one OTLP/gRPC endpoint ($OTEL_EXPORTER_OTLP_ENDPOINT,
+	// the collector's :4317). Logs use otlploggrpc — not otlploghttp — for exactly
+	// that reason: the HTTP log exporter would POST to :4317 (the gRPC port) and
+	// every export would fail with "malformed HTTP response", so logs never reached
+	// Loki. gRPC keeps the port correct and the endpoint uniform across signals.
 	var traceOpts []otlptracegrpc.Option
 	var metricOpts []otlpmetricgrpc.Option
-	var logOpts []otlploghttp.Option
+	var logOpts []otlploggrpc.Option
 	if local {
 		traceOpts = append(traceOpts, otlptracegrpc.WithInsecure())
 		metricOpts = append(metricOpts, otlpmetricgrpc.WithInsecure())
-		logOpts = append(logOpts, otlploghttp.WithInsecure())
+		logOpts = append(logOpts, otlploggrpc.WithInsecure())
 	}
 
 	traceExp, err := otlptracegrpc.New(ctx, traceOpts...)
@@ -117,7 +133,7 @@ func Init(ctx context.Context, cfg Config) (func(context.Context) error, error) 
 	)
 	otel.SetMeterProvider(mp)
 
-	logExp, err := otlploghttp.New(ctx, logOpts...)
+	logExp, err := otlploggrpc.New(ctx, logOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("log exporter: %w", err)
 	}

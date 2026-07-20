@@ -15,7 +15,7 @@ accreted across services.
 
 ## Decision drivers
 
-1. **Erasure and export must be correct across stores** — application DB *and* SpiceDB
+1. **Erasure and export must be correct across stores** — application DB *and* OpenFGA
    ([ADR-0010](0010-auth.md)), or a user is "deleted" but still appears in authz tuples.
 2. **A durable, auditable process**, not a hand-run script — the same reliability primitive as every other
    cross-store mutation ([ADR-0006](0006-temporal.md)).
@@ -30,7 +30,7 @@ accreted across services.
 - **PII is tagged at the schema level.** Columns holding personal data are annotated so erasure, export,
   and redaction can target them mechanically rather than by tribal knowledge.
 - **Right-to-erasure is a Temporal workflow.** A deletion request runs a workflow that erases or
-  anonymises the subject's rows across every owning service *and* removes the corresponding SpiceDB tuples,
+  anonymises the subject's rows across every owning service *and* removes the corresponding OpenFGA tuples,
   as dual-write activities ([ADR-0006](0006-temporal.md), [ADR-0010](0010-auth.md)). This is the only
   correct way to keep the application DB and the authz store consistent through a delete.
 - **DSAR (access/portability) is a Temporal workflow** that gathers the subject's data across services via
@@ -43,7 +43,7 @@ accreted across services.
 
 ### Positive
 
-- Erasure and export are correct across the application DB and SpiceDB by construction, not by a script an
+- Erasure and export are correct across the application DB and OpenFGA by construction, not by a script an
   engineer remembers to also run against authz.
 - Retention is a declared property of each data class, enforced on a schedule, not left to grow unbounded.
 - PII tagging makes redaction ([ADR-0011](0011-observability.md)) and erasure target the right fields.
@@ -67,5 +67,5 @@ accreted across services.
   `Schedule`. `(review-only)`
 - Personal data columns are tagged at the schema level so erasure, export, and redaction target them
   mechanically. `(review-only)`
-- Right-to-erasure and DSAR run as Temporal workflows that act across every owning service **and** SpiceDB;
+- Right-to-erasure and DSAR run as Temporal workflows that act across every owning service **and** OpenFGA;
   a raw multi-store delete script is forbidden ([ADR-0010](0010-auth.md)). `(review-only)`

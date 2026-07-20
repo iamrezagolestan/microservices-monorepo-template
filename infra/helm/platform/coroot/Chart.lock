@@ -1,0 +1,6 @@
+dependencies:
+- name: coroot-operator
+  repository: https://coroot.github.io/helm-charts
+  version: 0.9.7
+digest: sha256:f4af3ccc83fdb179328e508eacd8e896345d7a013aea82c7aaf8370b46da323f
+generated: "2026-07-19T18:55:33.754025912+04:00"

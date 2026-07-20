@@ -15,19 +15,18 @@ cilium:
     type: wireguard
 
   # Hubble gives per-flow network visibility without a sidecar (ADR-0003). It is
-  # the audit surface for internal header-trust (ADR-0009). The UI is deployed
-  # and exposed auth-gated at the hubble.<host> subdomain via the gateway
-  # IngressRoute (infra/gateway).
+  # the audit surface for internal header-trust (ADR-0009) and the source for the
+  # network-flow metrics scraped into Grafana. The flow engine (agent) + relay
+  # (aggregation API, used by the `hubble` CLI) stay ON.
+  #
+  # The standalone hubble-UI is intentionally DISABLED (ADR-0025): upstream
+  # hubble-ui is in maintenance mode (last release v0.13.5, Apr 2024) and collapses
+  # every workload sharing `app.kubernetes.io/name` into one card (all Temporal
+  # roles → "temporal"). Coroot (infra/helm/platform/coroot, at map.ops.<host>)
+  # replaces it and keys workloads by Deployment, so multi-role apps stay distinct.
   hubble:
     enabled: true
     relay:
       enabled: true
     ui:
-      enabled: true
-      # Served at the ROOT of the `hubble.<host>` subdomain (gateway IngressRoute
-      # matches HostRegexp `^hubble\.`), not under a path prefix. hubble-ui's
-      # React Router is hardwired to basename `/` and never reads the `<base>`
-      # tag for routing, so a `/hubble` sub-path breaks client routing (404 on
-      # every route). Root-on-a-subdomain is the only layout it supports, so keep
-      # baseUrl at `/`.
-      baseUrl: /
+      enabled: false

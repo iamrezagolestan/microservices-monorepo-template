@@ -1,0 +1,36 @@
+# Coroot Application (ADR-0025). eBPF service map + APM that replaces the retired
+# Hubble UI, deployed into its own `coroot` namespace so its heavy internal mesh
+# (operator, agents, ClickHouse + Keeper, Prometheus) is isolated behind one
+# self-contained NetworkPolicy. Picked up by the root app-of-apps, which recurses
+# infra/gitops/bootstrap.
+#
+# Late sync-wave (30): after the whole platform + gateway + services ladder, so
+# Coroot's slow ClickHouse bring-up never health-gates the critical path.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: coroot
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: platform
+  annotations:
+    argocd.argoproj.io/sync-wave: "30"
+spec:
+  # Env-agnostic config (like the shared gateway app), so it has no single-env
+  # AppProject to belong to — it stays in `default`.
+  project: default
+  source:
+    repoURL: https://github.com/tabmadi/microservices-monorepo-template.git
+    targetRevision: master
+    path: infra/helm/platform/coroot
+    helm:
+      releaseName: coroot
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: coroot
+  syncPolicy:
+    automated: { prune: true, selfHeal: true }
+    syncOptions: [CreateNamespace=true, ServerSideApply=true]
+    retry:
+      limit: 20
+      backoff: { duration: 10s, maxDuration: 2m, factor: 2 }

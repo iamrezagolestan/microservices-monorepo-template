@@ -43,7 +43,7 @@ func run() error {
 
 	granter, err := authz.NewGranter()
 	if err != nil {
-		return fmt.Errorf("spicedb: %w", err)
+		return fmt.Errorf("openfga: %w", err)
 	}
 
 	tc, err := temporalmw.NewClient(serviceName + "-worker")

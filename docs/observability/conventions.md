@@ -31,7 +31,8 @@ Decisions live in [ADR-0011](../adr/0011-observability.md).
 ## Traces
 
 - Propagated via W3C `traceparent` across HTTP and Temporal; the edge preserves it.
-- Head sampling only by default (errors 100%, healthy 5%); tail sampling requires the collector gateway tier.
+- Head sampling only by default (errors 100%, healthy 5% — local dev overrides healthy to 100% so a
+  developer sees the request they just made); tail sampling requires the collector gateway tier.
 
 ## PII
 

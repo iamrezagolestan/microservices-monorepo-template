@@ -1,7 +1,7 @@
 ## Postgres (CNPG) — the crown jewel. Reachable on 5432 only by the platform stores
 ## (identity/authz/workflow) and the demo services that own a schema. A service owns
 ## a schema when its values set `migrations.enabled: true`; its migrations init +
-## runtime both dial 5432, so each such service is listed here (authz is spicedb-only
+## runtime both dial 5432, so each such service is listed here (authz is openfga-only
 ## — migrations off — and is deliberately absent). Add a new schema-owning service
 ## here the same way you add it to a caller's `allowFrom`.
 ## The CNPG operator scrapes each instance's manager on 8000 (/pg/status) to report
@@ -20,7 +20,7 @@ spec:
     - fromEndpoints:
         - matchLabels: { k8s:io.kubernetes.pod.namespace: platform, app.kubernetes.io/name: kratos }
         - matchLabels: { k8s:io.kubernetes.pod.namespace: platform, app.kubernetes.io/name: ory-kratos-courier }
-        - matchLabels: { k8s:io.kubernetes.pod.namespace: platform, app.kubernetes.io/name: spicedb }
+        - matchLabels: { k8s:io.kubernetes.pod.namespace: platform, app.kubernetes.io/name: openfga }
         - matchLabels: { k8s:io.kubernetes.pod.namespace: platform, app.kubernetes.io/name: temporal }
         - matchLabels: { k8s:io.kubernetes.pod.namespace: platform, app.kubernetes.io/name: catalog }
         - matchLabels: { k8s:io.kubernetes.pod.namespace: platform, app.kubernetes.io/name: orders }
@@ -35,24 +35,30 @@ spec:
       toPorts:
         - ports: [{ port: "8000", protocol: TCP }]
 ---
-## SpiceDB — authorization store. authz-server checks permissions; the admin
-## console (lowdefy) writes relationship grants. The spicedb-seed job writes the
-## schema + bootstrap grants at bring-up, so it needs 50051 too. Business services
-## that authorize writes via the shared Checker (ADR-0010) dial it directly too —
-## catalog gates product creation on group:operator.
+## OpenFGA — authorization store (HTTP API, port 8080). authz-server checks
+## permissions; the openfga-seed job creates the store + writes the model and
+## bootstrap grants at bring-up. Business services that authorize writes via the
+## shared Checker (ADR-0010) dial it directly too — catalog gates product creation
+## on group:operator, orders the cancel, payment the refund, and the orgs worker
+## WRITES the org#admin tuple as leg 2 of the registration dual-write. Every service
+## holding a Checker or Granter must be listed here or it fails closed at the
+## network, not at the authz layer. (The admin console writes via the service APIs,
+## not directly, so lowdefy is not listed.)
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
-  name: spicedb
+  name: openfga
 spec:
   endpointSelector:
     matchLabels:
-      app.kubernetes.io/name: spicedb
+      app.kubernetes.io/name: openfga
   ingress:
     - fromEndpoints:
         - matchLabels: { k8s:io.kubernetes.pod.namespace: platform, app.kubernetes.io/name: authz }
-        - matchLabels: { k8s:io.kubernetes.pod.namespace: platform, app.kubernetes.io/name: lowdefy }
-        - matchLabels: { k8s:io.kubernetes.pod.namespace: platform, app.kubernetes.io/name: spicedb-seed }
+        - matchLabels: { k8s:io.kubernetes.pod.namespace: platform, app.kubernetes.io/name: openfga-seed }
         - matchLabels: { k8s:io.kubernetes.pod.namespace: platform, app.kubernetes.io/name: catalog }
+        - matchLabels: { k8s:io.kubernetes.pod.namespace: platform, app.kubernetes.io/name: orders }
+        - matchLabels: { k8s:io.kubernetes.pod.namespace: platform, app.kubernetes.io/name: payment }
+        - matchLabels: { k8s:io.kubernetes.pod.namespace: platform, app.kubernetes.io/name: orgs }
       toPorts:
-        - ports: [{ port: "50051", protocol: TCP }]
+        - ports: [{ port: "8080", protocol: TCP }]

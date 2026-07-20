@@ -21,6 +21,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/identities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description List identities (product users and operators) from Kratos, paginated. */
+        get: operations["listIdentities"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/identities/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Fetch one identity by id. */
+        get: operations["getIdentity"];
+        /** @description Update an identity's editable traits. */
+        put: operations["updateIdentity"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/operators": {
         parameters: {
             query?: never;
@@ -54,7 +89,7 @@ export interface components {
         AuthorizeRequest: {
             /** @description Kratos identity id; empty for anonymous. */
             subject: string;
-            /** @description Ops dashboard slug such as o11y or network. */
+            /** @description Ops dashboard slug such as o11y or map. */
             tool: string;
             /** @description authenticator_assurance_level from the session. */
             aal: string;
@@ -70,6 +105,18 @@ export interface components {
         Operator: {
             id: string;
             email: string;
+        };
+        /** @description A Kratos identity, flattened from its traits for the admin changelist. */
+        Identity: {
+            id: string;
+            email: string;
+            name?: string;
+            operator?: boolean;
+        };
+        /** @description The editable traits of an identity. Email is the login identifier and is not editable here. */
+        IdentityUpdate: {
+            name?: string;
+            operator?: boolean;
         };
     };
     responses: {
@@ -118,6 +165,83 @@ export interface operations {
                 };
                 content: {
                     "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listIdentities: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                per_page?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The identities. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Identity"][];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getIdentity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The id of the identity to fetch. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The identity. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Identity"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateIdentity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The id of the identity to update. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** @description The traits to change. */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IdentityUpdate"];
+            };
+        };
+        responses: {
+            /** @description The updated identity. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Identity"];
                 };
             };
             default: components["responses"]["Error"];

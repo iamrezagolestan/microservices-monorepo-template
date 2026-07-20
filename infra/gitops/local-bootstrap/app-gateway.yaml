@@ -14,7 +14,9 @@ metadata:
     app.kubernetes.io/part-of: gateway
   annotations:
     # CRDs (middlewares) before the per-service IngressRoutes that reference them.
-    argocd.argoproj.io/sync-wave: "5"
+    # Wave 4: after the whole platform tier (base 0 · data 2 · core 3), before
+    # services (5). See infra/gitops/local-bootstrap/appset-platform.yaml.
+    argocd.argoproj.io/sync-wave: "4"
 spec:
   project: local
   source:

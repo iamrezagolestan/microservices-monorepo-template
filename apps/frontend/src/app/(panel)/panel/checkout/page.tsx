@@ -75,8 +75,17 @@ export default function Checkout() {
       return;
     }
     setStatus({ text: panel.checkout.running(data.id), tone: "blue" });
-    const result = await pollWorkflow(data);
-    setStatus({ text: result.status, tone: "success" });
+    try {
+      // Poll the order (handle.result_url) until it reaches a terminal status; the
+      // saga confirms it once catalog + payment succeed (ADR-0006).
+      const order = await pollWorkflow<{ id: string; status: string }>(data);
+      setStatus({
+        text: order.status,
+        tone: order.status === "confirmed" ? "success" : "error",
+      });
+    } catch {
+      setStatus({ text: panel.checkout.error, tone: "error" });
+    }
   });
 
   return (

@@ -31,7 +31,7 @@ writing an ADR that shows the floor already covers its concern.
 | Oathkeeper | Edge authorization (forward-auth) | [0009](adr/0009-api-gateway.md), [0010](adr/0010-auth.md) |
 | sops-operator | Secret decryption | [0005](adr/0005-secrets.md) |
 | Kyverno | Admission policy (image signatures, digest pins) | [0021](adr/0021-supply-chain-security.md) |
-| SpiceDB | Authorization (ReBAC) | [0010](adr/0010-auth.md) |
+| OpenFGA | Authorization (ReBAC) | [0010](adr/0010-auth.md) |
 | Temporal | Durable execution | [0006](adr/0006-temporal.md) |
 | Loki | Log storage | [0011](adr/0011-observability.md) |
 | Tempo | Trace storage | [0011](adr/0011-observability.md) |
@@ -40,6 +40,7 @@ writing an ADR that shows the floor already covers its concern.
 | MinIO | Object storage (non-prod; a real bucket in prod) | [0016](adr/0016-environment-parity.md) |
 | Lowdefy admin | Internal ops CRUD over the Go API | [0012](adr/0012-internal-admin.md) |
 | Headlamp | Read-mostly Kubernetes debug UI | [0024](adr/0024-kubernetes-debug-ui.md) |
+| Coroot | eBPF service map / APM (replaces the Hubble UI) | [0025](adr/0025-service-map-apm-ui.md) |
 | pgweb | Read-only break-glass DB inspector | [0012](adr/0012-internal-admin.md) |
 
 ### Scale — documented swap-in when a real signal demands it

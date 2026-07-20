@@ -10,6 +10,8 @@ import (
 	"go.temporal.io/sdk/client"
 
 	"github.com/tabmadi/microservices-monorepo-template/libs/go/apierr"
+	"github.com/tabmadi/microservices-monorepo-template/libs/go/authmw"
+	"github.com/tabmadi/microservices-monorepo-template/libs/go/authz"
 	orders "github.com/tabmadi/microservices-monorepo-template/libs/go/sdks/orders"
 	"github.com/tabmadi/microservices-monorepo-template/services/orders/internal/store"
 )
@@ -49,6 +51,57 @@ func (f fakeTemporal) ExecuteWorkflow(
 	return nil, f.err
 }
 
+// fakeChecker stands in for the OpenFGA Checker so the operator gate can be
+// exercised without a cluster (ADR-0010).
+type fakeChecker struct {
+	allowed bool
+	err     error
+}
+
+func (f fakeChecker) Allowed(context.Context, string, string, string) (bool, error) {
+	return f.allowed, f.err
+}
+
+// opCtx is an authenticated-operator request context — the happy path past the
+// requireOperator gate, so the business-logic cases below reach the store.
+func opCtx() context.Context {
+	return authmw.NewContext(context.Background(), &authmw.Principal{UserID: "alice"})
+}
+
+func okChecker() authz.Checker { return fakeChecker{allowed: true} }
+
+// CancelOrder is operator-gated (ADR-0010): the gate rejects before any DB
+// access, so a nil store is fine for these cases.
+func TestCancelOrderAuthz(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		authed  bool
+		checker authz.Checker
+		want    int
+	}{
+		{"anonymous is unauthorized", false, fakeChecker{}, 401},
+		{"non-operator is forbidden", true, fakeChecker{allowed: false}, 403},
+		{"checker failure is internal", true, fakeChecker{err: errors.New("openfga down")}, 500},
+	}
+	for _, tc := range tests {
+		t.Run(
+			tc.name,
+			func(t *testing.T) {
+				t.Parallel()
+				ctx := context.Background()
+				if tc.authed {
+					ctx = authmw.NewContext(ctx, &authmw.Principal{UserID: "alice"})
+				}
+				h := &Handlers{checker: tc.checker}
+				_, err := h.CancelOrder(ctx, orders.CancelOrderParams{})
+				assertStatus(t, err, tc.want)
+			},
+		)
+	}
+}
+
 func TestCancelOrder(t *testing.T) {
 	t.Parallel()
 
@@ -56,8 +109,8 @@ func TestCancelOrder(t *testing.T) {
 		"missing order is not found",
 		func(t *testing.T) {
 			t.Parallel()
-			h := &Handlers{q: fakeQ{getErr: pgx.ErrNoRows}, tc: fakeTemporal{}}
-			_, err := h.CancelOrder(context.Background(), orders.CancelOrderParams{})
+			h := &Handlers{q: fakeQ{getErr: pgx.ErrNoRows}, tc: fakeTemporal{}, checker: okChecker()}
+			_, err := h.CancelOrder(opCtx(), orders.CancelOrderParams{})
 			assertStatus(t, err, 404)
 		},
 	)
@@ -67,8 +120,8 @@ func TestCancelOrder(t *testing.T) {
 			status+" order is a conflict",
 			func(t *testing.T) {
 				t.Parallel()
-				h := &Handlers{q: fakeQ{order: store.GetOrderRow{Status: status}}, tc: fakeTemporal{}}
-				_, err := h.CancelOrder(context.Background(), orders.CancelOrderParams{})
+				h := &Handlers{q: fakeQ{order: store.GetOrderRow{Status: status}}, tc: fakeTemporal{}, checker: okChecker()}
+				_, err := h.CancelOrder(opCtx(), orders.CancelOrderParams{})
 				assertStatus(t, err, 409)
 			},
 		)
@@ -79,10 +132,11 @@ func TestCancelOrder(t *testing.T) {
 		func(t *testing.T) {
 			t.Parallel()
 			h := &Handlers{
-				q:  fakeQ{order: store.GetOrderRow{Status: statusPending}},
-				tc: fakeTemporal{err: errors.New("temporal down")},
+				q:       fakeQ{order: store.GetOrderRow{Status: statusPending}},
+				tc:      fakeTemporal{err: errors.New("temporal down")},
+				checker: okChecker(),
 			}
-			_, err := h.CancelOrder(context.Background(), orders.CancelOrderParams{})
+			_, err := h.CancelOrder(opCtx(), orders.CancelOrderParams{})
 			assertStatus(t, err, 500)
 		},
 	)
@@ -91,8 +145,8 @@ func TestCancelOrder(t *testing.T) {
 		"a cancellable order starts the cancel workflow",
 		func(t *testing.T) {
 			t.Parallel()
-			h := &Handlers{q: fakeQ{order: store.GetOrderRow{Status: statusPending}}, tc: fakeTemporal{}}
-			handle, err := h.CancelOrder(context.Background(), orders.CancelOrderParams{})
+			h := &Handlers{q: fakeQ{order: store.GetOrderRow{Status: statusPending}}, tc: fakeTemporal{}, checker: okChecker()}
+			handle, err := h.CancelOrder(opCtx(), orders.CancelOrderParams{})
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}

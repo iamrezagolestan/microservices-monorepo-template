@@ -28,7 +28,7 @@ the service image that depends on it, so the ordering is deploy-time, not a sepa
 
 ## Authz-relevant migrations
 
-A migration that adds or changes an authz-relevant table must land together with the SpiceDB schema and
+A migration that adds or changes an authz-relevant table must land together with the OpenFGA schema and
 the dual-write path ([ADR-0010](../adr/0010-auth.md), [docs/auth/authorization-levels.md](../auth/authorization-levels.md)).
 Never mutate authz-relevant rows outside the workflow dual-write.
 

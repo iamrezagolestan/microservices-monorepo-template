@@ -10,6 +10,8 @@ import (
 	"go.temporal.io/sdk/client"
 
 	"github.com/tabmadi/microservices-monorepo-template/libs/go/apierr"
+	"github.com/tabmadi/microservices-monorepo-template/libs/go/authmw"
+	"github.com/tabmadi/microservices-monorepo-template/libs/go/authz"
 	payment "github.com/tabmadi/microservices-monorepo-template/libs/go/sdks/payment"
 	"github.com/tabmadi/microservices-monorepo-template/services/payment/internal/store"
 )
@@ -49,6 +51,58 @@ func (f fakeTemporal) ExecuteWorkflow(
 	return nil, f.err
 }
 
+// fakeChecker stands in for the OpenFGA Checker so the operator gate can be
+// exercised without a cluster (ADR-0010).
+type fakeChecker struct {
+	allowed bool
+	err     error
+}
+
+func (f fakeChecker) Allowed(context.Context, string, string, string) (bool, error) {
+	return f.allowed, f.err
+}
+
+// opCtx is an authenticated-operator request context — the happy path past the
+// requireOperator gate, so the business-logic cases below reach the store.
+func opCtx() context.Context {
+	return authmw.NewContext(context.Background(), &authmw.Principal{UserID: "alice"})
+}
+
+func okChecker() authz.Checker { return fakeChecker{allowed: true} }
+
+// RefundCharge is operator-gated (ADR-0010): the gate rejects before any DB
+// access, so a nil store is fine for these cases.
+func TestRefundChargeAuthz(t *testing.T) {
+	t.Parallel()
+	req := &payment.RefundInput{Reason: "duplicate"}
+
+	tests := []struct {
+		name    string
+		authed  bool
+		checker authz.Checker
+		want    int
+	}{
+		{"anonymous is unauthorized", false, fakeChecker{}, 401},
+		{"non-operator is forbidden", true, fakeChecker{allowed: false}, 403},
+		{"checker failure is internal", true, fakeChecker{err: errors.New("openfga down")}, 500},
+	}
+	for _, tc := range tests {
+		t.Run(
+			tc.name,
+			func(t *testing.T) {
+				t.Parallel()
+				ctx := context.Background()
+				if tc.authed {
+					ctx = authmw.NewContext(ctx, &authmw.Principal{UserID: "alice"})
+				}
+				h := &Handlers{checker: tc.checker}
+				_, err := h.RefundCharge(ctx, req, payment.RefundChargeParams{})
+				assertStatus(t, err, tc.want)
+			},
+		)
+	}
+}
+
 func TestRefundCharge(t *testing.T) {
 	t.Parallel()
 	req := &payment.RefundInput{Reason: "duplicate"}
@@ -57,8 +111,8 @@ func TestRefundCharge(t *testing.T) {
 		"missing charge is not found",
 		func(t *testing.T) {
 			t.Parallel()
-			h := &Handlers{q: fakeQ{getErr: pgx.ErrNoRows}, tc: fakeTemporal{}}
-			_, err := h.RefundCharge(context.Background(), req, payment.RefundChargeParams{})
+			h := &Handlers{q: fakeQ{getErr: pgx.ErrNoRows}, tc: fakeTemporal{}, checker: okChecker()}
+			_, err := h.RefundCharge(opCtx(), req, payment.RefundChargeParams{})
 			assertStatus(t, err, 404)
 		},
 	)
@@ -67,8 +121,8 @@ func TestRefundCharge(t *testing.T) {
 		"an unsettled charge is a conflict",
 		func(t *testing.T) {
 			t.Parallel()
-			h := &Handlers{q: fakeQ{charge: store.GetChargeRow{Status: "pending"}}, tc: fakeTemporal{}}
-			_, err := h.RefundCharge(context.Background(), req, payment.RefundChargeParams{})
+			h := &Handlers{q: fakeQ{charge: store.GetChargeRow{Status: "pending"}}, tc: fakeTemporal{}, checker: okChecker()}
+			_, err := h.RefundCharge(opCtx(), req, payment.RefundChargeParams{})
 			assertStatus(t, err, 409)
 		},
 	)
@@ -78,10 +132,11 @@ func TestRefundCharge(t *testing.T) {
 		func(t *testing.T) {
 			t.Parallel()
 			h := &Handlers{
-				q:  fakeQ{charge: store.GetChargeRow{Status: statusSettled}},
-				tc: fakeTemporal{err: errors.New("temporal down")},
+				q:       fakeQ{charge: store.GetChargeRow{Status: statusSettled}},
+				tc:      fakeTemporal{err: errors.New("temporal down")},
+				checker: okChecker(),
 			}
-			_, err := h.RefundCharge(context.Background(), req, payment.RefundChargeParams{})
+			_, err := h.RefundCharge(opCtx(), req, payment.RefundChargeParams{})
 			assertStatus(t, err, 500)
 		},
 	)
@@ -90,8 +145,8 @@ func TestRefundCharge(t *testing.T) {
 		"a settled charge starts the refund workflow",
 		func(t *testing.T) {
 			t.Parallel()
-			h := &Handlers{q: fakeQ{charge: store.GetChargeRow{Status: statusSettled}}, tc: fakeTemporal{}}
-			handle, err := h.RefundCharge(context.Background(), req, payment.RefundChargeParams{})
+			h := &Handlers{q: fakeQ{charge: store.GetChargeRow{Status: statusSettled}}, tc: fakeTemporal{}, checker: okChecker()}
+			handle, err := h.RefundCharge(opCtx(), req, payment.RefundChargeParams{})
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}

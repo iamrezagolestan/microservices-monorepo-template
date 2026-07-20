@@ -29,7 +29,7 @@ Every container declares resources, and each namespace carries guardrails.
 - **`LimitRange` per namespace** supplies default requests/limits so a missing value fails safe rather
   than scheduling unbounded.
 - **`ResourceQuota` per namespace** caps aggregate CPU/memory so one namespace cannot consume the cluster.
-- **`PriorityClass` tiers** set eviction order: `platform-critical` (CNPG, Temporal, SpiceDB, Kratos,
+- **`PriorityClass` tiers** set eviction order: `platform-critical` (CNPG, Temporal, OpenFGA, Kratos,
   Oathkeeper, edge, observability) > `product` (application services) > `batch` (bootstrap/one-shot Jobs).
   Under pressure, batch dies first, Core last.
 - **`PodDisruptionBudget`** for every multi-replica and stateful component, so voluntary disruptions
@@ -56,7 +56,7 @@ Every container declares resources, and each namespace carries guardrails.
 ### Follow-ups
 
 - `LimitRange`, `ResourceQuota`, and the three `PriorityClass` objects in the platform charts.
-- `PodDisruptionBudget` on CNPG, Temporal, SpiceDB, Loki/Tempo, and the edge.
+- `PodDisruptionBudget` on CNPG, Temporal, OpenFGA, Loki/Tempo, and the edge.
 - Default requests/limits in `services/_template/` chart values.
 
 ## Rules
