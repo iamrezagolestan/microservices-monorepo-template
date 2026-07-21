@@ -61,6 +61,65 @@ function text(id: number, value: string): MockUiText {
   return { id, text: value, type: "info", context: {} };
 }
 
+function createMockLoginNodes(): MockUiNode[] {
+  return [
+    {
+      type: "input",
+      group: "default",
+      attributes: {
+        name: "csrf_token",
+        type: "hidden",
+        value: "local-msw-csrf-token",
+        required: true,
+        disabled: false,
+        node_type: "input",
+      },
+      messages: [],
+      meta: { label: text(1_070_002, "CSRF Token") },
+    },
+    {
+      type: "input",
+      group: "default",
+      attributes: {
+        name: "identifier",
+        type: "email",
+        value: "",
+        required: true,
+        disabled: false,
+        node_type: "input",
+      },
+      messages: [],
+      meta: { label: text(1_070_004, "Email") },
+    },
+    {
+      type: "input",
+      group: "password",
+      attributes: {
+        name: "password",
+        type: "password",
+        required: true,
+        disabled: false,
+        node_type: "input",
+      },
+      messages: [],
+      meta: { label: text(1_070_001, "Password") },
+    },
+    {
+      type: "input",
+      group: "password",
+      attributes: {
+        name: "method",
+        type: "submit",
+        value: "password",
+        disabled: false,
+        node_type: "input",
+      },
+      messages: [],
+      meta: { label: text(1_010_001, "Sign in with password") },
+    },
+  ];
+}
+
 export function createMockLoginFlow(
   origin: string,
   issuedAt: Date,
@@ -78,62 +137,7 @@ export function createMockLoginFlow(
       action: `${origin}/auth/self-service/login?flow=${id}`,
       method: "POST",
       messages: [],
-      nodes: [
-        {
-          type: "input",
-          group: "default",
-          attributes: {
-            name: "csrf_token",
-            type: "hidden",
-            value: "local-msw-csrf-token",
-            required: true,
-            disabled: false,
-            node_type: "input",
-          },
-          messages: [],
-          meta: { label: text(1_070_002, "CSRF Token") },
-        },
-        {
-          type: "input",
-          group: "default",
-          attributes: {
-            name: "identifier",
-            type: "email",
-            value: "",
-            required: true,
-            disabled: false,
-            node_type: "input",
-          },
-          messages: [],
-          meta: { label: text(1_070_004, "Email") },
-        },
-        {
-          type: "input",
-          group: "password",
-          attributes: {
-            name: "password",
-            type: "password",
-            required: true,
-            disabled: false,
-            node_type: "input",
-          },
-          messages: [],
-          meta: { label: text(1_070_001, "Password") },
-        },
-        {
-          type: "input",
-          group: "password",
-          attributes: {
-            name: "method",
-            type: "submit",
-            value: "password",
-            disabled: false,
-            node_type: "input",
-          },
-          messages: [],
-          meta: { label: text(1_010_001, "Sign in with password") },
-        },
-      ],
+      nodes: createMockLoginNodes(),
     },
   };
 }

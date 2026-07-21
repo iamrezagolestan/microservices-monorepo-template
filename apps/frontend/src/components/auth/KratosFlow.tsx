@@ -6,10 +6,10 @@
 // those cookies only exist in the browser.
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "next/navigation";
-import type { FormEvent, HTMLAttributeReferrerPolicy, ReactNode } from "react";
-import { useEffect, useRef } from "react";
+import type { HTMLAttributeReferrerPolicy, ReactNode } from "react";
+import { useCallback, useEffect } from "react";
 import { Input } from "@/components/base/input/input";
 
 export type FlowKind = "login" | "registration" | "recovery" | "verification" | "settings";
@@ -59,12 +59,13 @@ function nodeKey(node: UiNode): string {
     ":",
   );
 }
-export type Flow = {
+type Flow = {
   id: string;
   ui: { action: string; method: string; nodes: UiNode[]; messages?: UiText[] };
 };
 
-class RestartFlowError extends Error {}
+// Kratos sets the CSRF cookie and redirects back here with ?flow=<id>; (re)start
+// the browser flow, preserving any return_to.
 
 // Ask Kratos for the browser flow as JSON, then open this app's matching UI URL.
 // Kratos still establishes the browser/CSRF state; preserve any return_to.
@@ -92,15 +93,28 @@ async function restartFlow(kind: FlowKind): Promise<void> {
   window.location.replace(uiUrl);
 }
 
-async function getKratosFlow(kind: FlowKind, id: string): Promise<Flow> {
+async function getKratosFlow({
+  kind,
+  id,
+  signal,
+}: {
+  kind: FlowKind;
+  id: string;
+  signal?: AbortSignal;
+}): Promise<Flow | null> {
   const response = await fetch(`/auth/self-service/${kind}/flows?id=${encodeURIComponent(id)}`, {
-    headers: { accept: "application/json" },
+    headers: {
+      accept: "application/json",
+    },
     credentials: "include",
+    signal,
   });
 
   if (response.status === 404 || response.status === 410) {
-    throw new RestartFlowError();
+    restartFlow(kind);
+    return null;
   }
+
   if (!response.ok) {
     throw new Error(String(response.status));
   }
@@ -208,18 +222,21 @@ export function KratosFlow({
   footer?: ReactNode;
 }) {
   const searchParams = useSearchParams();
-  const id = searchParams.get("flow");
-  const queryKey = ["kratos-flow", kind, id] as const;
+  const flowId = searchParams.get("flow");
 
   const flowQuery = useQuery({
-    queryKey,
-    queryFn: () => {
-      if (!id) {
+    queryKey: ["kratos-flow", kind, flowId],
+    queryFn: ({ signal }) => {
+      if (!flowId) {
         throw new Error("Missing Kratos flow id.");
       }
-      return getKratosFlow(kind, id);
+      return getKratosFlow({
+        kind,
+        id: flowId,
+        signal,
+      });
     },
-    enabled: Boolean(id),
+    enabled: Boolean(flowId),
     retry: false,
     staleTime: Number.POSITIVE_INFINITY,
     gcTime: 5 * 60 * 1000,
@@ -227,16 +244,31 @@ export function KratosFlow({
     refetchOnReconnect: false,
   });
 
-  if (flowQuery.isError && !(flowQuery.error instanceof RestartFlowError)) {
+  useEffect(() => {
+    if (!flowId) {
+      restartFlow(kind);
+    }
+  }, [flowId, kind]);
+
+  const handleRetry = useCallback(() => flowQuery.refetch(), [flowQuery.refetch]);
+
+  if (flowQuery.isError) {
     return (
       <main className="mx-auto max-w-md p-6">
         <h1 className="text-2xl font-semibold">{strings.title}</h1>
         <p className="mt-2 text-red-600">{strings.error}</p>
+        <button
+          type="button"
+          onClick={handleRetry}
+          className="mt-4 rounded bg-brand-600 px-4 py-2 text-white hover:bg-brand-700"
+        >
+          Try again
+        </button>
       </main>
     );
   }
 
-  if (!flowQuery.data) {
+  if (!flowId || flowQuery.isPending || !flowQuery.data) {
     return (
       <main className="mx-auto max-w-md p-6">
         <h1 className="text-2xl font-semibold">{strings.title}</h1>
@@ -248,7 +280,7 @@ export function KratosFlow({
   const flow = flowQuery.data;
 
   return (
-     <main className="mx-auto max-w-md p-6">
+    <main className="mx-auto max-w-md p-6">
       <h1 className="text-2xl font-semibold">{strings.title}</h1>
       {flow.ui.messages?.map((message) => (
         <p key={message.id} className="mt-2 text-tertiary">
