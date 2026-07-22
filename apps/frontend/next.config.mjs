@@ -6,9 +6,23 @@
 // session cookie. Set APP_ORIGIN per env (e.g. dev.example.com).
 const appOrigin = process.env.APP_ORIGIN;
 const allowedOrigins = appOrigin ? [appOrigin] : [];
+const mockKratosEnabled = process.env.MOCK_KRATOS_ENABLED === "true";
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+   async rewrites() {
+    if (!mockKratosEnabled) {
+      return [];
+    }
+
+    return [
+      {
+        source: "/auth/self-service/:path*",
+        destination:
+          "http://127.0.0.1:4010/auth/self-service/:path*"
+      }
+    ];
+  },
   output: "standalone",
   reactStrictMode: true,
   typedRoutes: true,

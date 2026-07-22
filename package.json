@@ -3,7 +3,9 @@
   "private": true,
   "workspaces": [
     "apps/frontend",
-    "libs/ts/sdks/*"
+    "libs/ts/sdks/*",
+    "apps/mock"
+
   ],
   "devDependencies": {
     "typescript": "6.0.3"
