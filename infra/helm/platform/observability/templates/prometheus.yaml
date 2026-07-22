@@ -53,6 +53,11 @@ spec:
             - --storage.tsdb.path=/data
             - --storage.tsdb.retention.time={{ $p.retention }}
             - --web.enable-otlp-receiver
+            # Tempo's metrics-generator remote_writes the service-graph series
+            # (traces_service_graph_*) that feed Grafana's Node Graph service map
+            # (ADR-0025 POC). remote_write is a distinct endpoint (/api/v1/write)
+            # from the OTLP receiver above, so it needs its own flag.
+            - --web.enable-remote-write-receiver
             - --web.listen-address=0.0.0.0:{{ $p.httpPort }}
           ports:
             - { name: http, containerPort: {{ $p.httpPort }} }

@@ -124,10 +124,23 @@ grafana:
   datasources:
     datasources.yaml:
       apiVersion: 1
+      # Fixed uids: the Tempo datasource's serviceMap link (below) must reference
+      # Prometheus by uid, and a provisioned datasource without an explicit uid gets
+      # a random one — so pin all three. Dashboards still reference these by NAME
+      # ("Prometheus"/"Loki"/"Tempo"), which keeps working alongside the uids.
       datasources:
-        - { name: Prometheus, type: prometheus, url: http://prometheus.platform.svc.cluster.local:9090 }
-        - { name: Loki,       type: loki,       url: http://loki.platform.svc.cluster.local:3100 }
-        - { name: Tempo,      type: tempo,      url: http://tempo.platform.svc.cluster.local:3200 }
+        - { name: Prometheus, uid: prometheus, type: prometheus, url: http://prometheus.platform.svc.cluster.local:9090 }
+        - { name: Loki,       uid: loki,       type: loki,       url: http://loki.platform.svc.cluster.local:3100 }
+        # serviceMap.datasourceUid tells the Tempo datasource where the
+        # metrics-generator's service-graph series live, so the `serviceMap` query
+        # type (the Node Graph on the Service map dashboard) can resolve nodes/edges.
+        - name: Tempo
+          uid: tempo
+          type: tempo
+          url: http://tempo.platform.svc.cluster.local:3200
+          jsonData:
+            serviceMap:
+              datasourceUid: prometheus
   # BOTH halves are required. `dashboardsConfigMaps` only MOUNTS the JSON files;
   # without a matching `dashboardProviders` entry Grafana never scans that directory,
   # so the dashboards exist on disk and are invisible in the UI — `/api/search`
@@ -217,6 +230,26 @@ tempo:
   replicas: 1
   tempo:
     reportingEnabled: false
+    # Metrics-generator (ADR-0025 POC): derives the service-graph series
+    # (traces_service_graph_request_total/…_failed_total/…_seconds) from spans and
+    # remote_writes them to the platform Prometheus, which is what Grafana's Node
+    # Graph "Service map" dashboard queries (via the Tempo datasource's
+    # serviceMap.datasourceUid below). Two halves are BOTH required:
+    #   1. enabled + remoteWriteUrl — runs the generator and ships its output.
+    #   2. overrides.defaults.metrics_generator.processors — Tempo gates the
+    #      generator per-tenant; without this the generator runs but processes
+    #      nothing and no series appear (single-tenant here, so it's the default).
+    # Prometheus needs --web.enable-remote-write-receiver (templates/prometheus.yaml)
+    # and the tempo→prometheus:9090 NetworkPolicy rule (network-policies) to accept it.
+    metricsGenerator:
+      enabled: true
+      remoteWriteUrl: http://prometheus.platform.svc.cluster.local:9090/api/v1/write
+      processor:
+        service_graphs: {}
+    overrides:
+      defaults:
+        metrics_generator:
+          processors: [service-graphs]
     # S3 creds (AWS_ACCESS_KEY_ID/SECRET) from the observability-bucket Secret;
     # access_key/secret_key under s3 are left empty for the AWS SDK env fallback.
     extraEnvFrom:

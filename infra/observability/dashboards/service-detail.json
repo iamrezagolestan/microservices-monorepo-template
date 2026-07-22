@@ -1,0 +1,111 @@
+{
+  "title": "Service detail",
+  "uid": "service-detail",
+  "schemaVersion": 39,
+  "tags": ["service", "detail", "poc"],
+  "description": "POC (see docs): the 'click a service, see everything' unified page. One templated dashboard scoped by $service, mixing Prometheus + Loki + Tempo on one screen. RED / Logs / Traces work on today's stack; CPU/Memory need the kubeletstats receiver; Profiling needs Pyroscope.",
+  "links": [
+    { "title": "◀ Back to service map", "type": "link", "url": "/d/service-map/service-map?${__url_time_range}", "icon": "external link" }
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "service",
+        "type": "query",
+        "datasource": "Prometheus",
+        "query": "label_values(http_server_duration_seconds_count, service_name)"
+      }
+    ]
+  },
+  "panels": [
+    { "type": "row", "title": "Golden signals (RED)", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 } },
+    {
+      "type": "timeseries",
+      "title": "Request rate",
+      "datasource": "Prometheus",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 1 },
+      "fieldConfig": { "defaults": { "unit": "reqps" } },
+      "targets": [
+        { "expr": "sum by (service_name) (rate(http_server_duration_seconds_count{service_name=\"$service\"}[5m]))" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Error rate (5xx)",
+      "datasource": "Prometheus",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 1 },
+      "fieldConfig": { "defaults": { "unit": "reqps", "color": { "mode": "fixed", "fixedColor": "red" } } },
+      "targets": [
+        { "expr": "sum by (service_name) (rate(http_server_duration_seconds_count{service_name=\"$service\",http_status_code=~\"5..\"}[5m]))" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Latency p50 / p95 / p99",
+      "datasource": "Prometheus",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 1 },
+      "fieldConfig": { "defaults": { "unit": "s" } },
+      "targets": [
+        { "refId": "p50", "legendFormat": "p50", "expr": "histogram_quantile(0.50, sum by (le) (rate(http_server_duration_seconds_bucket{service_name=\"$service\"}[5m])))" },
+        { "refId": "p95", "legendFormat": "p95", "expr": "histogram_quantile(0.95, sum by (le) (rate(http_server_duration_seconds_bucket{service_name=\"$service\"}[5m])))" },
+        { "refId": "p99", "legendFormat": "p99", "expr": "histogram_quantile(0.99, sum by (le) (rate(http_server_duration_seconds_bucket{service_name=\"$service\"}[5m])))" }
+      ]
+    },
+
+    { "type": "row", "title": "Resources — PREREQ: kubeletstats receiver on the OTel collector", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 9 } },
+    {
+      "type": "timeseries",
+      "title": "CPU usage (cores)",
+      "datasource": "Prometheus",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 10 },
+      "fieldConfig": { "defaults": { "unit": "none" } },
+      "targets": [
+        { "legendFormat": "{{k8s_pod_name}}", "expr": "sum by (k8s_pod_name) (k8s_pod_cpu_usage{k8s_deployment_name=~\"$service-.*\"})" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Memory usage",
+      "datasource": "Prometheus",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 10 },
+      "fieldConfig": { "defaults": { "unit": "bytes" } },
+      "targets": [
+        { "legendFormat": "{{k8s_pod_name}}", "expr": "sum by (k8s_pod_name) (k8s_pod_memory_usage_bytes{k8s_deployment_name=~\"$service-.*\"})" }
+      ]
+    },
+
+    { "type": "row", "title": "Logs (Loki)", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 18 } },
+    {
+      "type": "logs",
+      "title": "Recent logs",
+      "datasource": "Loki",
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 19 },
+      "options": { "showTime": true, "wrapLogMessage": true, "enableLogDetails": true, "sortOrder": "Descending" },
+      "targets": [
+        { "expr": "{service_name=\"$service\"}" }
+      ]
+    },
+
+    { "type": "row", "title": "Traces (Tempo)", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 29 } },
+    {
+      "type": "table",
+      "title": "Recent traces — click a traceID to open the flame graph",
+      "datasource": "Tempo",
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 30 },
+      "targets": [
+        { "refId": "A", "queryType": "traceql", "query": "{ resource.service.name=\"$service\" }", "tableType": "traces", "limit": 20 }
+      ]
+    },
+
+    { "type": "row", "title": "Profiling — PREREQ: Pyroscope (withdrawn in ADR-0011)", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 40 } },
+    {
+      "type": "text",
+      "title": "Continuous profiling",
+      "gridPos": { "h": 6, "w": 24, "x": 0, "y": 41 },
+      "options": {
+        "mode": "markdown",
+        "content": "**No profiling backend deployed.**\n\nThis is the hard gap versus Coroot. To fill this panel you would add **Pyroscope** as a datasource plus a profiling agent (Grafana Alloy eBPF, or a `pprof` scraper against the admin-port endpoints `obs.Init` already exposes), then swap this text panel for a `flamegraph` panel querying `{service_name=\"$service\"}`.\n\nCoroot gives this for free from its node-agent — which is the whole point of the trade-off."
+      }
+    }
+  ]
+}
