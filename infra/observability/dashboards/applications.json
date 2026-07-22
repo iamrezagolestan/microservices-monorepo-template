@@ -3,7 +3,7 @@
   "uid": "applications",
   "schemaVersion": 39,
   "tags": ["service", "applications", "overview", "poc"],
-  "description": "POC (ADR-0025): Coroot-style Applications overview. One row per workload in the selected namespace, driven by kubeletstats so EVERY pod is listed — not just the traced/instrumented ones. CPU, memory and network come from the kubelet; Req/s, Errors/s and p95 latency fill in for services that emit HTTP server metrics (currently only authz/orgs — the instrumentation-coverage gap). Click a workload to open its detail page.",
+  "description": "POC (ADR-0025): Coroot-style Applications overview. One row per workload in the selected namespace, driven by kubeletstats so EVERY pod is listed — not just the traced ones. CPU, memory and network come from the kubelet; Req/s, Errors/s and p95 latency come from the stable OTel http.server.request.duration histogram and fill in for any service currently serving HTTP traffic (idle HTTP servers show blank RED — the counters have no recent samples, not a missing-instrumentation gap). Click a workload to open its detail page.",
   "templating": {
     "list": [
       {
@@ -51,21 +51,21 @@
           "format": "table",
           "instant": true,
           "range": false,
-          "expr": "sum by (service_name) (rate(http_server_duration_seconds_count{service_namespace=~\"$namespace\"}[$__range]))"
+          "expr": "sum by (service_name) (rate(http_server_request_duration_seconds_count{service_namespace=~\"$namespace\"}[$__range]))"
         },
         {
           "refId": "E",
           "format": "table",
           "instant": true,
           "range": false,
-          "expr": "sum by (service_name) (rate(http_server_duration_seconds_count{service_namespace=~\"$namespace\",http_status_code=~\"5..\"}[$__range]))"
+          "expr": "sum by (service_name) (rate(http_server_request_duration_seconds_count{service_namespace=~\"$namespace\",http_response_status_code=~\"5..\"}[$__range]))"
         },
         {
           "refId": "F",
           "format": "table",
           "instant": true,
           "range": false,
-          "expr": "histogram_quantile(0.95, sum by (service_name, le) (rate(http_server_duration_seconds_bucket{service_namespace=~\"$namespace\"}[$__range])))"
+          "expr": "histogram_quantile(0.95, sum by (service_name, le) (rate(http_server_request_duration_seconds_bucket{service_namespace=~\"$namespace\"}[$__range])))"
         }
       ],
       "transformations": [
@@ -142,7 +142,7 @@
           },
           {
             "matcher": { "id": "byName", "options": "p95 latency" },
-            "properties": [{ "id": "unit", "value": "ms" }, { "id": "decimals", "value": 0 }]
+            "properties": [{ "id": "unit", "value": "s" }, { "id": "decimals", "value": 3 }]
           }
         ]
       }
