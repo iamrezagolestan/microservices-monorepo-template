@@ -10,9 +10,7 @@
       "title": "Service dependency map — click a node to open its detail page",
       "datasource": "Tempo",
       "gridPos": { "h": 24, "w": 24, "x": 0, "y": 0 },
-      "targets": [
-        { "refId": "A", "queryType": "serviceMap" }
-      ],
+      "targets": [{ "refId": "A", "queryType": "serviceMap" }],
       "fieldConfig": {
         "defaults": {
           "links": [
