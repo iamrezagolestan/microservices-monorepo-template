@@ -1,7 +1,16 @@
+export type UiTextType = "info" | "error" | "success";
+
+export type UiTextContext = {
+  name?: string;
+  title?: string;
+  [key: string]: unknown;
+};
+
 export type UiText = {
   id: number;
   text: string;
-  type?: "info" | "error" | "success";
+  type?: UiTextType;
+  context?: UiTextContext;
 };
 
 export type UiNode = {
@@ -10,15 +19,22 @@ export type UiNode = {
   attributes: {
     name: string;
     type: string;
-    value?: string;
+    value?: string | number | boolean;
     required?: boolean;
     disabled?: boolean;
+    node_type: "input";
+    autocomplete?: string;
   };
   messages: UiText[];
   meta: {
     label?: UiText;
   };
 };
+
+export type LoginFlowState =
+  | "choose_method"
+  | "sent_email"
+  | "passed_challenge";
 
 export type LoginFlow = {
   id: string;
@@ -27,12 +43,19 @@ export type LoginFlow = {
   expires_at: string;
   issued_at: string;
   request_url: string;
+
   ui: {
     action: string;
     method: "POST";
     nodes: UiNode[];
-    messages: UiText[];
+    messages?: UiText[];
   };
+
+  created_at: string;
+  updated_at: string;
+  refresh: boolean;
+  requested_aal: "aal1" | "aal2" | "aal3";
+  state: LoginFlowState;
 };
 
 export type MockSession = {

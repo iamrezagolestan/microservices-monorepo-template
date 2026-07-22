@@ -26,14 +26,25 @@ function getStringField(
   return typeof value === "string" ? value : undefined;
 }
 
+function updateIdentifier(flow: LoginFlow, identifier: string): void {
+  const identifierNode = flow.ui.nodes.find(
+    (node) => node.attributes.name === "identifier",
+  );
+
+  if (identifierNode) {
+    identifierNode.attributes.value = identifier;
+  }
+}
+
 function addLoginError(flow: LoginFlow, message: string): void {
   const error: UiText = {
     id: 4000006,
     text: message,
-    type: "error"
+    type: "error",
   };
 
   flow.ui.messages = [error];
+  flow.updated_at = new Date().toISOString();
 }
 
 loginRoutes.get("/browser", (c) => {
@@ -41,6 +52,15 @@ loginRoutes.get("/browser", (c) => {
   const flow = createLoginFlow(requestUrl.origin);
 
   saveLoginFlow(flow);
+
+  const acceptHeader = c.req.header("accept") ?? "";
+  const expectsJson = acceptHeader
+    .toLowerCase()
+    .includes("application/json");
+
+  if (expectsJson) {
+    return c.json(flow, 200);
+  }
 
   return c.redirect(
     `${FRONTEND_LOGIN_PATH}?flow=${encodeURIComponent(flow.id)}`,
@@ -102,10 +122,10 @@ loginRoutes.post("/", async (c) => {
       {
         error: {
           id: "missing_flow_id",
-          message: "The flow query parameter is required."
-        }
+          message: "The flow query parameter is required.",
+        },
       },
-      400
+      400,
     );
   }
 
@@ -117,6 +137,7 @@ loginRoutes.post("/", async (c) => {
 
   if (isLoginFlowExpired(flow)) {
     deleteLoginFlow(flowId);
+
     return c.redirect(FRONTEND_LOGIN_PATH, 303);
   }
 
@@ -124,10 +145,20 @@ loginRoutes.post("/", async (c) => {
 
   const identifier = getStringField(body, "identifier");
   const password = getStringField(body, "password");
+  const method = getStringField(body, "method");
   const csrfToken = getStringField(body, "csrf_token");
+
   const expectedCsrfToken = getFlowCsrfToken(flow);
 
-  flow.ui.messages = [];
+  // پیام خطای تلاش قبلی را پاک می‌کنیم.
+  delete flow.ui.messages;
+
+  // همان identifier واردشده را برای نمایش مجدد نگه می‌داریم.
+  if (identifier) {
+    updateIdentifier(flow, identifier);
+  }
+
+  flow.updated_at = new Date().toISOString();
 
   if (!csrfToken || csrfToken !== expectedCsrfToken) {
     addLoginError(flow, "The CSRF token is invalid or missing.");
@@ -135,7 +166,17 @@ loginRoutes.post("/", async (c) => {
 
     return c.redirect(
       `${FRONTEND_LOGIN_PATH}?flow=${encodeURIComponent(flow.id)}`,
-      303
+      303,
+    );
+  }
+
+  if (method !== "password") {
+    addLoginError(flow, "The selected login method is not supported.");
+    saveLoginFlow(flow);
+
+    return c.redirect(
+      `${FRONTEND_LOGIN_PATH}?flow=${encodeURIComponent(flow.id)}`,
+      303,
     );
   }
 
@@ -145,24 +186,25 @@ loginRoutes.post("/", async (c) => {
 
     return c.redirect(
       `${FRONTEND_LOGIN_PATH}?flow=${encodeURIComponent(flow.id)}`,
-      303
+      303,
     );
   }
 
-  /*
-   * حساب تستی فعلی.
-   * بعداً می‌توانیم چند fixture یا scenario مختلف تعریف کنیم.
-   */
   const isValidCredentials =
-    identifier === "test@example.com" && password === "password123";
+    identifier === "test@example.com" &&
+    password === "password123";
 
   if (!isValidCredentials) {
-    addLoginError(flow, "The provided credentials are invalid.");
+    addLoginError(
+      flow,
+      "The provided credentials are invalid, check for spelling mistakes in your password or username, email address, or phone number.",
+    );
+
     saveLoginFlow(flow);
 
     return c.redirect(
       `${FRONTEND_LOGIN_PATH}?flow=${encodeURIComponent(flow.id)}`,
-      303
+      303,
     );
   }
 
@@ -173,10 +215,10 @@ loginRoutes.post("/", async (c) => {
     identity: {
       id: crypto.randomUUID(),
       traits: {
-        email: identifier
-      }
+        email: identifier,
+      },
     },
-    authenticated_at: new Date().toISOString()
+    authenticated_at: new Date().toISOString(),
   });
 
   deleteLoginFlow(flow.id);
@@ -188,8 +230,8 @@ loginRoutes.post("/", async (c) => {
       "Path=/",
       "HttpOnly",
       "SameSite=Lax",
-      "Max-Age=3600"
-    ].join("; ")
+      "Max-Age=3600",
+    ].join("; "),
   );
 
   return c.redirect(SUCCESS_REDIRECT_PATH, 303);
