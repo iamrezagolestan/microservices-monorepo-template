@@ -12,14 +12,23 @@
       "gridPos": { "h": 24, "w": 24, "x": 0, "y": 0 },
       "targets": [{ "refId": "A", "queryType": "serviceMap" }],
       "fieldConfig": {
-        "defaults": {
-          "links": [
-            {
-              "title": "Open service detail",
-              "url": "/d/service-detail/service-detail?var-service=${__data.fields.title}&${__url_time_range}"
-            }
-          ]
-        }
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "title" },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Open service detail",
+                    "url": "/d/service-detail/service-detail?var-service=${__data.fields.title}&${__url_time_range}"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
       }
     }
   ]
