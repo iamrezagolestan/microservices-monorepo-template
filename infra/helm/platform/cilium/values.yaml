@@ -31,16 +31,21 @@ cilium:
     ui:
       enabled: false
     # Flow metrics on the agent at :9965, scraped by the node-local OTel collector
-    # and surfaced as Grafana's "network policy denials" view (ADR-0011, ADR-0025).
+    # and surfaced in Grafana (ADR-0011, ADR-0025).
     #
-    # DELIBERATELY NARROW — `drop` only. The service-map, latency and error
-    # story belongs to Coroot's eBPF map, so `flow`, `tcp` and especially `http`
-    # (per-request L7 cardinality on every agent) would buy duplication at real cost.
-    # What Coroot structurally CANNOT see is a Cilium policy verdict: it observes
-    # connections that succeeded or failed, never "denied by policy". That gap is the
-    # entire reason these metrics exist, and this repo has been bitten by it — the
+    # `drop` — Cilium policy verdicts, which Coroot structurally CANNOT see: it
+    # observes connections that succeeded or failed, never "denied by policy". That
+    # gap is why this metric exists, and this repo has been bitten by it — the
     # clusterwide metadata-deny regression, four default-deny bootstrap gaps, and a
     # catalog/payment netpol block that silently broke every checkout.
+    #
+    # `flow` — every processed flow with source/destination workload, i.e. the
+    # eBPF-derived connection graph. Added for the Hubble service-map POC (ADR-0025):
+    # unlike the Tempo service_graphs map it needs no tracing, so it shows EVERY
+    # connection — including un-instrumented and idle services — which is the one part
+    # of Coroot's map the trace-based map cannot reproduce. This is the prerequisite
+    # for retiring Coroot. `tcp` and especially `http` (per-request L7 cardinality on
+    # every agent) stay OFF — real cost for detail the RED/trace signals already give.
     #
     # workload context so series name the Deployment (temporal-frontend vs
     # temporal-history) rather than the shared app.kubernetes.io/name — the same
@@ -51,7 +56,8 @@ cilium:
     #
     # `dns` was tried and REMOVED: Cilium only observes DNS at L7, so dns metrics
     # never register without a DNS visibility/L7 policy on every pod. That is real
-    # scope and real cost for a signal Coroot already surfaces, so drops stand alone.
+    # scope and real cost for a signal Coroot already surfaces.
     metrics:
       enabled:
         - "drop:sourceContext=workload;destinationContext=workload"
+        - "flow:sourceContext=workload;destinationContext=workload"
