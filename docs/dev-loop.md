@@ -194,16 +194,25 @@ optional per-tool `dashboard:<tool>#view` fine layer is off by default. Every ro
 below is defined in `infra/gateway/ingressroutes.yaml` (the opt-in tools' routes
 resolve to a backend only once their chart is enabled).
 
+**Which observability panel?** They are a sequence, not a choice ([ADR-0025](adr/0025-service-map-apm-ui.md)):
+start at **Coroot** for *"is something wrong, and where?"* (map, SLOs, profiling, DB health), then
+escalate to **Grafana** for *"what exactly happened, and to whom?"* (trace-stitched debugging,
+business metrics, browser RUM, policy drops, anything older than ~a week). Container logs appear in
+both — Coroot's are what a container printed near an incident, Loki's are queryable history
+correlated by `trace_id`.
+
+Ops hostnames are named after the tool, always ([ADR-0017](adr/0017-url-and-domain-structure.md)).
+
 | Ops URL                                        | Tool                                                                                   | Auth                                             |
 |------------------------------------------------|----------------------------------------------------------------------------------------|--------------------------------------------------|
-| `https://o11y.ops.dev.localtest.me:8443/`      | **Grafana** — metrics/logs/traces                                                      | operator + AAL2                                  |
-| `https://map.ops.dev.localtest.me:8443/`       | **Coroot** — eBPF service map / APM (replaces Hubble UI)                                | operator + AAL2                                  |
-| `https://workflows.ops.dev.localtest.me:8443/` | **Temporal Web UI**                                                                    | operator + AAL2                                  |
-| `https://s3.ops.dev.localtest.me:8443/`        | **MinIO console** (non-prod)                                                           | operator + AAL2, then `minio` / `minio-password` |
-| `https://admin.ops.dev.localtest.me:8443/`     | **Lowdefy** admin console                                                              | operator + AAL2                                  |
-| `https://deploy.ops.dev.localtest.me:8443/`    | **Argo CD**                                                                            | operator + AAL2                                  |
-| `https://k8s.ops.dev.localtest.me:8443/`       | **Headlamp** — k8s debug UI (r/o, [ADR-0024](adr/0024-kubernetes-debug-ui.md))         | operator + AAL2                                  |
-| `https://db.ops.dev.localtest.me:8443/`        | **pgweb** — read-only DB inspector ([ADR-0012](adr/0012-internal-admin.md))            | operator + AAL2                                  |
+| `https://grafana.ops.dev.localtest.me:8443/`      | **Grafana** — metrics/logs/traces, RUM, policy drops                                   | operator + AAL2                                  |
+| `https://coroot.ops.dev.localtest.me:8443/`       | **Coroot** — service map / APM, profiling, DB health, SLOs                              | operator + AAL2                                  |
+| `https://temporal.ops.dev.localtest.me:8443/` | **Temporal Web UI**                                                                    | operator + AAL2                                  |
+| `https://minio.ops.dev.localtest.me:8443/`        | **MinIO console** (non-prod)                                                           | operator + AAL2, then `minio` / `minio-password` |
+| `https://lowdefy.ops.dev.localtest.me:8443/`     | **Lowdefy** admin console                                                              | operator + AAL2                                  |
+| `https://argocd.ops.dev.localtest.me:8443/`    | **Argo CD**                                                                            | operator + AAL2                                  |
+| `https://headlamp.ops.dev.localtest.me:8443/`       | **Headlamp** — k8s debug UI (r/o, [ADR-0024](adr/0024-kubernetes-debug-ui.md))         | operator + AAL2                                  |
+| `https://pgweb.ops.dev.localtest.me:8443/`        | **pgweb** — read-only DB inspector ([ADR-0012](adr/0012-internal-admin.md))            | operator + AAL2                                  |
 
 Grafana trusts the Oathkeeper edge and serves anonymously (its login form is
 disabled, `auth.anonymous` Admin) — an operator who clears the edge lands straight
@@ -218,8 +227,8 @@ credentials — the pre-seeded root user `minio` / `minio-password`.
 
 `cluster:full` brings up the whole platform (edge, services, observability,
 console); Argo CD itself is installed imperatively for the local full tier and is
-reachable at `deploy.ops.<host>` like the other dashboards. Headlamp (`k8s.ops`)
-and pgweb (`db.ops`) are Core ops tools, on in every environment
+reachable at `argocd.ops.<host>` like the other dashboards. Headlamp (`headlamp.ops`)
+and pgweb (`pgweb.ops`) are Core ops tools, on in every environment
 ([docs/operational-surface.md](operational-surface.md)); a project that does not
 want one drops it with `enabled: false` in its env values overlay.
 
@@ -227,7 +236,7 @@ want one drops it with `enabled: false` in its env values overlay.
 
 The edge serves `*.dev.localtest.me` on `:8443` (real DNS → 127.0.0.1, no
 `/etc/hosts` edits). Auth-gated routes (e.g. the Coroot service map at
-`https://map.ops.dev.localtest.me:8443/`) redirect an unauthenticated browser to
+`https://coroot.ops.dev.localtest.me:8443/`) redirect an unauthenticated browser to
 Kratos at `…/auth/login`; register/login there and the redirect returns you to the
 gated page. The Kratos session cookie is scoped to `dev.localtest.me` (parent
 domain), so one login covers the edge and every `*.dev.localtest.me` subdomain. The landing page and `/auth` UI are

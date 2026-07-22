@@ -46,8 +46,8 @@ its stagnant *UI* is being replaced.
   ([ADR-0003](0003-cluster-topology.md)); the Hubble agent + relay stay ON. The
   `network.ops` origin is freed (it described a network-flow view Coroot does not
   replace — reserve it for a future flow tool rather than mislabel Coroot with it).
-- **Ops-tier origin `map.ops.<host>`**, behind the ops forward-auth: coarse `operator`
-  claim + AAL2, plus the per-tool OpenFGA grant `dashboard:map#view`
+- **Ops-tier origin `coroot.ops.<host>`**, behind the ops forward-auth: coarse `operator`
+  claim + AAL2, plus the per-tool OpenFGA grant `dashboard:coroot#view`
   ([ADR-0017](0017-url-and-domain-structure.md)). The origin is named for the *concept*
   (`map`), not the product, per ADR-0017.
 - **Its own `coroot` namespace.** Coroot's internal mesh (operator, agents, Prometheus,
@@ -77,6 +77,57 @@ its stagnant *UI* is being replaced.
   - *Coroot operator-less (`coroot-ce`) chart* — fewer moving parts, but the operator path
     is what was validated and cleanly manages the ClickHouse/Keeper topology.
 
+### Coroot and Grafana: a sequence, not a split
+
+Coroot and the Grafana/LGTM stack overlap, and two panels that appear to do the same thing is a
+real operational cost. This is the entry point, and it belongs in `docs/dev-loop.md` too:
+
+> **Start at `coroot.ops.<host>`** — *"is something wrong, and where?"* Service map, live RED,
+> SLOs, continuous profiling, database health.
+> **Escalate to `grafana.ops.<host>`** — *"what exactly happened, and to whom?"* Trace-stitched
+> debugging, custom business metrics, browser RUM, network-policy drops, anything older than
+> Coroot's retention.
+
+Operators are not confused by "start here, then go there". They are confused by two tools that
+both appear to own logs. State the order, not a feature comparison.
+
+**The overlap is only two signals.** Service map, profiling, database health and SLOs live solely
+in Coroot; custom business metrics, browser RUM and network-policy drops live solely in Grafana.
+Only **container logs** and **traces** appear in both:
+
+- *Logs* are genuinely duplicated — Coroot's node-agent reads container stdout via eBPF while the
+  same lines reach Loki over OTLP. Coroot's copy is "what this container printed near the
+  incident"; Loki's is "queryable history, correlated by `trace_id`".
+- *Traces* stay deliberately different in **fidelity**: Coroot's are eBPF-inferred and
+  connection-level; Grafana's are real OTLP spans with business context. Dual-shipping OTLP to
+  Coroot was **considered and rejected** precisely because it would collapse that distinction into
+  the same spans rendered twice, for doubled egress and storage.
+
+### Why Coroot does not replace Grafana
+
+Coroot is strong enough to raise the question, so the answer is recorded. Four blockers:
+
+1. **No browser RUM.** Coroot is backend/infrastructure-focused and says so. The frontend ships
+   Grafana Faro → `/api/rum` → Tempo/Loki ([ADR-0014](0014-frontend.md)); removing Grafana orphans
+   that signal entirely. Keeping Faro without Grafana is not a partial win — it collects RUM data
+   no remaining tool understands.
+2. **Dashboards cannot be declared as code.** Coroot CE *does* have custom dashboards (PromQL,
+   time-series panels), but they are created through the UI only. That is click-ops state in
+   ClickHouse: not in git, not reviewable, not reproducible, lost on a namespace rebuild, and
+   invisible to Argo. It contradicts [ADR-0004](0004-gitops.md) and this ADR-0011 rule directly:
+   *"Dashboards live as JSON files under `infra/observability/dashboards/`. UI-only edits are not
+   allowed; changes are PRs."*
+3. **Coroot's OTLP ingest carries logs and traces only, not metrics** — so custom business counters
+   (`catalog_products_created_total`) have no path into it.
+4. **Durability and query surface.** Coroot retains ~7 days in ClickHouse, and its space manager
+   drops below the configured TTL under disk pressure; Loki/Tempo are bucket-backed
+   ([ADR-0003](0003-cluster-topology.md)). Coroot also exposes no stable query API for
+   [ADR-0018](0018-testing-strategy.md)'s acceptance gauge, which asserts on PromQL/LogQL/TraceQL.
+
+**Accepted duplication:** Coroot brings its own Prometheus and a ClickHouse, so the cluster runs two
+Prometheus instances. This is deliberate. Do not "fix" it by merging them without reading the
+external-Prometheus note in the follow-ups — the platform Prometheus is push-only by design.
+
 ## Consequences
 
 ### Positive
@@ -93,7 +144,7 @@ its stagnant *UI* is being replaced.
   Keeper + Prometheus) — much heavier than the near-free Hubble UI. Contained in its own
   namespace and kept minimum-viable; an adopter who does not want it removes the Core part.
 - **CE lacks SSO/RBAC** (Enterprise-only). The edge gate (Oathkeeper AAL2 + OpenFGA
-  `dashboard:map#view`) is the auth boundary; within it Coroot is single-tenant Admin.
+  `dashboard:coroot#view`) is the auth boundary; within it Coroot is single-tenant Admin.
 - **eBPF needs tracefs/debugfs on the node.** Real nodes mount these; a k3d "node" is a
   container that does not, so local bring-up mounts them into the node
   (`scripts/cluster-ensure.sh`). Non-issue in prod.
@@ -105,7 +156,7 @@ its stagnant *UI* is being replaced.
 
 - `infra/helm/platform/coroot/` (vendored `coroot-operator` subchart + the Coroot CR +
   the namespace NetworkPolicy) and `infra/gitops/*/app-coroot.yaml`.
-- `map.ops.<host>` IngressRoute + Oathkeeper `ops-map` rule + OpenFGA `dashboard:map` grant.
+- `coroot.ops.<host>` IngressRoute + Oathkeeper `ops-coroot` rule + OpenFGA `dashboard:coroot` grant.
 - Grafana + Hubble network-flow metrics dashboard ([ADR-0011](0011-observability.md)) —
   the complementary network view.
 
@@ -113,7 +164,7 @@ its stagnant *UI* is being replaced.
 
 - The service-map / application-observability UI is Coroot Community Edition (Apache-2.0),
   a Core component deployed via Helm + ArgoCD in its own `coroot` namespace, served at
-  `map.ops.<host>` behind the ops forward-auth (operator claim + AAL2 + `dashboard:map#view`). `(review-only)`
+  `coroot.ops.<host>` behind the ops forward-auth (operator claim + AAL2 + `dashboard:coroot#view`). `(review-only)`
 - The standalone Hubble UI is not deployed; the Hubble agent + relay (flow engine, CLI,
   metrics — [ADR-0003](0003-cluster-topology.md)/[ADR-0009](0009-api-gateway.md)) stay on. `(review-only)`
 - Coroot component images are pinned in the CR, never left to the operator's latest-tag

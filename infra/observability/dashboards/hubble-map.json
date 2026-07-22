@@ -1,0 +1,65 @@
+{
+  "title": "Service map (Hubble / eBPF)",
+  "uid": "hubble-map",
+  "schemaVersion": 39,
+  "tags": ["service", "map", "network", "cilium", "poc"],
+  "description": "POC (ADR-0025): the eBPF service map, built from Cilium Hubble flow metrics (hubble_flows_processed_total) instead of Tempo traces. Because Hubble sees every connection at the kernel, this map shows service dependencies WITHOUT requiring tracing — the one thing the trace-based /d/service-map cannot do (idle or un-instrumented services still appear). Scoped to platform↔platform FORWARDED flows so node names are the bare service and link straight into the detail page; drop the destination filter in the query to also reveal cross-namespace dependencies (databases, temporal, etc.) at the cost of 'namespace/name' node ids.",
+  "links": [
+    {
+      "title": "Trace-based map (Tempo)",
+      "type": "link",
+      "url": "/d/service-map/service-map?${__url_time_range}",
+      "icon": "external link"
+    }
+  ],
+  "panels": [
+    {
+      "type": "nodeGraph",
+      "title": "eBPF connection map — click a node to open its detail page",
+      "datasource": "Prometheus",
+      "gridPos": { "h": 24, "w": 24, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "format": "table",
+          "instant": true,
+          "range": false,
+          "expr": "label_join(label_replace(label_replace(sum by (source, destination) (rate(hubble_flows_processed_total{verdict=\"FORWARDED\", source=~\"platform/.*\", destination=~\"platform/.*\"}[$__range])), \"source\", \"$1\", \"source\", \"platform/(.*)\"), \"destination\", \"$1\", \"destination\", \"platform/(.*)\"), \"id\", \"\\u2192\", \"source\", \"destination\")"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": { "Time": true },
+            "renameByName": {
+              "destination": "target",
+              "Value": "mainstat",
+              "Value #A": "mainstat"
+            }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "id" },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Open service detail",
+                    "url": "/d/service-detail/service-detail?var-service=${__data.fields.id}&${__url_time_range}"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

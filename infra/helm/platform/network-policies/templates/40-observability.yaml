@@ -32,7 +32,8 @@ spec:
       toPorts:
         - ports: [{ port: "3100", protocol: TCP }]
 ---
-## Prometheus — OTLP metrics push from OTel, queries from Grafana (9090).
+## Prometheus — OTLP metrics push from OTel, queries from Grafana, and
+## remote_write of service-graph series from Tempo's metrics-generator (all 9090).
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
@@ -45,6 +46,8 @@ spec:
     - fromEndpoints:
         - matchLabels: { k8s:io.kubernetes.pod.namespace: platform, app.kubernetes.io/name: opentelemetry-collector }
         - matchLabels: { k8s:io.kubernetes.pod.namespace: platform, app.kubernetes.io/name: grafana }
+        # Tempo metrics-generator → /api/v1/write (service-map series, ADR-0025 POC).
+        - matchLabels: { k8s:io.kubernetes.pod.namespace: platform, app.kubernetes.io/name: tempo }
       toPorts:
         - ports: [{ port: "9090", protocol: TCP }]
 ---
@@ -92,6 +95,25 @@ spec:
         - matchLabels: { k8s:io.kubernetes.pod.namespace: kube-system }
       toPorts:
         - ports: [{ port: "9001", protocol: TCP }]
+---
+## Pyroscope — profile pushes from the Alloy agent, queries from Grafana (4040).
+## The scrape path (Alloy → service admin ports) needs no rule here: services grant
+## platform-namespace ingress to their admin port, and the baseline policy grants
+## intra-namespace egress (ADR-0025 POC).
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: pyroscope
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: pyroscope
+  ingress:
+    - fromEndpoints:
+        - matchLabels: { k8s:io.kubernetes.pod.namespace: platform, app.kubernetes.io/name: alloy }
+        - matchLabels: { k8s:io.kubernetes.pod.namespace: platform, app.kubernetes.io/name: grafana }
+      toPorts:
+        - ports: [{ port: "4040", protocol: TCP }]
 ---
 ## Grafana — the ops UI, reached only through the edge gateway (3000).
 apiVersion: cilium.io/v2

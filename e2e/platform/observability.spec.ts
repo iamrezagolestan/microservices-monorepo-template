@@ -25,7 +25,7 @@ import {
   waitForTraceServices,
 } from "../fixtures/observability";
 
-const GRAFANA_API = `${opsURL("o11y")}/api/datasources`;
+const GRAFANA_API = `${opsURL("grafana")}/api/datasources`;
 
 test.describe("grafana datasources", () => {
   for (const name of ["Loki", "Tempo", "Prometheus"]) {
@@ -46,6 +46,67 @@ test.describe("grafana datasources", () => {
       }
     });
   }
+});
+
+// Network-policy denials (ADR-0011, ADR-0025). This is the one signal Coroot
+// structurally cannot provide — it sees connections that succeeded or failed, never
+// a Cilium policy verdict — so it is Grafana's alone, and worth its own guard given
+// how often silent netpol drops have broken this repo.
+//
+// Two failure modes are covered, and they are different:
+//  - the `hubble-drops` dashboard missing means Grafana's dashboard PROVIDER is
+//    misconfigured. Mounting JSON via dashboardsConfigMaps is not enough on its own;
+//    without a matching dashboardProviders entry the files sit on disk unregistered
+//    and /api/search returns [] (the state this repo was in until 2026-07-20).
+//  - no hubble_drop_total series means the ingest path broke: Hubble metrics off in
+//    the Cilium values, or the collector's prometheus/hubble scrape not reaching
+//    :9965 on its own node.
+test.describe("network policy denials", () => {
+  let ctx: APIRequestContext;
+
+  test.beforeAll(async () => {
+    ctx = await request.newContext({ ignoreHTTPSErrors: true, storageState: OPERATOR_STATE });
+  });
+  test.afterAll(async () => {
+    await ctx?.dispose();
+  });
+
+  test("the drops dashboard is provisioned, not just mounted", async () => {
+    const res = await ctx.get(`${opsURL("grafana")}/api/search?type=dash-db`);
+    expect(res.ok(), "Grafana search API answers").toBeTruthy();
+    const uids = ((await res.json()) as { uid: string }[]).map((d) => d.uid);
+    expect(uids, "committed dashboards are registered with Grafana").toEqual(
+      expect.arrayContaining(["hubble-drops", "service-red"]),
+    );
+  });
+
+  test("Hubble drop metrics reach Prometheus with workload labels", async () => {
+    const ds = await ctx.get(`${opsURL("grafana")}/api/datasources/name/Prometheus`);
+    expect(ds.ok(), "Prometheus datasource is provisioned").toBeTruthy();
+    const { uid } = await ds.json();
+
+    const res = await ctx.post(`${opsURL("grafana")}/api/ds/query`, {
+      data: {
+        from: "now-15m",
+        to: "now",
+        queries: [
+          {
+            refId: "A",
+            datasource: { type: "prometheus", uid },
+            // `sourceContext=workload` renders a combined "<namespace>/<workload>"
+            // label, so grouping by it proves the workload context is on.
+            expr: "sum by (source, destination) (rate(hubble_drop_total[5m]))",
+            instant: true,
+          },
+        ],
+      },
+    });
+    expect(res.ok(), "Grafana executes the drops query").toBeTruthy();
+    const frames = (await res.json()).results?.A?.frames ?? [];
+    expect(frames.length, "hubble_drop_total has series (metrics enabled + scraped)").toBeGreaterThan(
+      0,
+    );
+  });
 });
 
 // A checkout drives every signal at once. Rather than the browser, this layer hits

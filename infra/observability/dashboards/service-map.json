@@ -1,0 +1,35 @@
+{
+  "title": "Service map",
+  "uid": "service-map",
+  "schemaVersion": 39,
+  "tags": ["service", "map", "poc"],
+  "description": "POC (see docs): Coroot-style entry point. Node Graph fed by Tempo's service-graph metrics; click a node to drill into service-detail. Wiring is in place: Tempo metrics-generator (service_graphs) → Prometheus remote-write, and the Tempo datasource's serviceMap.datasourceUid → Prometheus. Nodes appear once services have emitted spans.",
+  "panels": [
+    {
+      "type": "nodeGraph",
+      "title": "Service dependency map — click a node to open its detail page",
+      "datasource": "Tempo",
+      "gridPos": { "h": 24, "w": 24, "x": 0, "y": 0 },
+      "targets": [{ "refId": "A", "queryType": "serviceMap" }],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "title" },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Open service detail",
+                    "url": "/d/service-detail/service-detail?var-service=${__data.fields.title}&${__url_time_range}"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}
