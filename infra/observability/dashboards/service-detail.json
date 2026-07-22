@@ -58,14 +58,14 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "100 * (1 - (sum(rate(http_server_duration_seconds_count{service_name=\"$service\",http_status_code=~\"5..\"}[$__range])) / clamp_min(sum(rate(http_server_duration_seconds_count{service_name=\"$service\"}[$__range])), 1)))"
+          "expr": "100 * (1 - ((sum(rate(http_server_duration_seconds_count{service_name=\"$service\",http_status_code=~\"5..\"}[$__range])) or vector(0)) / sum(rate(http_server_duration_seconds_count{service_name=\"$service\"}[$__range]))))"
         }
       ]
     },
     {
       "type": "stat",
-      "title": "Latency SLO — % faster than 300ms",
-      "description": "Share of requests served under the 300ms latency objective (uses the le=\"0.3\" histogram bucket). Target 99%.",
+      "title": "Latency SLO — % faster than 500ms",
+      "description": "Share of requests served under the 500ms latency objective. Uses the le=\"500\" bucket — this histogram's boundaries are millisecond-scale (5,10,25…10000) despite the _seconds metric name, so 500 = 500ms. Target 99%.",
       "datasource": "Prometheus",
       "gridPos": { "h": 5, "w": 8, "x": 8, "y": 1 },
       "fieldConfig": {
@@ -92,7 +92,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "100 * sum(rate(http_server_duration_seconds_bucket{service_name=\"$service\",le=\"0.3\"}[$__range])) / clamp_min(sum(rate(http_server_duration_seconds_count{service_name=\"$service\"}[$__range])), 1)"
+          "expr": "100 * (sum(rate(http_server_duration_seconds_bucket{service_name=\"$service\",le=\"500\"}[$__range])) or vector(0)) / sum(rate(http_server_duration_seconds_count{service_name=\"$service\"}[$__range]))"
         }
       ]
     },
@@ -125,7 +125,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "100 * (1 - ((sum(rate(http_server_duration_seconds_count{service_name=\"$service\",http_status_code=~\"5..\"}[$__range])) / clamp_min(sum(rate(http_server_duration_seconds_count{service_name=\"$service\"}[$__range])), 1)) / 0.001))"
+          "expr": "100 * (1 - (((sum(rate(http_server_duration_seconds_count{service_name=\"$service\",http_status_code=~\"5..\"}[$__range])) or vector(0)) / sum(rate(http_server_duration_seconds_count{service_name=\"$service\"}[$__range]))) / 0.001))"
         }
       ]
     },
