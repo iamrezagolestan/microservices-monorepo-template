@@ -23,6 +23,7 @@ configMapGenerator:
   - name: grafana-dashboards
     files:
       - hubble-drops.json
+      - applications.json
       - service-red.json
       - service-map.json
       - hubble-map.json
