@@ -3,7 +3,7 @@
   "uid": "service-detail",
   "schemaVersion": 39,
   "tags": ["service", "detail", "poc"],
-  "description": "POC (see docs): the 'click a service, see everything' unified page. One templated dashboard scoped by $service, mixing Prometheus + Loki + Tempo on one screen. RED / Logs / Traces work on today's stack; CPU/Memory need the kubeletstats receiver; Profiling needs Pyroscope.",
+  "description": "POC (see docs): the 'click a service, see everything' unified page. One templated dashboard scoped by $service, mixing Prometheus + Loki + Tempo + Pyroscope on one screen: RED, CPU/Memory (kubeletstats), Logs, Traces, and a CPU flame graph (Alloy → Pyroscope). All five signals are wired on the full-tier stack.",
   "links": [
     {
       "title": "◀ Back to service map",
@@ -81,7 +81,7 @@
 
     {
       "type": "row",
-      "title": "Resources — PREREQ: kubeletstats receiver on the OTel collector",
+      "title": "Resources (CPU / Memory)",
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 9 }
     },
     {
@@ -93,7 +93,7 @@
       "targets": [
         {
           "legendFormat": "{{k8s_pod_name}}",
-          "expr": "sum by (k8s_pod_name) (k8s_pod_cpu_usage{k8s_deployment_name=~\"$service-.*\"})"
+          "expr": "sum by (k8s_pod_name) (k8s_pod_cpu_usage{k8s_namespace_name=\"platform\",k8s_pod_name=~\"$service-.*\"})"
         }
       ]
     },
@@ -106,7 +106,7 @@
       "targets": [
         {
           "legendFormat": "{{k8s_pod_name}}",
-          "expr": "sum by (k8s_pod_name) (k8s_pod_memory_usage_bytes{k8s_deployment_name=~\"$service-.*\"})"
+          "expr": "sum by (k8s_pod_name) (k8s_pod_memory_usage_bytes{k8s_namespace_name=\"platform\",k8s_pod_name=~\"$service-.*\"})"
         }
       ]
     },
@@ -145,17 +145,22 @@
 
     {
       "type": "row",
-      "title": "Profiling — PREREQ: Pyroscope (withdrawn in ADR-0011)",
+      "title": "Profiling (Pyroscope)",
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 40 }
     },
     {
-      "type": "text",
-      "title": "Continuous profiling",
-      "gridPos": { "h": 6, "w": 24, "x": 0, "y": 41 },
-      "options": {
-        "mode": "markdown",
-        "content": "**No profiling backend deployed.**\n\nThis is the hard gap versus Coroot. To fill this panel you would add **Pyroscope** as a datasource plus a profiling agent (Grafana Alloy eBPF, or a `pprof` scraper against the admin-port endpoints `obs.Init` already exposes), then swap this text panel for a `flamegraph` panel querying `{service_name=\"$service\"}`.\n\nCoroot gives this for free from its node-agent — which is the whole point of the trade-off."
-      }
+      "type": "flamegraph",
+      "title": "CPU profile — scraped from the service's pprof endpoint by Alloy",
+      "datasource": "Pyroscope",
+      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 41 },
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "profile",
+          "profileTypeId": "process_cpu:cpu:nanoseconds:cpu:nanoseconds",
+          "labelSelector": "{service_name=\"$service\"}"
+        }
+      ]
     }
   ]
 }

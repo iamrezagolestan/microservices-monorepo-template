@@ -21,6 +21,15 @@ opentelemetry-collector:
   # aligned — see the chart dependency version in Chart.yaml.
   image: { repository: otel/opentelemetry-collector-contrib, tag: "0.154.0" }
   presets: { kubernetesAttributes: { enabled: true } }
+  # RBAC for the kubeletstats receiver (added to the metrics pipeline below): the
+  # kubelet's /stats/summary endpoint authorizes against the nodes/stats subresource.
+  # The kubernetesAttributes preset creates the ClusterRole (pods/namespaces/nodes);
+  # these rules are APPENDED to it, so no separate binding is needed.
+  clusterRole:
+    rules:
+      - apiGroups: [""]
+        resources: ["nodes/stats", "nodes/proxy"]
+        verbs: ["get", "list", "watch"]
   # Browser beacons reach the collector through a ClusterIP Service (Traefik →
   # otel-collector:8027). Services still emit to localhost:4317, not this Service.
   # In daemonset mode the chart omits the Service unless explicitly enabled.
@@ -54,6 +63,19 @@ opentelemetry-collector:
               scrape_interval: 30s
               static_configs:
                 - targets: ["${env:K8S_NODE_IP}:9965"]
+      # Per-pod/container/node CPU & memory from the local kubelet's Summary API
+      # (ADR-0025 POC — the resource panels on the service-detail dashboard). Same
+      # node-local pattern as the hubble scrape: this DaemonSet pod reads ONLY its
+      # own node's kubelet via the chart-injected K8S_NODE_IP, authenticating with
+      # the pod ServiceAccount token (clusterRole.rules below grant nodes/stats).
+      # insecure_skip_verify: the kubelet serving cert is not signed for the bare
+      # node IP, and this is node-local traffic that never leaves the host.
+      kubeletstats:
+        collection_interval: 20s
+        auth_type: serviceAccount
+        endpoint: "https://${env:K8S_NODE_IP}:10250"
+        insecure_skip_verify: true
+        metric_groups: [pod, container, node]
     processors:
       memory_limiter:
         check_interval: 1s
@@ -77,7 +99,7 @@ opentelemetry-collector:
     service:
       pipelines:
         traces:  { receivers: [otlp, faro], processors: [memory_limiter, probabilistic_sampler, batch], exporters: [otlphttp/tempo] }
-        metrics: { receivers: [otlp, prometheus/hubble], processors: [memory_limiter, batch], exporters: [otlphttp/prometheus] }
+        metrics: { receivers: [otlp, prometheus/hubble, kubeletstats], processors: [memory_limiter, batch], exporters: [otlphttp/prometheus] }
         logs:    { receivers: [otlp, faro], processors: [memory_limiter, batch], exporters: [otlphttp/loki] }
 
 grafana:
@@ -141,6 +163,10 @@ grafana:
           jsonData:
             serviceMap:
               datasourceUid: prometheus
+        # Pyroscope (ADR-0025 POC — continuous profiling). Backs the flame-graph
+        # panel on the service-detail dashboard; profiles are pushed here by the
+        # Alloy agent (templates/alloy.yaml).
+        - { name: Pyroscope, uid: pyroscope, type: grafana-pyroscope-datasource, url: http://pyroscope.platform.svc.cluster.local:4040 }
   # BOTH halves are required. `dashboardsConfigMaps` only MOUNTS the JSON files;
   # without a matching `dashboardProviders` entry Grafana never scans that directory,
   # so the dashboards exist on disk and are invisible in the UI — `/api/search`
@@ -276,3 +302,26 @@ prometheus:
   resources:
     requests: { cpu: "100m", memory: "256Mi" }
     limits:   { cpu: "1",    memory: "1Gi" }
+
+# Pyroscope (ADR-0025 POC — continuous profiling, the fourth signal). Rendered by
+# templates/pyroscope.yaml as a single-binary monolith (-target=all) with
+# filesystem storage on an emptyDir — the POC minimum. A real deployment points its
+# storage at the off-cluster bucket like Loki/Tempo and raises retention. Profiles
+# are PUSHED here by the Alloy agent (below), which pulls each Go service's pprof.
+pyroscope:
+  image: grafana/pyroscope:1.14.0
+  resources:
+    requests: { cpu: "100m", memory: "256Mi" }
+    limits:   { cpu: "1",    memory: "1Gi" }
+
+# Grafana Alloy (ADR-0025 POC) — the pprof-scraping agent the withdrawn profiling
+# flag always implied. Rendered by templates/alloy.yaml. It discovers platform pods,
+# keeps those exposing the `admin` port (the pprof endpoint obs.Init serves, ADR-0011),
+# scrapes CPU/heap/goroutine profiles, and pushes them to Pyroscope. No service change
+# and no new ingress rule: services already allow platform-namespace ingress to the
+# admin port, and the baseline NetworkPolicy already allows intra-namespace egress.
+alloy:
+  image: grafana/alloy:v1.11.0
+  resources:
+    requests: { cpu: "100m", memory: "128Mi" }
+    limits:   { cpu: "500m", memory: "512Mi" }
