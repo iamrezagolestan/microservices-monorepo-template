@@ -5,7 +5,6 @@ const FLOW_LIFETIME_MS = 60 * 60 * 1000;
 function createCsrfToken(): string {
   const bytes = new Uint8Array(64);
   crypto.getRandomValues(bytes);
-
   return Buffer.from(bytes).toString("base64");
 }
 
@@ -39,7 +38,7 @@ function createLoginNodes(csrfToken: string): UiNode[] {
       messages: [],
       meta: {
         label: {
-          id: 1070002,
+          id: 1_070_002,
           text: "E-Mail",
           type: "info",
           context: {
@@ -63,7 +62,7 @@ function createLoginNodes(csrfToken: string): UiNode[] {
       messages: [],
       meta: {
         label: {
-          id: 1070001,
+          id: 1_070_001,
           text: "Password",
           type: "info",
         },
@@ -82,7 +81,7 @@ function createLoginNodes(csrfToken: string): UiNode[] {
       messages: [],
       meta: {
         label: {
-          id: 1010022,
+          id: 1_010_022,
           text: "Sign in with password",
           type: "info",
         },
@@ -94,28 +93,22 @@ function createLoginNodes(csrfToken: string): UiNode[] {
 export function createLoginFlow(origin: string): LoginFlow {
   const id = crypto.randomUUID();
   const csrfToken = createCsrfToken();
-
   const issuedAt = new Date();
   const expiresAt = new Date(issuedAt.getTime() + FLOW_LIFETIME_MS);
-
   const issuedAtIso = issuedAt.toISOString();
   const expiresAtIso = expiresAt.toISOString();
-
   return {
     id,
     organization_id: null,
     type: "browser",
-
     expires_at: expiresAtIso,
     issued_at: issuedAtIso,
     request_url: `${origin}/self-service/login/browser`,
-
     ui: {
       action: `/auth/self-service/login?flow=${encodeURIComponent(id)}`,
       method: "POST",
       nodes: createLoginNodes(csrfToken),
     },
-
     created_at: issuedAtIso,
     updated_at: issuedAtIso,
     refresh: false,
@@ -129,11 +122,7 @@ export function isLoginFlowExpired(flow: LoginFlow): boolean {
 }
 
 export function getFlowCsrfToken(flow: LoginFlow): string | undefined {
-  const node = flow.ui.nodes.find(
-    (item) => item.attributes.name === "csrf_token",
-  );
-
+  const node = flow.ui.nodes.find((item) => item.attributes.name === "csrf_token");
   const value = node?.attributes.value;
-
   return typeof value === "string" ? value : undefined;
 }

@@ -10,7 +10,7 @@ const mockKratosEnabled = process.env.MOCK_KRATOS_ENABLED === "true";
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-   async rewrites() {
+  rewrites() {
     if (!mockKratosEnabled) {
       return [];
     }
@@ -18,9 +18,8 @@ const nextConfig = {
     return [
       {
         source: "/auth/self-service/:path*",
-        destination:
-          "http://127.0.0.1:4010/auth/self-service/:path*"
-      }
+        destination: "http://127.0.0.1:4010/auth/self-service/:path*",
+      },
     ];
   },
   output: "standalone",

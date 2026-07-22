@@ -31,10 +31,7 @@ export type UiNode = {
   };
 };
 
-export type LoginFlowState =
-  | "choose_method"
-  | "sent_email"
-  | "passed_challenge";
+export type LoginFlowState = "choose_method" | "sent_email" | "passed_challenge";
 
 export type LoginFlow = {
   id: string;
@@ -43,14 +40,12 @@ export type LoginFlow = {
   expires_at: string;
   issued_at: string;
   request_url: string;
-
   ui: {
     action: string;
     method: "POST";
     nodes: UiNode[];
     messages?: UiText[];
   };
-
   created_at: string;
   updated_at: string;
   refresh: boolean;

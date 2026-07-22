@@ -12,15 +12,15 @@ import { type ReactNode, useState } from "react";
 export function Providers({ children }: { children: ReactNode }) {
   const [queryClient] = useState(() => new QueryClient());
   return (
-      <QueryClientProvider client={queryClient}>
-        <ThemeProvider
-          attribute="class"
-          value={{ light: "light-mode", dark: "dark-mode" }}
-          defaultTheme="system"
-          enableSystem
-        >
-          <NuqsAdapter>{children}</NuqsAdapter>
-        </ThemeProvider>
-      </QueryClientProvider>
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider
+        attribute="class"
+        value={{ light: "light-mode", dark: "dark-mode" }}
+        defaultTheme="system"
+        enableSystem
+      >
+        <NuqsAdapter>{children}</NuqsAdapter>
+      </ThemeProvider>
+    </QueryClientProvider>
   );
 }
