@@ -74,32 +74,49 @@ shared `ops.` label.
 
 | Tool                       | Hostname                  | Notes                                              |
 |----------------------------|---------------------------|----------------------------------------------------|
-| Coroot (service map/APM)   | `map.ops.<host>`           | served at root (SPA can't run under a path)        |
-| Grafana                    | `o11y.ops.<host>`      | drop `serve_from_sub_path`; served at root         |
-| Argo CD                    | `deploy.ops.<host>`         | replaces port-forward access                       |
-| Temporal Web UI            | `workflows.ops.<host>`     | replaces port-forward access                       |
-| Lowdefy internal admin     | `admin.ops.<host>`        | the sole admin surface; the product frontend has no `/admin` route group |
-| Headlamp (k8s debug UI)    | `k8s.ops.<host>`          | Core, read-only by default ([ADR-0024](0024-kubernetes-debug-ui.md))      |
-| pgweb (DB inspector)       | `db.ops.<host>`           | Core, read-only break-glass ([ADR-0012](0012-internal-admin.md))          |
-| MinIO console              | `s3.ops.<host>`        | **non-prod only** ([ADR-0016](0016-environment-parity.md))         |
+| Coroot (service map/APM)   | `coroot.ops.<host>`           | served at root (SPA can't run under a path)        |
+| Grafana                    | `grafana.ops.<host>`      | drop `serve_from_sub_path`; served at root         |
+| Argo CD                    | `argocd.ops.<host>`         | replaces port-forward access                       |
+| Temporal Web UI            | `temporal.ops.<host>`     | replaces port-forward access                       |
+| Lowdefy internal admin     | `lowdefy.ops.<host>`        | the sole admin surface; the product frontend has no `/admin` route group |
+| Headlamp (k8s debug UI)    | `headlamp.ops.<host>`          | Core, read-only by default ([ADR-0024](0024-kubernetes-debug-ui.md))      |
+| pgweb (DB inspector)       | `pgweb.ops.<host>`           | Core, read-only break-glass ([ADR-0012](0012-internal-admin.md))          |
+| MinIO console              | `minio.ops.<host>`        | **non-prod only** ([ADR-0016](0016-environment-parity.md))         |
 
 Names follow [ADR-0015](0015-naming-and-identifiers.md)'s charset (`^[a-z][a-z0-9-]*$`, hyphen within a segment, never
-underscore). The grammar is `{concept}.{tier}.{env-host}`; the product tier carries **no** tier label (it is the apex).
+underscore). The grammar is `{tool}.{tier}.{env-host}`; the product tier carries **no** tier label (it is the apex).
 
-**Origins are named after the concept, not the tool.** `o11y` (not `grafana`), `map` (not `coroot`), `workflows`
-(not `temporal`), `s3` (not `minio`), `deploy` (not `argo`), `db` (not `pgweb`), `k8s` (not `headlamp`); `admin` names
-the internal-admin concept whatever renders it. The URL is a stable seam — the same discipline as the `Checker` seam
-([ADR-0010](0010-auth.md)) or the Core/Scale storage swap ([ADR-0011](0011-observability.md)): it describes *what the
-operator is there to do*, so swapping the tool behind it (Grafana → another dashboard, pgweb → another inspector) does
-not churn the URL, the cert SANs, the DNS, or anyone's bookmarks. Short, well-known forms (`o11y`, `s3`, `k8s`, `db`)
-are preferred where one exists, matching the numeronym style already used elsewhere.
+**Origins are named after the tool, lowercased — with no exceptions.** `grafana`, `coroot`, `temporal`, `minio`,
+`argocd`, `pgweb`, `headlamp`, `lowdefy`. The rule is one sentence with no judgement calls, which is the point.
+
+This reverses an earlier decision to name origins after the *concept* (`o11y`, `map`, `workflows`, `s3`, `deploy`,
+`db`, `k8s`, `admin`). That rule was adopted on the theory that a concept name is a stable seam which survives swapping
+the tool behind it. **In the only real test this repo has run, it did not hold.** Retiring the Hubble UI in favour of
+Coroot forced `network.ops` → `map.ops` anyway, because the concept changed when the tool did — and `map`
+then began drifting a second time *within the same tool*, as Coroot grew continuous profiling, database monitoring and
+SLOs that no "map" label describes. Concept naming cost two renames and prevented none.
+
+Tool naming also removes a category of argument that has no right answer: whether Coroot is "map" or "apm", whether
+Headlamp is "k8s" or "cluster". And it stops hostnames from staking territorial claims — `o11y.ops` implicitly asserted
+that one tool owned observability, which framed a second, complementary tool as a rival for the name rather than a
+different question-answerer (see [ADR-0025](0025-service-map-apm-ui.md)).
+
+Two costs, accepted deliberately:
+
+- **Legibility.** `pgweb.ops` and `headlamp.ops` are less self-evident to a newcomer than `db.ops` and `k8s.ops`. The
+  table above is where a newcomer looks, and it names the concern next to every host.
+- **The URL now moves when the tool does.** Accepted, because the evidence above says it moved anyway.
+
+The counter-argument that tool names leak the stack to an attacker is real but weak here: the wildcard `*.ops.<host>`
+certificate keeps individual subdomains out of Certificate Transparency logs, and every origin is gated on an AAL2
+operator session plus a per-tool `Checker` call. The `ops.` label already announces that operator tooling exists.
 
 ### Why the `ops.` label is load-bearing, not cosmetic
 
 Cookies are sent to a domain and its **descendants** only, never to siblings or a higher ancestor's other children.
 That single rule forces the nesting:
 
-- If ops tools were flat (`network.<host>`, `o11y.<host>`), the only domain that covers all of them is the common
+- If ops tools were flat (`coroot.<host>`, `grafana.<host>`), the only domain that covers all of them is the common
   parent `<host>` — which **is the product origin**. A cookie shared across flat ops tools would therefore also reach the
   product, re-merging the tiers.
 - Nesting under `ops.<host>` lets the ops session cookie be scoped `Domain=ops.<host>`: it covers every `*.ops.<host>`
@@ -159,7 +176,7 @@ surface, at one of two enforcement points split by **who owns the code**:
             define viewer: [user, group#member]
             define view: viewer
 
-    A request to `o11y.ops.<host>` then also checks `view` on `dashboard:o11y`. For 3–8 operators this fine layer
+    A request to `grafana.ops.<host>` then also checks `view` on `dashboard:grafana`. For 3–8 operators this fine layer
     is typically deferrable, so the `dashboard` resource and its `remote_json` wiring are optional day-one, not required.
 
 The coarse claim gate is the load-bearing one; the fine per-tool layer refines within it when a project needs it. Product
@@ -178,7 +195,7 @@ a claim, for break-glass independence.
 
 - Product: Traefik `Host(\<host>\)` routes (the per-resource `/api/<resource>` IngressRoutes and the frontend catch-all
   already match on `Host`, [ADR-0009](0009-api-gateway.md)).
-- Ops: one `Host(\{concept}.ops.<host>\)` IngressRoute per tool, each behind the ops forward-auth middleware. Host-
+- Ops: one `Host(\{tool}.ops.<host>\)` IngressRoute per tool, each behind the ops forward-auth middleware. Host-
   parameterised so local and deployed envs share the manifests ([ADR-0016](0016-environment-parity.md)).
 
 ### Content & the public developer surface: SEO axis vs trust axis
@@ -304,7 +321,7 @@ scale**. Absent those, the public API is another `<host>/api/<resource>` route, 
   and Hydra-JWT auth, not by its origin. A distinct origin is used only for **hard credential isolation** (which needs a
   *separate registrable domain*, since a `Domain=<host>` cookie reaches `api.<host>`) or **separate edge/CDN
   infrastructure at scale** — never for CORS/WAF, which do not require it.
-- Ops-tier hostnames are `{concept}.ops.<host>`, lowercase, matching `^[a-z][a-z0-9-]*$`
+- Ops-tier hostnames are `{tool}.ops.<host>`, lowercase, matching `^[a-z][a-z0-9-]*$`
   ([ADR-0015](0015-naming-and-identifiers.md)).
 - The default is one session cookie scoped to the parent `<host>`, shared across tiers; tier isolation is enforced by
   per-tool authorization and an **AAL2 (operator MFA)** requirement on the ops tier, not by cookie scope. This is

@@ -1,0 +1,151 @@
+{
+  "title": "Applications",
+  "uid": "applications",
+  "schemaVersion": 39,
+  "tags": ["service", "applications", "overview", "poc"],
+  "description": "POC (ADR-0025): Coroot-style Applications overview. One row per workload in the selected namespace, driven by kubeletstats so EVERY pod is listed — not just the traced ones. CPU, memory and network come from the kubelet; Req/s, Errors/s and p95 latency come from the stable OTel http.server.request.duration histogram and fill in for any service currently serving HTTP traffic (idle HTTP servers show blank RED — the counters have no recent samples, not a missing-instrumentation gap). Click a workload to open its detail page.",
+  "templating": {
+    "list": [
+      {
+        "name": "namespace",
+        "label": "Namespace",
+        "type": "query",
+        "datasource": "Prometheus",
+        "query": "label_values(k8s_pod_cpu_usage, service_namespace)",
+        "includeAll": true,
+        "allValue": ".*",
+        "current": { "text": "platform", "value": "platform" }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "table",
+      "title": "Workloads — click a name to open its detail page",
+      "datasource": "Prometheus",
+      "gridPos": { "h": 24, "w": 24, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "instant": true,
+          "range": false,
+          "expr": "sum by (service_name) (k8s_pod_cpu_usage{service_namespace=~\"$namespace\"})"
+        },
+        {
+          "refId": "B",
+          "format": "table",
+          "instant": true,
+          "range": false,
+          "expr": "sum by (service_name) (k8s_pod_memory_working_set_bytes{service_namespace=~\"$namespace\"})"
+        },
+        {
+          "refId": "C",
+          "format": "table",
+          "instant": true,
+          "range": false,
+          "expr": "sum by (service_name) (rate(k8s_pod_network_io_bytes_total{service_namespace=~\"$namespace\"}[$__range]))"
+        },
+        {
+          "refId": "D",
+          "format": "table",
+          "instant": true,
+          "range": false,
+          "expr": "sum by (service_name) (rate(http_server_request_duration_seconds_count{service_namespace=~\"$namespace\"}[$__range]))"
+        },
+        {
+          "refId": "E",
+          "format": "table",
+          "instant": true,
+          "range": false,
+          "expr": "sum by (service_name) (rate(http_server_request_duration_seconds_count{service_namespace=~\"$namespace\",http_response_status_code=~\"5..\"}[$__range]))"
+        },
+        {
+          "refId": "F",
+          "format": "table",
+          "instant": true,
+          "range": false,
+          "expr": "histogram_quantile(0.95, sum by (service_name, le) (rate(http_server_request_duration_seconds_bucket{service_namespace=~\"$namespace\"}[$__range])))"
+        }
+      ],
+      "transformations": [
+        { "id": "joinByField", "options": { "byField": "service_name", "mode": "outer" } },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "Time 1": true,
+              "Time 2": true,
+              "Time 3": true,
+              "Time 4": true,
+              "Time 5": true,
+              "Time 6": true
+            },
+            "renameByName": {
+              "service_name": "Workload",
+              "Value #A": "CPU (cores)",
+              "Value #B": "Memory",
+              "Value #C": "Net I/O",
+              "Value #D": "Req/s",
+              "Value #E": "Errors/s",
+              "Value #F": "p95 latency"
+            }
+          }
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "sortBy": [{ "displayName": "Workload", "desc": false }]
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Workload" },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Open service detail",
+                    "url": "/d/service-detail/service-detail?var-service=${__data.fields.Workload}&${__url_time_range}"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "CPU (cores)" },
+            "properties": [{ "id": "unit", "value": "none" }, { "id": "decimals", "value": 3 }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Memory" },
+            "properties": [{ "id": "unit", "value": "bytes" }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Net I/O" },
+            "properties": [{ "id": "unit", "value": "Bps" }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Req/s" },
+            "properties": [{ "id": "unit", "value": "reqps" }, { "id": "decimals", "value": 2 }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Errors/s" },
+            "properties": [
+              { "id": "unit", "value": "reqps" },
+              { "id": "decimals", "value": 2 },
+              { "id": "custom.cellOptions", "value": { "type": "color-text" } },
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "p95 latency" },
+            "properties": [{ "id": "unit", "value": "s" }, { "id": "decimals", "value": 3 }]
+          }
+        ]
+      }
+    }
+  ]
+}

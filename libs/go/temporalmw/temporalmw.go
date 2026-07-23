@@ -6,12 +6,14 @@ package temporalmw
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"time"
 
 	"go.temporal.io/sdk/client"
 	temporaloteltracer "go.temporal.io/sdk/contrib/opentelemetry"
 	"go.temporal.io/sdk/interceptor"
+	tlog "go.temporal.io/sdk/log"
 	"go.temporal.io/sdk/worker"
 
 	"github.com/tabmadi/microservices-monorepo-template/libs/go/observability"
@@ -46,6 +48,13 @@ func NewClient(serviceName string) (client.Client, error) {
 		Namespace:    Namespace(),
 		Identity:     serviceName,
 		Interceptors: []interceptor.ClientInterceptor{tracingInterceptor},
+		// Route the SDK's own logs through slog.Default(), which observability.Init
+		// has already pointed at the OTLP log pipeline (→ Loki). The default Temporal
+		// logger writes to the stdlib log package (stdout only), so without this a
+		// worker's lines — "Started Worker", task failures, panics — never reach Loki
+		// and the service looks logless there. Callers run obs.Init before NewClient,
+		// so slog.Default() is the OTLP fan-out by the time we dial.
+		Logger: tlog.NewStructuredLogger(slog.Default()),
 	}
 	// Bounded startup retry: on a cold cluster the frontend may not be reachable
 	// yet. Retry instead of returning on the first miss (the caller panics on

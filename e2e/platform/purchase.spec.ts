@@ -2,7 +2,7 @@
 // gauge no single-service test covers: two humans, two apps, the checkout saga and
 // the observability plane, all exercised in one path.
 //
-//   1. an OPERATOR adds a product in the Lowdefy admin console (admin.ops);
+//   1. an OPERATOR adds a product in the Lowdefy admin console (lowdefy.ops);
 //   2. a fresh SHOPPER self-service registers on the storefront and logs in;
 //   3. the shopper checks out that product on /panel/checkout — POST /orders starts
 //      the Checkout saga (catalog lookup → payment charge → confirm, ADR-0006) and
@@ -83,7 +83,7 @@ test.describe("full purchase scenario", () => {
     test.use({ storageState: OPERATOR_STATE });
 
     test("via the admin console add-product page", async ({ page }) => {
-      await page.goto(`${opsURL("admin")}/products_new`);
+      await page.goto(`${opsURL("lowdefy")}/products_new`);
       await page.getByLabel(/^name$/i).fill(PRODUCT_NAME);
       await page.getByLabel(/price/i).fill("4200");
       await page.getByRole("button", { name: "Create", exact: true }).click();

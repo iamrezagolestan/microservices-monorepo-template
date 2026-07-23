@@ -147,7 +147,7 @@ test.describe("self-service registration", () => {
     // Clean it up through the console: not just tidiness — the changelist grid
     // paginates at 20 rows client-side (orgs.yaml), so a leftover row per run would
     // eventually push new orgs off the first page.
-    await page.goto(`${opsURL("admin")}/orgs_edit?id=${orgId}`);
+    await page.goto(`${opsURL("lowdefy")}/orgs_edit?id=${orgId}`);
     const del = page.getByRole("button", { name: "Delete", exact: true });
     await expect(del).toBeVisible({ timeout: 15_000 });
     await del.click();
