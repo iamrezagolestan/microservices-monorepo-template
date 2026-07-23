@@ -30,7 +30,6 @@ app.notFound((c) =>
 
 app.onError((error, c) => {
   process.stderr.write(`${error.stack ?? error.message}\n`);
-
   return c.json(
     {
       error: {
@@ -41,11 +40,8 @@ app.onError((error, c) => {
     500,
   );
 });
-
 const port = Number(process.env.MOCK_KRATOS_PORT ?? 4010);
-
 process.stdout.write(`Mock Kratos is running at http://localhost:${port}\n`);
-
 serve({
   port,
   fetch: app.fetch,
