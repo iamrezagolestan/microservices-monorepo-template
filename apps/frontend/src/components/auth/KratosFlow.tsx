@@ -12,7 +12,7 @@ import type { HTMLAttributeReferrerPolicy, ReactNode } from "react";
 import { useCallback, useEffect } from "react";
 import { Input } from "@/components/base/input/input";
 
-export type FlowKind = "login" | "registration" | "recovery" | "verification" | "settings";
+export type FlowKind = "login" | "register" | "recovery" | "verification" | "settings";
 
 export type FlowStrings = {
   title: string;

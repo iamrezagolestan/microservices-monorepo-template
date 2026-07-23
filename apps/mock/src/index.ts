@@ -2,6 +2,7 @@ import { serve } from "bun";
 import { Hono } from "hono";
 import { loginRoutes } from "./login-routes";
 import { clearMockState } from "./store";
+import { registrationRoutes } from "./registration-routes";
 
 const app = new Hono();
 app.get("/health", (c) =>
@@ -11,6 +12,11 @@ app.get("/health", (c) =>
   }),
 );
 app.route("/auth/self-service/login", loginRoutes);
+app.route(
+  "/auth/self-service/register",
+  registrationRoutes,
+);
+
 app.post("/__mock/reset", (c) => {
   clearMockState();
   return c.body(null, 204);

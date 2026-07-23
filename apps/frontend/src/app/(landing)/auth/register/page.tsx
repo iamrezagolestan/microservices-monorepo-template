@@ -8,7 +8,7 @@ import { landing } from "@/strings/landing";
 export default function RegisterPage() {
   return (
     <KratosFlow
-      kind="registration"
+      kind="register"
       strings={landing.register}
       footer={
         <Link href="/auth/login" className="mt-4 block text-sm text-brand-600 hover:underline">

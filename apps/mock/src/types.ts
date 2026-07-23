@@ -13,9 +13,11 @@ export type UiText = {
   context?: UiTextContext;
 };
 
+export type RegistrationStep = "profile" | "password" | "default";
+
 export type UiNode = {
   type: "input";
-  group: "default" | "password";
+  group: RegistrationStep
   attributes: {
     name: string;
     type: string;
@@ -62,4 +64,41 @@ export type MockSession = {
     };
   };
   authenticated_at: string;
+};
+// register types 
+export type RegistrationFlowState = "choose_method";
+
+export type RegistrationTraits = {
+  email: string;
+  name: string;
+  operator?: string;
+};
+
+export type RegistrationFlow = {
+  id: string;
+  organization_id: null;
+  type: "browser";
+  expires_at: string;
+  issued_at: string;
+  request_url: string;
+  state: RegistrationFlowState;
+  ui: {
+    action: string;
+    method: "POST";
+    nodes: UiNode[];
+    messages?: UiText[];
+  };
+};
+
+export type StoredRegistrationFlow = {
+  flow: RegistrationFlow;
+  step: RegistrationStep;
+};
+
+export type MockIdentity = {
+  id: string;
+  traits: RegistrationTraits;
+  password: string;
+  created_at: string;
+  updated_at: string;
 };
