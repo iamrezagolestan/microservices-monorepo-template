@@ -30,7 +30,7 @@ The "zero work per service" requirement is load-bearing. It is the difference be
 
 ### Signals: all four instrumented on day one
 
-Logs, metrics, traces, and continuous profiles. Every service is *instrumented* for all four from creation — partial instrumentation leads to per-team tribal knowledge ("we have metrics here, traces there"), which the per-service-cost principle cannot afford. Three signals (logs, metrics, traces) ship a backend by default; the fourth (profiles) keeps its instrumentation latent and deploys its backend per-project (see *Continuous profiling*). The contract a service codes against is identical either way.
+Logs, metrics, traces, and continuous profiles. Every service is *instrumented* for all four from creation — partial instrumentation leads to per-team tribal knowledge ("we have metrics here, traces there"), which the per-service-cost principle cannot afford. Three signals (logs, metrics, traces) ship a Grafana-stack backend; the fourth (profiles) is served by Coroot's eBPF agent (see *Continuous profiling*). The contract a service codes against is identical either way.
 
 ### Instrumentation: OpenTelemetry via shared libraries
 
@@ -50,7 +50,7 @@ func main() {
 1. Reads `OTEL_*` env vars (endpoint, sampling, resource attributes). No service-specific flags.
 2. Configures global OTel `TracerProvider`, `MeterProvider`, `LoggerProvider` with OTLP exporters pointing at the local OTel Collector (`localhost:4317`).
 3. Configures `slog` as the default logger with an OTel-aware handler that **automatically attaches `trace_id` and `span_id` from `context.Context`**.
-4. Registers `pprof` HTTP endpoints on the admin port; the Pyroscope agent scrapes them when profiling is enabled (see *Continuous profiling*).
+4. Registers `pprof` HTTP endpoints on the admin port, so any profiler — or a human with `go tool pprof` — can reach a live process (see *Continuous profiling*).
 5. Serves the two Kubernetes health endpoints on the admin port: `/livez` (liveness — shallow, always 200 while the process runs) and `/readyz` (readiness — deep, 200 only if every registered dependency check passes). Liveness never consults dependencies, so a dependency blip parks the pod out of Service rotation via `/readyz` **without** triggering a restart. The shared dependency wiring self-registers its checks (`dbmw.MustOpen` → `postgres`, `temporalmw.NewClient` → `temporal`), so each service gets exactly the checks for the dependencies it opens, with no per-service code. Servers probe both; workers (no inbound traffic) probe liveness only.
 6. Returns a shutdown function that flushes all signals.
 
@@ -103,9 +103,11 @@ Head sampling (errors at 100%, healthy traces at a low rate) runs on the agent. 
 
 ### Continuous profiling: latent by default
 
-`obs.Init` registers the `pprof` HTTP endpoints on the admin port (see above) — every Go service is profileable on day one at zero cost. **No profile-storage backend (Pyroscope) and no eBPF node profiler are deployed by default.** Profiling is the least-reached-for of the four signals and the only one needing a privileged node-level agent (with kernel-version sensitivities).
+`obs.Init` registers the `pprof` HTTP endpoints on the admin port (see above) — every Go service is profileable on day one at zero cost.
 
-A project chasing a real CPU or allocation problem sets `profiling: on`, which deploys Pyroscope storage and its pprof-scraping agent (labels include `trace_id`, so a slow trace links to the profile captured during it); the eBPF whole-node profiler ([ADR-0001](0001-language-and-runtime.md) escape-hatch services) is a further opt-in within that. Retention when enabled: 14 days.
+**Continuous profiling is covered by Coroot ([ADR-0025](0025-service-map-apm-ui.md)), not by a separate stack.** Coroot's node-agent already runs on every node for the service map, and its eBPF profiler is part of that same agent — so continuous profiling arrives with zero extra deployment, zero instrumentation, and no second storage backend. Profiles are viewed at `coroot.ops.<host>` alongside the map that led you there.
+
+This supersedes the earlier `profiling` flag, which would have deployed **Pyroscope** storage plus a pprof-scraping agent. That flag is withdrawn: a second profiling stack will not be built when a deployed agent already provides the signal. A project with a specific need Pyroscope serves and Coroot does not — chiefly `trace_id`-labelled pprof profiles linked from a slow trace in Tempo, which Coroot does not correlate — should raise an ADR rather than silently re-adding it.
 
 ### Conventions
 
@@ -137,7 +139,7 @@ Observability runs in the **full-platform tier** ([ADR-0016](0016-environment-pa
 
 Service code is unchanged between local and prod. The same `obs.Init` call works against the full-tier collector and the production stack; with neither running, the OTLP exporter simply has no collector to reach (`OTEL_SDK_DISABLED=true` in the inner-loop service values).
 
-Reach the local stack through the edge (`o11y.ops.<host>`, behind the operator session — [ADR-0017](0017-url-and-domain-structure.md)) or, for raw access while iterating, `mise run dev:forward` port-forwards Grafana (`:3001`) and the Faro ingest (`:12347`) when the observability stack is up.
+Reach the local stack through the edge (`grafana.ops.<host>`, behind the operator session — [ADR-0017](0017-url-and-domain-structure.md)) or, for raw access while iterating, `mise run dev:forward` port-forwards Grafana (`:3001`) and the Faro ingest (`:12347`) when the observability stack is up.
 
 **Browser RUM (Faro) locally.** The frontend's Faro agent ([ADR-0014](0014-frontend.md)) POSTs beacons to the same-origin path `/api/rum`. In the cluster, Traefik forwards `/api/rum` to the Collector's `faro` receiver; but `next dev` runs on the host with no edge in front of it, so a dev-only Next route handler stands in (`apps/frontend/src/app/api/rum/route.ts`). With `FARO_COLLECT_URL=http://localhost:12347/collect` set (and `dev:forward` forwarding the full-tier Collector's `faro` receiver) it forwards beacons to it; with `FARO_COLLECT_URL` unset it silently returns `204` so the dev console isn't spammed with 404s. The handler 404s in production, matching the fact that Traefik — not the frontend pod — owns this path in the cluster.
 
@@ -162,7 +164,7 @@ Reach the local stack through the edge (`o11y.ops.<host>`, behind the operator s
 
 - `libs/go/observability/` (`Init`, helpers, redaction).
 - `libs/go/{httpmw,dbmw,temporalmw,authmw}/` instrumentation (shared with earlier ADRs).
-- `infra/helm/platform/observability/` Loki + Tempo (monolithic mode), Prometheus, Grafana, and a single-tier OTel Collector DaemonSet. Mimir (metrics Scale swap), Pyroscope + eBPF profiler, and the OTel Collector gateway tier are per-project add-ons (`profiling` / tail-sampling flags / Scale seam), not in the default release.
+- `infra/helm/platform/observability/` Loki + Tempo (monolithic mode), Prometheus, Grafana, and a single-tier OTel Collector DaemonSet. Mimir (metrics Scale swap) and the OTel Collector gateway tier are per-project add-ons (tail-sampling flag / Scale seam), not in the default release. Continuous profiling is Coroot's ([ADR-0025](0025-service-map-apm-ui.md)); the former `profiling`/Pyroscope flag is withdrawn.
 - `services/_template/` with default dashboard and alert YAMLs.
 - `infra/observability/dashboards/_base.json` and `infra/observability/alerts/_base.yaml` shared baselines.
 - Browser-beacon ingest: the `faro` receiver on the OTel Collector (`infra/helm/platform/observability/values.yaml`) + the `infra/gateway/frontend-observability.yaml` Traefik route ([ADR-0014](0014-frontend.md)); locally the same chart runs in the full tier (`cluster:full`).
@@ -180,5 +182,5 @@ Reach the local stack through the edge (`o11y.ops.<host>`, behind the operator s
 - PII is never written to logs, metrics, traces, or profiles. Use `libs/go/observability/redact/` for identifiers.
 - Sampling is configured centrally in the OTel Collector. Service authors do not set sampling rates. Tail sampling requires the gateway tier, which is a per-project add-on, not the default.
 - Dashboards live as JSON files under `infra/observability/dashboards/`. Alerts live as YAML under `infra/observability/alerts/`. UI-only edits are not allowed; changes are PRs.
-- The observability backend is the Grafana stack (Loki + Tempo in monolithic mode, Prometheus, Grafana) plus a single-tier OTel Collector, deployed from `infra/helm/platform/observability/`. Mimir (metrics Scale swap), profile storage (Pyroscope), and the collector gateway tier are per-project flags. Alternate backends require an ADR.
+- The observability backend is the Grafana stack (Loki + Tempo in monolithic mode, Prometheus, Grafana) plus a single-tier OTel Collector, deployed from `infra/helm/platform/observability/`. Mimir (metrics Scale swap) and the collector gateway tier are per-project flags. Continuous profiling is Coroot's ([ADR-0025](0025-service-map-apm-ui.md)), not a Pyroscope deployment. Alternate backends require an ADR.
 - Long-term log and trace data lives in the off-cluster bucket from [ADR-0003](0003-cluster-topology.md); local PVCs hold hot cache only. Metrics live in Prometheus's local TSDB until a project takes the Mimir Scale swap.

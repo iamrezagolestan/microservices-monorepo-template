@@ -48,18 +48,15 @@ deploy_ready platform temporal-web
 deploy_ready platform lowdefy
 deploy_ready platform headlamp
 deploy_ready platform pgweb
-# Hubble relay (flow engine) stays; the standalone Hubble UI is retired (ADR-0025).
-# Coroot (the replacement) deploys last into its own namespace and is slow to go
-# Healthy (ClickHouse), so it is not a hard preflight gate — the map.ops edge gate
-# below proves the route + auth, and the coroot e2e spec waits for the backend.
 deploy_ready kube-system hubble-relay
-# Ops origins are the ADR-0017 concept slugs, not the tool names.
-edge_gates o11y
-edge_gates workflows
-edge_gates map
-edge_gates admin
-edge_gates k8s
-edge_gates db
+deploy_ready kube-system hubble-ui
+# Ops origins are named after the tool (ADR-0017), matching dashboard:<tool> one-for-one.
+edge_gates grafana
+edge_gates temporal
+edge_gates hubble
+edge_gates lowdefy
+edge_gates headlamp
+edge_gates pgweb
 
 if [ "$failed" -gt 0 ]; then
   printf '\npreflight: %d check(s) failed — cluster:full is not ready (infra down, not app broken)\n' "$failed" >&2

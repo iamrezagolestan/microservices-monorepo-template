@@ -15,8 +15,8 @@ data:
       scrape_interval: 30s
     # OTLP metrics arrive from the OTel collector (--web.enable-otlp-receiver).
     # Escape OTel dotted names to the classic Prometheus form (dots→underscores) +
-    # unit/type suffixes: `http.server.duration` (seconds) becomes
-    # http_server_duration_seconds_bucket, `orders.checkouts_started` becomes
+    # unit/type suffixes: `http.server.request.duration` (seconds) becomes
+    # http_server_request_duration_seconds_bucket, `orders.checkouts_started` becomes
     # orders_checkouts_started_total. This is the conventional Prometheus naming every
     # dashboard/PromQL example assumes — the alternative (NoUTF8Escaping, dotted
     # names) forces awkward `{"a.b.c"}` quoting on every query and is what left the
@@ -24,6 +24,10 @@ data:
     # series, so promote service.name/namespace to labels dashboards can group by.
     otlp:
       translation_strategy: UnderscoreEscapingWithSuffixes
+      # Resource attributes are otherwise dropped from series. Promote service.name/
+      # namespace so dashboards can group by service — this is the label the RED, log,
+      # trace AND kubeletstats CPU/memory series (ADR-0025 POC) all share, since
+      # k8sattributes derives service.name from each pod's app.kubernetes.io/name.
       promote_resource_attributes: ["service.name", "service.namespace"]
     # OTLP pushes can land slightly out of order across collector batches.
     storage:
