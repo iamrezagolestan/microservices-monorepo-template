@@ -19,7 +19,7 @@
     {
       "type": "timeseries",
       "title": "Dropped flows by reason",
-      "description": "Cilium policy verdicts. Coroot cannot show these: it observes connections that succeeded or failed, never 'denied by policy'. POLICY_DENIED here means a NetworkPolicy is blocking a flow someone expected to work.",
+      "description": "Cilium policy verdicts, kept for history and alerting (Hubble UI shows live drops interactively but keeps no history). POLICY_DENIED here means a NetworkPolicy is blocking a flow someone expected to work.",
       "datasource": "Prometheus",
       "gridPos": { "h": 10, "w": 24, "x": 0, "y": 0 },
       "fieldConfig": { "defaults": { "unit": "pps" } },

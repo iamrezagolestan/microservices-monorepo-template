@@ -15,8 +15,8 @@ data:
       scrape_interval: 30s
     # OTLP metrics arrive from the OTel collector (--web.enable-otlp-receiver).
     # Escape OTel dotted names to the classic Prometheus form (dots→underscores) +
-    # unit/type suffixes: `http.server.duration` (seconds) becomes
-    # http_server_duration_seconds_bucket, `orders.checkouts_started` becomes
+    # unit/type suffixes: `http.server.request.duration` (seconds) becomes
+    # http_server_request_duration_seconds_bucket, `orders.checkouts_started` becomes
     # orders_checkouts_started_total. This is the conventional Prometheus naming every
     # dashboard/PromQL example assumes — the alternative (NoUTF8Escaping, dotted
     # names) forces awkward `{"a.b.c"}` quoting on every query and is what left the
@@ -57,11 +57,6 @@ spec:
             - --storage.tsdb.path=/data
             - --storage.tsdb.retention.time={{ $p.retention }}
             - --web.enable-otlp-receiver
-            # Tempo's metrics-generator remote_writes the service-graph series
-            # (traces_service_graph_*) that feed Grafana's Node Graph service map
-            # (ADR-0025 POC). remote_write is a distinct endpoint (/api/v1/write)
-            # from the OTLP receiver above, so it needs its own flag.
-            - --web.enable-remote-write-receiver
             - --web.listen-address=0.0.0.0:{{ $p.httpPort }}
           ports:
             - { name: http, containerPort: {{ $p.httpPort }} }

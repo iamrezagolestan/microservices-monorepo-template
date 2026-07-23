@@ -6,9 +6,9 @@
   "description": "POC (see docs): the 'click a service, see everything' unified page. One templated dashboard scoped by $service, mixing Prometheus + Loki + Tempo + Pyroscope on one screen: SLO (availability + latency + error budget), RED, CPU/Memory (kubeletstats), Logs, Traces, and a CPU flame graph (Alloy → Pyroscope). All six signal groups are wired on the full-tier stack.",
   "links": [
     {
-      "title": "◀ Back to service map",
+      "title": "◀ Back to Applications",
       "type": "link",
-      "url": "/d/service-map/service-map?${__url_time_range}",
+      "url": "/d/applications/applications?${__url_time_range}",
       "icon": "external link"
     }
   ],

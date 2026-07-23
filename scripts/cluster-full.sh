@@ -177,7 +177,7 @@ cat <<EOF
   Product (Traefik):  https://${DOMAIN}:8443/api/<resource>/   (flat namespace, self-signed TLS)
   Ops tier (ADR-0017; coarse gate = operator claim + AAL2, no OpenFGA call):
     Grafana:          https://grafana.ops.${DOMAIN}:8443/
-    Coroot (map/APM): https://coroot.ops.${DOMAIN}:8443/   (eBPF service map; may lag — deploys last)
+    Hubble UI (map):  https://hubble.ops.${DOMAIN}:8443/
     Temporal UI:      https://temporal.ops.${DOMAIN}:8443/
     MinIO console:    https://minio.ops.${DOMAIN}:8443/  (login: minio / minio-password)
     Lowdefy console:  https://lowdefy.ops.${DOMAIN}:8443/
