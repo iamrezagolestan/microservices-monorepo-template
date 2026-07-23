@@ -22,7 +22,7 @@ func (*AuthorizeOK) authorizeRes() {}
 type AuthorizeRequest struct {
 	// Kratos identity id; empty for anonymous.
 	Subject string `json:"subject"`
-	// Ops dashboard slug such as grafana or coroot.
+	// Ops dashboard slug such as grafana or hubble.
 	Tool string `json:"tool"`
 	// Authenticator_assurance_level from the session.
 	Aal string `json:"aal"`

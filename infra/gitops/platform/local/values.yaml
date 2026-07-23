@@ -69,7 +69,7 @@ kratos:
                 id: dev.localtest.me
                 display_name: Platform (local)
                 origins: ["https://dev.localtest.me:8443"]
-      # Share the session cookie with subdomains (coroot.ops.dev.localtest.me is
+      # Share the session cookie with subdomains (hubble.ops.dev.localtest.me is
       # served at its own origin); overrides the chart's dev.example.com default.
       session:
         cookie:

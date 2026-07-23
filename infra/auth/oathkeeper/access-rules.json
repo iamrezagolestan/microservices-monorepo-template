@@ -16,10 +16,10 @@
     "errors": [{ "handler": "redirect" }]
   },
   {
-    "id": "ops-coroot",
-    "match": { "url": "<{http,https}>://coroot.ops.<**>/<**>", "methods": ["GET", "POST", "PUT", "PATCH", "DELETE"] },
+    "id": "ops-hubble",
+    "match": { "url": "<{http,https}>://hubble.ops.<**>/<**>", "methods": ["GET", "POST", "PUT", "PATCH", "DELETE"] },
     "authenticators": [{ "handler": "cookie_session" }],
-    "authorizer": { "handler": "remote_json", "config": { "remote": "http://authz-server.platform.svc.cluster.local/authorize", "payload": "{\"subject\":\"{{ print .Subject }}\",\"tool\":\"coroot\",\"aal\":\"{{ print .Extra.authenticator_assurance_level }}\",\"operator\":\"{{ print .Extra.identity.traits.operator }}\"}" } },
+    "authorizer": { "handler": "remote_json", "config": { "remote": "http://authz-server.platform.svc.cluster.local/authorize", "payload": "{\"subject\":\"{{ print .Subject }}\",\"tool\":\"hubble\",\"aal\":\"{{ print .Extra.authenticator_assurance_level }}\",\"operator\":\"{{ print .Extra.identity.traits.operator }}\"}" } },
     "mutators": [{ "handler": "noop" }],
     "errors": [{ "handler": "redirect" }]
   },

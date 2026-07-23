@@ -15,7 +15,7 @@ const (
 	subjectAlice = "alice"
 	subjectBob   = "bob"
 	toolGrafana  = "grafana"
-	toolCoroot   = "coroot"
+	toolHubble   = "hubble"
 
 	traitEmail    = "email"
 	traitName     = "name"
@@ -74,7 +74,7 @@ func TestCoarseClaimGate(t *testing.T) {
 		want int
 	}{
 		{"operator + aal2", req(subjectAlice, toolGrafana, aalLevel2, operatorTraitTrue), 200},
-		{"operator + aal2, any tool", req(subjectAlice, toolCoroot, aalLevel2, operatorTraitTrue), 200},
+		{"operator + aal2, any tool", req(subjectAlice, toolHubble, aalLevel2, operatorTraitTrue), 200},
 		{"operator but aal1", req(subjectAlice, toolGrafana, "aal1", operatorTraitTrue), 403},
 		{"aal2 but not operator", req(subjectBob, toolGrafana, aalLevel2, "false"), 403},
 		{"operator trait empty", req(subjectBob, toolGrafana, aalLevel2, ""), 403},
@@ -108,7 +108,7 @@ func TestFineGrainedGate(t *testing.T) {
 	if granted != 200 {
 		t.Fatalf("granted tool status = %d, want 200", granted)
 	}
-	ungranted := decideStatus(t, h, req(subjectAlice, toolCoroot, aalLevel2, operatorTraitTrue))
+	ungranted := decideStatus(t, h, req(subjectAlice, toolHubble, aalLevel2, operatorTraitTrue))
 	if ungranted != 403 {
 		t.Fatalf("ungranted tool status = %d, want 403", ungranted)
 	}

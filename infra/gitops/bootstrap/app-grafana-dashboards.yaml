@@ -6,7 +6,7 @@
 # reached the cluster — this closes that gap. Picked up by the root app-of-apps,
 # which recurses infra/gitops/bootstrap.
 #
-# Env-agnostic (the same JSON in every env), like the shared gateway/coroot apps,
+# Env-agnostic (the same JSON in every env), like the shared gateway app,
 # so it has no single-env AppProject and stays in `default`.
 #
 # Sync-wave 2 (the data-tier slot): the ConfigMap must exist BEFORE the core tier

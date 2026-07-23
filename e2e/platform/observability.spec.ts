@@ -48,10 +48,10 @@ test.describe("grafana datasources", () => {
   }
 });
 
-// Network-policy denials (ADR-0011, ADR-0025). This is the one signal Coroot
-// structurally cannot provide — it sees connections that succeeded or failed, never
-// a Cilium policy verdict — so it is Grafana's alone, and worth its own guard given
-// how often silent netpol drops have broken this repo.
+// Network-policy denials (ADR-0011, ADR-0025). Hubble UI shows live drops
+// interactively; the metric + dashboard cover what it can't — history and the
+// PolicyDropsDetected alert — and are worth their own guard given how often
+// silent netpol drops have broken this repo.
 //
 // Two failure modes are covered, and they are different:
 //  - the `hubble-drops` dashboard missing means Grafana's dashboard PROVIDER is
@@ -76,7 +76,7 @@ test.describe("network policy denials", () => {
     expect(res.ok(), "Grafana search API answers").toBeTruthy();
     const uids = ((await res.json()) as { uid: string }[]).map((d) => d.uid);
     expect(uids, "committed dashboards are registered with Grafana").toEqual(
-      expect.arrayContaining(["hubble-drops", "service-red"]),
+      expect.arrayContaining(["hubble-drops"]),
     );
   });
 
@@ -106,6 +106,71 @@ test.describe("network policy denials", () => {
     expect(frames.length, "hubble_drop_total has series (metrics enabled + scraped)").toBeGreaterThan(
       0,
     );
+  });
+});
+
+// Unified service observability (ADR-0025 POC). The service-detail page mixes six
+// signal groups on one screen (SLO/RED, CPU/Memory, Logs, Traces, Profiling) and two
+// service maps (trace-based + eBPF). These guards cover the prerequisites that
+// helm-template/render checks cannot: the dashboards are registered with Grafana, the
+// Pyroscope datasource answers, and each metric family a panel reads actually exists
+// in Prometheus. The RED check also pins us to the STABLE otelhttp histogram — the
+// hand-rolled, mis-bucketed httpmw metric was removed (ADR-0011), and le="0.5" being
+// a real 500ms bucket is what proves we are on the correct one.
+test.describe("service observability POC (ADR-0025)", () => {
+  let ctx: APIRequestContext;
+  let promUid: string;
+
+  test.beforeAll(async () => {
+    ctx = await request.newContext({ ignoreHTTPSErrors: true, storageState: OPERATOR_STATE });
+    const ds = await ctx.get(`${opsURL("grafana")}/api/datasources/name/Prometheus`);
+    promUid = (await ds.json()).uid;
+  });
+  test.afterAll(async () => {
+    await ctx?.dispose();
+  });
+
+  // Runs an instant PromQL query through Grafana's datasource proxy and reports
+  // whether any series came back (frames are empty when nothing matches).
+  async function promHasSeries(expr: string): Promise<boolean> {
+    const res = await ctx.post(`${opsURL("grafana")}/api/ds/query`, {
+      data: {
+        from: "now-24h",
+        to: "now",
+        queries: [{ refId: "A", datasource: { type: "prometheus", uid: promUid }, expr, instant: true }],
+      },
+    });
+    if (!res.ok()) {
+      return false;
+    }
+    return (((await res.json()).results?.A?.frames ?? []) as unknown[]).length > 0;
+  }
+
+  test("every POC dashboard is registered with Grafana", async () => {
+    const res = await ctx.get(`${opsURL("grafana")}/api/search?type=dash-db`);
+    expect(res.ok(), "Grafana search API answers").toBeTruthy();
+    const uids = ((await res.json()) as { uid: string }[]).map((d) => d.uid);
+    expect(uids, "detail + applications dashboards are provisioned").toEqual(
+      expect.arrayContaining(["service-detail", "applications"]),
+    );
+  });
+
+  test("Pyroscope datasource is provisioned and healthy", async () => {
+    const ds = await ctx.get(`${opsURL("grafana")}/api/datasources/name/Pyroscope`);
+    expect(ds.ok(), "Pyroscope datasource is provisioned").toBeTruthy();
+    const { uid } = await ds.json();
+    const health = await ctx.get(`${opsURL("grafana")}/api/datasources/uid/${uid}/health`);
+    expect(health.ok(), "Pyroscope health endpoint reachable").toBeTruthy();
+    expect((await health.json()).status, "Pyroscope answers from Grafana").toBe("OK");
+  });
+
+  test("kubeletstats CPU/memory series exist (resource panels)", async () => {
+    expect(await promHasSeries('k8s_pod_cpu_usage{service_namespace="platform"}')).toBeTruthy();
+    expect(await promHasSeries('k8s_pod_memory_working_set_bytes{service_namespace="platform"}')).toBeTruthy();
+  });
+
+  test("RED reads the stable otelhttp histogram (real 500ms bucket)", async () => {
+    expect(await promHasSeries('http_server_request_duration_seconds_bucket{le="0.5"}')).toBeTruthy();
   });
 });
 
@@ -191,11 +256,13 @@ test.describe("end-to-end signal correlation", () => {
 
     // PROMETHEUS: the domain + RED counters moved. Prometheus escapes OTLP dotted
     // names to the classic underscore form (UnderscoreEscapingWithSuffixes), so the
-    // stored series are orders_checkouts_started_total / http_server_requests_total.
+    // stored series are orders_checkouts_started_total and — for RED — the stable
+    // otelhttp histogram's http_server_request_duration_seconds_count (httpmw's
+    // hand-rolled http.server.requests counter was removed, ADR-0011).
     await expect
       .poll(async () => await promSeriesCount("orders_checkouts_started_total"), { timeout: 60_000 })
       .toBeGreaterThan(0);
-    expect(await promSeriesCount("http_server_requests_total")).toBeGreaterThan(0);
+    expect(await promSeriesCount("http_server_request_duration_seconds_count")).toBeGreaterThan(0);
     expect(await promSeriesCount("catalog_products_created_total")).toBeGreaterThan(0);
   });
 });

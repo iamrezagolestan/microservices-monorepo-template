@@ -89,20 +89,6 @@ fi
 
 kubectl config use-context "k3d-${CLUSTER}"
 
-# Coroot's eBPF node-agent (infra/helm/platform/coroot, ADR-0025) attaches kernel
-# tracepoints, which require tracefs/debugfs mounted on the node. A k3d "node" is a
-# container that ships neither, so without this the agent CrashLoops with
-# "neither debugfs nor tracefs are mounted". Re-applied on every ensure because a
-# stop/start recreates the node's mount namespace. Real k3s nodes (prod, ansible)
-# already mount these, so this is strictly a local-k3d shim. Guarded (not swallowed):
-# mount only when absent.
-for node in $(docker ps --filter "label=k3d.cluster=${CLUSTER}" --filter "label=k3d.role=server" --format '{{.Names}}'); do
-  docker exec "$node" sh -c '
-    grep -qw /sys/kernel/tracing /proc/mounts || mount -t tracefs tracefs /sys/kernel/tracing
-    grep -qw /sys/kernel/debug   /proc/mounts || mount -t debugfs debugfs /sys/kernel/debug
-  '
-done
-
 # Re-stamp the host-only frontend edge glue on every start. It is not GitOps-managed,
 # so a stop/start otherwise comes back without the catch-all `frontend` route (404 at
 # /) or with a stale docker-bridge address. No-op on a brand-new cluster whose Traefik

@@ -6,9 +6,9 @@
   "description": "POC (see docs): the 'click a service, see everything' unified page. One templated dashboard scoped by $service, mixing Prometheus + Loki + Tempo + Pyroscope on one screen: SLO (availability + latency + error budget), RED, CPU/Memory (kubeletstats), Logs, Traces, and a CPU flame graph (Alloy → Pyroscope). All six signal groups are wired on the full-tier stack.",
   "links": [
     {
-      "title": "◀ Back to service map",
+      "title": "◀ Back to Applications",
       "type": "link",
-      "url": "/d/service-map/service-map?${__url_time_range}",
+      "url": "/d/applications/applications?${__url_time_range}",
       "icon": "external link"
     }
   ],
@@ -18,7 +18,7 @@
         "name": "service",
         "type": "query",
         "datasource": "Prometheus",
-        "query": "label_values(http_server_duration_seconds_count, service_name)"
+        "query": "label_values(http_server_request_duration_seconds_count, service_name)"
       }
     ]
   },
@@ -58,14 +58,14 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "100 * (1 - (sum(rate(http_server_duration_seconds_count{service_name=\"$service\",http_status_code=~\"5..\"}[$__range])) / clamp_min(sum(rate(http_server_duration_seconds_count{service_name=\"$service\"}[$__range])), 1)))"
+          "expr": "100 * (1 - ((sum(rate(http_server_request_duration_seconds_count{service_name=\"$service\",http_response_status_code=~\"5..\"}[$__range])) or vector(0)) / sum(rate(http_server_request_duration_seconds_count{service_name=\"$service\"}[$__range]))))"
         }
       ]
     },
     {
       "type": "stat",
-      "title": "Latency SLO — % faster than 300ms",
-      "description": "Share of requests served under the 300ms latency objective (uses the le=\"0.3\" histogram bucket). Target 99%.",
+      "title": "Latency SLO — % faster than 500ms",
+      "description": "Share of requests served under the 500ms latency objective (le=\"0.5\" on the stable OTel http.server.request.duration histogram, real seconds). Target 99%.",
       "datasource": "Prometheus",
       "gridPos": { "h": 5, "w": 8, "x": 8, "y": 1 },
       "fieldConfig": {
@@ -92,7 +92,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "100 * sum(rate(http_server_duration_seconds_bucket{service_name=\"$service\",le=\"0.3\"}[$__range])) / clamp_min(sum(rate(http_server_duration_seconds_count{service_name=\"$service\"}[$__range])), 1)"
+          "expr": "100 * (sum(rate(http_server_request_duration_seconds_bucket{service_name=\"$service\",le=\"0.5\"}[$__range])) or vector(0)) / sum(rate(http_server_request_duration_seconds_count{service_name=\"$service\"}[$__range]))"
         }
       ]
     },
@@ -125,7 +125,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "100 * (1 - ((sum(rate(http_server_duration_seconds_count{service_name=\"$service\",http_status_code=~\"5..\"}[$__range])) / clamp_min(sum(rate(http_server_duration_seconds_count{service_name=\"$service\"}[$__range])), 1)) / 0.001))"
+          "expr": "100 * (1 - (((sum(rate(http_server_request_duration_seconds_count{service_name=\"$service\",http_response_status_code=~\"5..\"}[$__range])) or vector(0)) / sum(rate(http_server_request_duration_seconds_count{service_name=\"$service\"}[$__range]))) / 0.001))"
         }
       ]
     },
@@ -143,7 +143,7 @@
       "fieldConfig": { "defaults": { "unit": "reqps" } },
       "targets": [
         {
-          "expr": "sum by (service_name) (rate(http_server_duration_seconds_count{service_name=\"$service\"}[5m]))"
+          "expr": "sum by (service_name) (rate(http_server_request_duration_seconds_count{service_name=\"$service\"}[5m]))"
         }
       ]
     },
@@ -157,7 +157,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (service_name) (rate(http_server_duration_seconds_count{service_name=\"$service\",http_status_code=~\"5..\"}[5m]))"
+          "expr": "sum by (service_name) (rate(http_server_request_duration_seconds_count{service_name=\"$service\",http_response_status_code=~\"5..\"}[5m]))"
         }
       ]
     },
@@ -171,17 +171,17 @@
         {
           "refId": "p50",
           "legendFormat": "p50",
-          "expr": "histogram_quantile(0.50, sum by (le) (rate(http_server_duration_seconds_bucket{service_name=\"$service\"}[5m])))"
+          "expr": "histogram_quantile(0.50, sum by (le) (rate(http_server_request_duration_seconds_bucket{service_name=\"$service\"}[5m])))"
         },
         {
           "refId": "p95",
           "legendFormat": "p95",
-          "expr": "histogram_quantile(0.95, sum by (le) (rate(http_server_duration_seconds_bucket{service_name=\"$service\"}[5m])))"
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(http_server_request_duration_seconds_bucket{service_name=\"$service\"}[5m])))"
         },
         {
           "refId": "p99",
           "legendFormat": "p99",
-          "expr": "histogram_quantile(0.99, sum by (le) (rate(http_server_duration_seconds_bucket{service_name=\"$service\"}[5m])))"
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(http_server_request_duration_seconds_bucket{service_name=\"$service\"}[5m])))"
         }
       ]
     },
