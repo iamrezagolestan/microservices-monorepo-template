@@ -91,7 +91,7 @@ mise run e2e                  # full suite: every journey, every dashboard, all 
 ```
 
 The browser test is the acceptance gauge — a rendered, authenticated dashboard (Grafana,
-Coroot, Temporal) is the proof the whole stack underneath is wired. A Go/shell **preflight
+Hubble UI, Temporal) is the proof the whole stack underneath is wired. A Go/shell **preflight
 readiness** check runs first so a red e2e reads "infra down" vs "app broken". The suite ships a
 committed deterministic test identity (an AAL1 user + an AAL2 operator); there is nothing to seed
 by hand. Playwright's runner is Node — the **one** sanctioned Node tool in the repo
@@ -195,18 +195,17 @@ below is defined in `infra/gateway/ingressroutes.yaml` (the opt-in tools' routes
 resolve to a backend only once their chart is enabled).
 
 **Which observability panel?** They are a sequence, not a choice ([ADR-0025](adr/0025-service-map-apm-ui.md)):
-start at **Coroot** for *"is something wrong, and where?"* (map, SLOs, profiling, DB health), then
-escalate to **Grafana** for *"what exactly happened, and to whom?"* (trace-stitched debugging,
-business metrics, browser RUM, policy drops, anything older than ~a week). Container logs appear in
-both — Coroot's are what a container printed near an incident, Loki's are queryable history
-correlated by `trace_id`.
+start at **Grafana** for *"is something wrong, and where?"* (Applications overview → service detail:
+SLOs, RED, resources, logs, traces, profiling), then escalate to **Hubble UI** for *"what talks to
+what, and is the network denying something right now?"* (live service map, flows, drop verdicts).
+Drop *history* and the `PolicyDropsDetected` alert stay in Grafana — the UI keeps no history.
 
 Ops hostnames are named after the tool, always ([ADR-0017](adr/0017-url-and-domain-structure.md)).
 
 | Ops URL                                        | Tool                                                                                   | Auth                                             |
 |------------------------------------------------|----------------------------------------------------------------------------------------|--------------------------------------------------|
 | `https://grafana.ops.dev.localtest.me:8443/`      | **Grafana** — metrics/logs/traces, RUM, policy drops                                   | operator + AAL2                                  |
-| `https://coroot.ops.dev.localtest.me:8443/`       | **Coroot** — service map / APM, profiling, DB health, SLOs                              | operator + AAL2                                  |
+| `https://hubble.ops.dev.localtest.me:8443/`       | **Hubble UI** — live service map, network flows, drop verdicts                          | operator + AAL2                                  |
 | `https://temporal.ops.dev.localtest.me:8443/` | **Temporal Web UI**                                                                    | operator + AAL2                                  |
 | `https://minio.ops.dev.localtest.me:8443/`        | **MinIO console** (non-prod)                                                           | operator + AAL2, then `minio` / `minio-password` |
 | `https://lowdefy.ops.dev.localtest.me:8443/`     | **Lowdefy** admin console                                                              | operator + AAL2                                  |
@@ -235,8 +234,8 @@ want one drops it with `enabled: false` in its env values overlay.
 ### Login flow
 
 The edge serves `*.dev.localtest.me` on `:8443` (real DNS → 127.0.0.1, no
-`/etc/hosts` edits). Auth-gated routes (e.g. the Coroot service map at
-`https://coroot.ops.dev.localtest.me:8443/`) redirect an unauthenticated browser to
+`/etc/hosts` edits). Auth-gated routes (e.g. the Hubble UI service map at
+`https://hubble.ops.dev.localtest.me:8443/`) redirect an unauthenticated browser to
 Kratos at `…/auth/login`; register/login there and the redirect returns you to the
 gated page. The Kratos session cookie is scoped to `dev.localtest.me` (parent
 domain), so one login covers the edge and every `*.dev.localtest.me` subdomain. The landing page and `/auth` UI are

@@ -35,6 +35,14 @@ data:
         out_of_order_time_window: 30m
     # Services push via OTLP; nothing is scraped by default.
     scrape_configs: []
+    # Alerts-as-code (ADR-0011): rule files from infra/observability/alerts/,
+    # delivered as the `prometheus-alerts` ConfigMap by the prometheus-alerts
+    # ArgoCD Application (same pattern as the Grafana dashboards ConfigMap) and
+    # mounted below. No Alertmanager in the default stack: firing alerts are
+    # visible on /alerts and as the ALERTS series (which dashboards and e2e can
+    # query); routing/paging is a per-project add-on.
+    rule_files:
+      - /etc/prometheus/rules/*.yaml
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -65,10 +73,17 @@ spec:
           resources: {{- toYaml $p.resources | nindent 12 }}
           volumeMounts:
             - { name: config, mountPath: /etc/prometheus }
+            - { name: rules,  mountPath: /etc/prometheus/rules }
             - { name: data,   mountPath: /data }
       volumes:
         - name: config
           configMap: { name: prometheus }
+        # Alert rules from infra/observability/alerts/ (prometheus-alerts Argo
+        # app). Mounted read-only under the config dir; rule_files (above) globs
+        # it. Rule edits land in the ConfigMap on the next Argo pass and load on
+        # the next pod restart/config reload.
+        - name: rules
+          configMap: { name: prometheus-alerts }
         # Local TSDB. Metrics live here until a project takes the Mimir Scale swap.
         - name: data
           emptyDir: {}

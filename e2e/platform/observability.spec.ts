@@ -110,11 +110,11 @@ test.describe("network policy denials", () => {
 });
 
 // Unified service observability (ADR-0025 POC). The service-detail page mixes six
-// signal groups on one screen (SLO/RED, CPU/Memory, Logs, Traces, Profiling) and two
-// service maps (trace-based + eBPF). These guards cover the prerequisites that
-// helm-template/render checks cannot: the dashboards are registered with Grafana, the
-// Pyroscope datasource answers, and each metric family a panel reads actually exists
-// in Prometheus. The RED check also pins us to the STABLE otelhttp histogram — the
+// signal groups on one screen (SLO/RED, CPU/Memory, Logs, Traces, Profiling). These
+// guards cover the prerequisites that helm-template/render checks cannot: the
+// dashboards are registered with Grafana, the Pyroscope datasource answers, the
+// alert rules are loaded into Prometheus, and each metric family a panel reads
+// actually exists in Prometheus. The RED check also pins us to the STABLE otelhttp histogram — the
 // hand-rolled, mis-bucketed httpmw metric was removed (ADR-0011), and le="0.5" being
 // a real 500ms bucket is what proves we are on the correct one.
 test.describe("service observability POC (ADR-0025)", () => {
@@ -171,6 +171,23 @@ test.describe("service observability POC (ADR-0025)", () => {
 
   test("RED reads the stable otelhttp histogram (real 500ms bucket)", async () => {
     expect(await promHasSeries('http_server_request_duration_seconds_bucket{le="0.5"}')).toBeTruthy();
+  });
+
+  // Alerts-as-code (ADR-0011): the rule files under infra/observability/alerts/
+  // must actually be LOADED by Prometheus, not just committed. This catches every
+  // link in the chain — the prometheus-alerts kustomize ConfigMap, its Argo app,
+  // the chart's rule_files + volume mount, and rule-file syntax (Prometheus
+  // refuses to load a malformed file).
+  test("alert rules are loaded into Prometheus", async () => {
+    const res = await ctx.get(
+      `${opsURL("grafana")}/api/datasources/proxy/uid/${promUid}/api/v1/rules`,
+    );
+    expect(res.ok(), "Prometheus rules API answers via the Grafana proxy").toBeTruthy();
+    const groups: { rules: { name: string }[] }[] = (await res.json()).data?.groups ?? [];
+    const names = groups.flatMap((g) => g.rules.map((r) => r.name));
+    expect(names, "committed alert rules are evaluating").toEqual(
+      expect.arrayContaining(["ServiceHigh5xx", "PolicyDropsDetected"]),
+    );
   });
 });
 

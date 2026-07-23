@@ -7,8 +7,8 @@
 
 ## Context
 
-The ops surfaces answer different questions: ArgoCD (what is deployed), Grafana (signals), Coroot
-(service map / APM, [ADR-0025](0025-service-map-apm-ui.md)), Temporal (workflows). None does the k9s job — *what pods exist right now, describe them, tail
+The ops surfaces answer different questions: ArgoCD (what is deployed), Grafana (signals), Hubble UI
+(service map / network flows, [ADR-0025](0025-service-map-apm-ui.md)), Temporal (workflows). None does the k9s job — *what pods exist right now, describe them, tail
 their logs, exec in, port-forward*. During an incident that gap is filled today by a laptop with
 `kubectl`, which is fine for engineers with cluster access but leaves no shared, auth-gated view.
 
