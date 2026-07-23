@@ -8,85 +8,101 @@ function createCsrfToken(): string {
   return Buffer.from(bytes).toString("base64");
 }
 
+function createCsrfNode(csrfToken: string): UiNode {
+  return {
+    type: "input",
+    group: "default",
+    attributes: {
+      name: "csrf_token",
+      type: "hidden",
+      value: csrfToken,
+      required: true,
+      disabled: false,
+      node_type: "input",
+    },
+    messages: [],
+    meta: {},
+  };
+}
+
+function createIdentifierNode(): UiNode {
+  return {
+    type: "input",
+    group: "default",
+    attributes: {
+      name: "identifier",
+      type: "text",
+      value: "",
+      required: true,
+      disabled: false,
+      node_type: "input",
+    },
+    messages: [],
+    meta: {
+      label: {
+        id: 1_070_002,
+        text: "E-Mail",
+        type: "info",
+        context: {
+          name: "traits.email",
+          title: "E-Mail",
+        },
+      },
+    },
+  };
+}
+
+function createPasswordNode(): UiNode {
+  return {
+    type: "input",
+    group: "password",
+    attributes: {
+      name: "password",
+      type: "password",
+      required: true,
+      disabled: false,
+      autocomplete: "current-password",
+      node_type: "input",
+    },
+    messages: [],
+    meta: {
+      label: {
+        id: 1_070_001,
+        text: "Password",
+        type: "info",
+      },
+    },
+  };
+}
+
+function createSubmitNode(): UiNode {
+  return {
+    type: "input",
+    group: "password",
+    attributes: {
+      name: "method",
+      type: "submit",
+      value: "password",
+      disabled: false,
+      node_type: "input",
+    },
+    messages: [],
+    meta: {
+      label: {
+        id: 1_010_022,
+        text: "Sign in with password",
+        type: "info",
+      },
+    },
+  };
+}
+
 function createLoginNodes(csrfToken: string): UiNode[] {
   return [
-    {
-      type: "input",
-      group: "default",
-      attributes: {
-        name: "csrf_token",
-        type: "hidden",
-        value: csrfToken,
-        required: true,
-        disabled: false,
-        node_type: "input",
-      },
-      messages: [],
-      meta: {},
-    },
-    {
-      type: "input",
-      group: "default",
-      attributes: {
-        name: "identifier",
-        type: "text",
-        value: "",
-        required: true,
-        disabled: false,
-        node_type: "input",
-      },
-      messages: [],
-      meta: {
-        label: {
-          id: 1_070_002,
-          text: "E-Mail",
-          type: "info",
-          context: {
-            name: "traits.email",
-            title: "E-Mail",
-          },
-        },
-      },
-    },
-    {
-      type: "input",
-      group: "password",
-      attributes: {
-        name: "password",
-        type: "password",
-        required: true,
-        disabled: false,
-        autocomplete: "current-password",
-        node_type: "input",
-      },
-      messages: [],
-      meta: {
-        label: {
-          id: 1_070_001,
-          text: "Password",
-          type: "info",
-        },
-      },
-    },
-    {
-      type: "input",
-      group: "password",
-      attributes: {
-        name: "method",
-        type: "submit",
-        value: "password",
-        disabled: false,
-        node_type: "input",
-      },
-      messages: [],
-      meta: {
-        label: {
-          id: 1_010_022,
-          text: "Sign in with password",
-          type: "info",
-        },
-      },
-    },
+    createCsrfNode(csrfToken),
+    createIdentifierNode(),
+    createPasswordNode(),
+    createSubmitNode(),
   ];
 }
 
