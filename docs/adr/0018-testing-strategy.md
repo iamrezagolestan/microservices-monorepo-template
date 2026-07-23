@@ -23,7 +23,7 @@ the full-platform tier ([ADR-0016](0016-environment-parity.md)).
 In priority order:
 
 1. **The rendered, authenticated UI is the ultimate guarantee.** A working dashboard
-   (Grafana, Coroot, Temporal) behind a real session proves the whole stack underneath —
+   (Grafana, Hubble UI, Temporal) behind a real session proves the whole stack underneath —
    edge, auth, services, data — is wired correctly. Browser acceptance is the gauge; cheaper
    checks exist only to localise a failure faster.
 2. **One tool, one way** ([ADR-0000](0000-platform-foundations.md)). The same engine drives
@@ -89,7 +89,7 @@ All e2e and visual tests live in a single repo-root **`e2e/`** Playwright worksp
 one runner):
 
 - `e2e/platform/` — cross-service product journeys (register → catalog → order → pay) and the
-  operator-dashboard journeys (Grafana, Coroot, Temporal, MinIO rendered behind an AAL2 session
+  operator-dashboard journeys (Grafana, Hubble UI, Temporal, MinIO rendered behind an AAL2 session
   per [ADR-0017](0017-url-and-domain-structure.md)).
 - `e2e/frontend/(landing|panel|devportal)/` — per-route-group frontend feature suites.
 - `e2e/visual/` — component visual regression against committed baselines.
@@ -162,7 +162,7 @@ measurable trigger: adopt when built-in baseline diffing no longer scales.
 
 - Playwright (TypeScript) is the only browser e2e and visual-regression tool. Cypress, WebdriverIO, Selenium, and pure-Go browser libraries are not used.
 - All e2e and visual tests live in the repo-root `e2e/` workspace under one Playwright config.
-- The browser acceptance test is the platform's acceptance gauge; operator dashboards (Grafana, Coroot, Temporal, MinIO) are tested rendered behind a real AAL2 session, not by HTTP status alone.
+- The browser acceptance test is the platform's acceptance gauge; operator dashboards (Grafana, Hubble UI, Temporal, MinIO) are tested rendered behind a real AAL2 session, not by HTTP status alone.
 - Preflight readiness checks (Go/shell) run before the browser suite as failure localisers; they are not acceptance tests.
 - E2e runs against `cluster:full` with real services. MSW and all mocking are forbidden in e2e ([ADR-0014](0014-frontend.md)).
 - Service integration tests run against `cluster:lite` deps and drive services through their generated SDK clients ([ADR-0008](0008-api-contracts.md)); they do not import another service's code.

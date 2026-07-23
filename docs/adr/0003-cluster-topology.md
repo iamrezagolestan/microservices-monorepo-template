@@ -98,7 +98,7 @@ Traefik (k3s default)  (TLS termination via cert-manager + Let's Encrypt, L7 rou
   ├── <host>/(landing|panel|devportal)/* ─▶ Next.js frontend pod (one app, route groups per ADR-0014)
   ├── lowdefy.ops.<host>/ ─▶ Oathkeeper (operator + AAL2) ─▶ Lowdefy pod (internal admin, per ADR-0012)
   ├── grafana.ops.<host>/ ─▶ Oathkeeper (operator + AAL2) ─▶ Grafana
-  └── coroot.ops.<host>/  ─▶ Oathkeeper (operator + AAL2) ─▶ Coroot (eBPF service-map / APM dashboard, ADR-0025)
+  └── hubble.ops.<host>/  ─▶ Oathkeeper (operator + AAL2) ─▶ Hubble UI (service map / network flows, ADR-0025)
 ```
 
 **Traefik is the only ingress; Oathkeeper is an auth filter behind it, not a second gateway.** Traefik does TLS,
@@ -129,9 +129,10 @@ at bootstrap, not retrofitted. Three postures are on from day one and are checke
    denies the link-local cloud metadata address `169.254.169.254/32` outright, so even a future broad egress grant
    cannot become an SSRF path to instance credentials.
 
-Hubble (bundled) provides per-flow visibility — via the `hubble` CLI and the network-flow metrics scraped into Grafana —
-and is the audit surface for these policies. Its stagnant standalone UI is **not** deployed; the Coroot service map
-([ADR-0025](0025-service-map-apm-ui.md)) at `coroot.ops.<host>` is the application-observability / service-map dashboard.
+Hubble (bundled) provides per-flow visibility — via the `hubble` CLI, the drop metrics scraped into Grafana, and the
+Hubble UI service map auth-gated at `hubble.ops.<host>` ([ADR-0025](0025-service-map-apm-ui.md)) — and is the audit
+surface for these policies. Application observability (SLO/RED/logs/traces/profiling) is Grafana's
+([ADR-0011](0011-observability.md)/[ADR-0025](0025-service-map-apm-ui.md)).
 
 ### Storage
 
@@ -258,10 +259,9 @@ mutual-auth / SPIFFE can add cert identity later with no sidecars, if wanted.
 L7 network policies, and per-flow observability (Hubble) without an injected proxy or a second component. A sidecar mesh
 would add 100+ proxy containers on the hot path at 100 services, against ADR-0000's per-service cost principle. **Hubble flows are the audit surface** for the NetworkPolicy-based internal trust boundary
 ([ADR-0009](0009-api-gateway.md), [ADR-0010](0010-auth.md)) — live service-to-service flows, dropped connections, and L7
-traffic, available via the `hubble` CLI and the network-flow metrics scraped into Grafana. The stagnant standalone Hubble
-UI is **not** deployed; the **Coroot service map** ([ADR-0025](0025-service-map-apm-ui.md)), auth-gated at `coroot.ops.<host>`,
-is the application-observability dashboard (Hubble UI collapsed multi-role workloads by name — see ADR-0025). Cilium is
-installed
+traffic, available via the `hubble` CLI, the drop metrics scraped into Grafana, and the bundled **Hubble UI** service map,
+auth-gated at `hubble.ops.<host>` ([ADR-0025](0025-service-map-apm-ui.md) — including the accepted workload-name-collapse
+trade-off). Application observability is Grafana's ([ADR-0011](0011-observability.md)). Cilium is installed
 from day one because CNI cannot be hot-swapped on a live cluster.
 
 ### Disaster recovery
@@ -339,6 +339,6 @@ alongside the backup restore drill above.
   resource cost and component count. Cilium covers CNI + zero-trust + L7 policies + Hubble observability in a single
   component with no per-pod proxy overhead.
 - Cilium NetworkPolicy is the internal service-to-service trust boundary; the default is deny and each service declares
-  its allowed callers ([ADR-0009](0009-api-gateway.md), [ADR-0010](0010-auth.md)). Hubble flows (via the `hubble` CLI +
-  Grafana metrics) are the audit surface for cluster network flows; the Coroot service map ([ADR-0025](0025-service-map-apm-ui.md))
-  at `coroot.ops.<host>` is the application-observability dashboard.
+  its allowed callers ([ADR-0009](0009-api-gateway.md), [ADR-0010](0010-auth.md)). Hubble flows (via the `hubble` CLI,
+  Grafana drop metrics, and the Hubble UI at `hubble.ops.<host>` — [ADR-0025](0025-service-map-apm-ui.md)) are the audit
+  surface for cluster network flows; application observability is Grafana's ([ADR-0011](0011-observability.md)).
