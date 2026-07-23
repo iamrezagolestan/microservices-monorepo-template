@@ -19,14 +19,14 @@ cilium:
   # network-flow metrics scraped into Grafana. The flow engine (agent) + relay
   # (aggregation API, used by the `hubble` CLI) stay ON.
   #
-  # The standalone hubble-UI is back ON (ADR-0025): it owns the interactive service
+  # The standalone hubble-UI is ON (ADR-0025): it owns the interactive service
   # map + live drop investigation, exposed auth-gated at hubble.ops.<host>
   # (infra/gateway). Grafana owns everything else (RED/SLO/logs/traces/profiling).
-  # Known, accepted trade-offs: upstream is in maintenance mode (last release
-  # v0.13.5, Apr 2024) and it collapses workloads sharing `app.kubernetes.io/name`
-  # into one card (all Temporal roles → "temporal"). Coroot was run as the map for
-  # a while and removed — its full eBPF APM stack (ClickHouse, node-agents,
-  # tracepoint shims) was no longer worth its footprint for the map alone.
+  # Known, accepted trade-offs (ADR-0025): upstream is in maintenance mode (last
+  # release v0.13.5, Apr 2024) and it collapses workloads sharing
+  # `app.kubernetes.io/name` into one card (all Temporal roles → "temporal").
+  # A full eBPF APM suite (Coroot) was evaluated for this slot and rejected —
+  # too much footprint (ClickHouse, node-agents, tracepoint shims) for a map.
   hubble:
     enabled: true
     relay:
@@ -50,12 +50,12 @@ cilium:
     # default-deny bootstrap gaps, and a catalog/payment netpol block that silently
     # broke every checkout.
     #
-    # `flow` (every processed connection, the eBPF connection graph) was tried for a
-    # Grafana Node-Graph service map (ADR-0025) and REMOVED: with workload context the
-    # client side of most intra-cluster connections resolves to an empty label, so the
-    # map collapsed into a single unnamed hub with no usable service-to-service edges
-    # (verified live — 82/391 series had an empty source, zero platform→platform edges
-    # survived). Hubble UI resolves flows from the live relay stream (not these
+    # `flow` (every processed connection, the eBPF connection graph) stays OFF —
+    # evaluated for a Grafana Node-Graph service map and rejected (ADR-0025): with
+    # workload context the client side of most intra-cluster connections resolves to
+    # an empty label, so the map collapses into a single unnamed hub with no usable
+    # service-to-service edges (measured — 82/391 series with an empty source, zero
+    # platform→platform edges). Hubble UI resolves flows from the live relay stream (not these
     # aggregated metrics) and does not suffer that collapse, which is why it keeps
     # the service map while Grafana keeps everything else. `tcp` and especially
     # `http` (per-request L7 cardinality on every agent) also stay OFF — real cost
@@ -67,9 +67,9 @@ cilium:
     # NOT as separate source_workload/destination_workload labels — verified against a
     # live agent; the drops dashboard PromQL depends on this.
     #
-    # `dns` was tried and REMOVED: Cilium only observes DNS at L7, so dns metrics
-    # never register without a DNS visibility/L7 policy on every pod. That is real
-    # scope and real cost for a low-value signal.
+    # `dns` also stays OFF: Cilium only observes DNS at L7, so dns metrics never
+    # register without a DNS visibility/L7 policy on every pod. That is real scope
+    # and real cost for a low-value signal.
     metrics:
       enabled:
         - "drop:sourceContext=workload;destinationContext=workload"

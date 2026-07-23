@@ -3,7 +3,7 @@
   "uid": "applications",
   "schemaVersion": 39,
   "tags": ["service", "applications", "overview", "poc"],
-  "description": "POC (ADR-0025): Coroot-style Applications overview. One row per workload in the selected namespace, driven by kubeletstats so EVERY pod is listed — not just the traced ones. CPU, memory and network come from the kubelet; Req/s, Errors/s and p95 latency come from the stable OTel http.server.request.duration histogram and fill in for any service currently serving HTTP traffic (idle HTTP servers show blank RED — the counters have no recent samples, not a missing-instrumentation gap). Click a workload to open its detail page.",
+  "description": "POC (ADR-0025): Applications overview — the single-pane landing page. One row per workload in the selected namespace, driven by kubeletstats so EVERY pod is listed — not just the traced ones. CPU, memory and network come from the kubelet; Req/s, Errors/s and p95 latency come from the stable OTel http.server.request.duration histogram and fill in for any service currently serving HTTP traffic (idle HTTP servers show blank RED — the counters have no recent samples, not a missing-instrumentation gap). Click a workload to open its detail page.",
   "templating": {
     "list": [
       {

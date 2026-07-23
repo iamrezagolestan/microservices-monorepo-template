@@ -13,10 +13,10 @@
 # identity-header strip + security-headers middlewares.
 ---
 # Hubble UI (ADR-0003, ADR-0025) — Cilium network-flow visibility / service map
-# (service in kube-system, cross-namespace ref like Argo). Back in place of the
-# removed Coroot: Grafana owns detail (RED/SLO/logs/traces/profiling); Hubble UI
-# owns the interactive map + drop investigation. Known trade-off: it collapses
-# workloads sharing `app.kubernetes.io/name` (all Temporal roles → "temporal").
+# (service in kube-system, cross-namespace ref like Argo). Grafana owns detail
+# (RED/SLO/logs/traces/profiling); Hubble UI owns the interactive map + drop
+# investigation. Known trade-off (ADR-0025): it collapses workloads sharing
+# `app.kubernetes.io/name` (all Temporal roles → "temporal").
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
 metadata:
